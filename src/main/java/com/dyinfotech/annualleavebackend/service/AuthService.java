@@ -1,6 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,10 +18,10 @@ public class AuthService {
 
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
 
     @Transactional
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
-
         // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
         Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
@@ -40,6 +42,29 @@ public class AuthService {
                 .employeeId(employee.getEmployeeId())
                 .name(employee.getName())
                 .loginId(employee.getLoginId())
+                .build();
+    }
+
+    public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
+        // 1. loginId(=사번)로 직원 조회
+        Employee employee = employeeRepository.findByLoginId(request.getEmployeeNo())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
+
+        // 2. 비밀번호 일치 여부 확인
+        if (!passwordEncoder.matches(request.getPassword(), employee.getPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+        }
+
+        // 3. JWT 발급
+        String token = jwtProvider.generateToken(employee.getEmployeeId(), employee.getRole().name());
+
+        return SignInDto.SignInResponse.builder()
+                .token(token)
+                .employeeId(employee.getEmployeeId())
+                .name(employee.getName())
+                .role(employee.getRole().name())
                 .build();
     }
 }

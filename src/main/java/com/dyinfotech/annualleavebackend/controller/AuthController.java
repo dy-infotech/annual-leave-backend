@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.controller;
 
+import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.service.AuthService;
 import jakarta.validation.Valid;
@@ -21,4 +22,10 @@ public class AuthController {
     public ResponseEntity<SignUpDto.SignUpResponse> signUp(@Valid @RequestBody SignUpDto.SignUpRequest request) {
         return ResponseEntity.ok(authService.signUp(request));
     }
+
+    @PostMapping("/signin")
+    public ResponseEntity<SignInDto.SignInResponse> signIn(@Valid @RequestBody SignInDto.SignInRequest request) {
+        return ResponseEntity.ok(authService.signIn(request));
+    }
+
 }
