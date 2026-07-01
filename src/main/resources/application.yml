@@ -1,0 +1,7 @@
+spring:
+  application:
+    name: annual-leave-backend
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 3600000   # 1시간
