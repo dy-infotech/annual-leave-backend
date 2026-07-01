@@ -1,0 +1,45 @@
+package com.dyinfotech.annualleavebackend.service;
+
+import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.dto.SignUpDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
+
+        // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
+        Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
+
+        // 2. 이미 가입된 사원인지 확인 (loginId가 이미 채워져 있으면 가입 완료 상태)
+        if (employee.getLoginId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 사원입니다.");
+        }
+
+        // 3. 비밀번호 암호화 후 저장 (loginId = employeeNo)
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        // Dirty Checking(변경 감지)
+        // 명시적으로 save()를 호출하지 않아도, @Transactional 범위 안에서 조회한 Entity의 필드를 변경하면 트랜잭션이 끝날 때 자동으로 Update
+        employee.completeSignUp(request.getEmployeeNo(), encodedPassword);
+
+        return SignUpDto.SignUpResponse.builder()
+                .employeeId(employee.getEmployeeId())
+                .name(employee.getName())
+                .loginId(employee.getLoginId())
+                .build();
+    }
+}
