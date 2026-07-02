@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
 
@@ -20,4 +21,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
     long countByStatus(LeaveRequestStatus status);
+
+    List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status);
+
 }
