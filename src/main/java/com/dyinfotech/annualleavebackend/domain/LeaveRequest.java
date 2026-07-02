@@ -73,4 +73,14 @@ public class LeaveRequest {
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public void approve(Employee approver) {
+        if (this.status != LeaveRequestStatus.PENDING) {
+            throw new IllegalStateException("대기 상태인 요청만 승인할 수 있습니다.");
+        }
+
+        this.status = LeaveRequestStatus.APPROVED;
+        this.approver = approver;
+        this.processedAt = LocalDateTime.now();
+    }
 }
