@@ -4,6 +4,7 @@ import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
+import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
@@ -31,7 +32,7 @@ public class LeaveApprovalService {
     }
 
     @Transactional
-    public LeaveApprovalDto.LeaveApprovalResponse approve(Long requestId, Long approverId) {
+    public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
 
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
@@ -44,5 +45,22 @@ public class LeaveApprovalService {
         }
 
         return LeaveApprovalDto.LeaveApprovalResponse.from(leaveRequest);
+    }
+
+    @Transactional
+    public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
+        LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+
+        Employee approver = employeeRepository.findById(approverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+
+        try {
+            leaveRequest.reject(approver, request.getRejectReason());
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+
+        return LeaveRejectDto.LeaveRejectResponse.from(leaveRequest);
     }
 }
