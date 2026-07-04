@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
+import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -93,5 +95,13 @@ public class LeaveRequestService {
         if (useDays.compareTo(remainingDays) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잔여 연차(" + remainingDays + "일)를 초과했습니다.");
         }
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(LeaveRequestListDto.LeaveRequestListRequest condition) {
+        return leaveRequestRepository.searchLeaveRequests(condition.getStartDate(), condition.getEndDate(), condition.getStatus())
+                .stream()
+                .map(LeaveRequestListDto.LeaveRequestListResponse::from)
+                .toList();
     }
 }
