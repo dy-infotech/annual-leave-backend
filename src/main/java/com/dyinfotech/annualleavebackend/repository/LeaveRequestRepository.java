@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
@@ -24,4 +25,11 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
     List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status);
 
+    // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
+    @Query("SELECT lr FROM LeaveRequest lr " +
+            "WHERE (:startDate IS NULL OR lr.endDate >= :startDate) " +
+            "AND (:endDate IS NULL OR lr.startDate <= :endDate) " +
+            "AND (:status IS NULL OR lr.status = :status) " +
+            "ORDER BY lr.createdAt DESC")
+    List<LeaveRequest> searchLeaveRequests(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("status") LeaveRequestStatus status);
 }
