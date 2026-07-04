@@ -14,11 +14,13 @@ public class LeaveRequestListDto {
     @Getter
     public static class LeaveRequestListRequest {
 
+        private Long employeeId;       // employee PK (null일 경우, 전직원)
         private LocalDate startDate;   // 조회 시작일 (null일 경우 전체 기간)
         private LocalDate endDate;     // 조회 종료일 (null일 경우 전체 기간)
         private LeaveRequestStatus status;    // null일 경우 전체 상태
 
-        public LeaveRequestListRequest(LocalDate startDate, LocalDate endDate, LeaveRequestStatus status) {
+        public LeaveRequestListRequest(Long employeeId,  LocalDate startDate, LocalDate endDate, LeaveRequestStatus status) {
+            this.employeeId = employeeId;
             this.startDate = startDate;
             this.endDate = endDate;
             this.status = status;
