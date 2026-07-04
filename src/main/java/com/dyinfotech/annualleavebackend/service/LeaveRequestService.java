@@ -99,7 +99,7 @@ public class LeaveRequestService {
 
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(LeaveRequestListDto.LeaveRequestListRequest condition) {
-        return leaveRequestRepository.searchLeaveRequests(condition.getStartDate(), condition.getEndDate(), condition.getStatus())
+        return leaveRequestRepository.searchLeaveRequests(condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(), condition.getStatus())
                 .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
