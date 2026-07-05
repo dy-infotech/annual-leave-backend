@@ -94,4 +94,18 @@ public class LeaveRequest {
         this.rejectReason = rejectReason;
         this.processedAt = LocalDateTime.now();
     }
+
+    public void cancel() {
+        if (this.status != LeaveRequestStatus.PENDING && this.status != LeaveRequestStatus.APPROVED) {
+            throw new IllegalStateException("대기 또는 승인 상태인 신청만 취소할 수 있습니다.");
+        }
+
+        // 이미 휴가가 시작된(또는 지나간) 건은 취소 불가
+        if (!this.startDate.isAfter(LocalDate.now())) {
+            throw new IllegalStateException("이미 시작되었거나 지난 휴가는 취소할 수 없습니다.");
+        }
+
+        this.status = LeaveRequestStatus.CANCELLED;
+    }
+
 }
