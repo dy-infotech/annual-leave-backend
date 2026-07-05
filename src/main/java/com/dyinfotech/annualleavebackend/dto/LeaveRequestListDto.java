@@ -39,6 +39,7 @@ public class LeaveRequestListDto {
         private LocalDate endDate;      // 휴가 기간 종료
         private BigDecimal useDays;
         private String status;
+        private String rejectReason;   // 반려 시에만 값 할당, 그 외엔 null
 
         public static LeaveRequestListResponse from(LeaveRequest leaveRequest) {
             return LeaveRequestListResponse.builder()
@@ -51,6 +52,7 @@ public class LeaveRequestListDto {
                     .endDate(leaveRequest.getEndDate())
                     .useDays(leaveRequest.getUseDays())
                     .status(leaveRequest.getStatus().name())
+                    .rejectReason(leaveRequest.getRejectReason())
                     .build();
         }
     }
