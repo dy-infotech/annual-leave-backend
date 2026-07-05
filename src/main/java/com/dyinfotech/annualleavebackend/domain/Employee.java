@@ -83,4 +83,9 @@ public class Employee {
         this.loginId = loginId;
         this.password = encodedPassword;
     }
+
+    public void changePassword(String encodedPassword) {
+        this.password = encodedPassword;
+    }
+
 }
