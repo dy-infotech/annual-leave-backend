@@ -1,7 +1,6 @@
 package com.dyinfotech.annualleavebackend.controller;
 
 import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.service.LeaveApprovalService;
@@ -10,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,7 +22,6 @@ import java.util.List;
 public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
-    private final LeaveApprovalService leaveApprovalService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -51,5 +50,11 @@ public class LeaveRequestController {
     ) {
         LeaveRequestListDto.LeaveRequestListRequest condition = new LeaveRequestListDto.LeaveRequestListRequest(employeeId, startDate, endDate, status);
         return leaveRequestService.searchLeaveRequests(condition);
+    }
+
+    @DeleteMapping("/{requestId}")
+    public ResponseEntity<Void> cancelLeaveRequest(@AuthenticationPrincipal Long employeeId, @PathVariable Long requestId) {
+        leaveRequestService.cancel(employeeId, requestId);
+        return ResponseEntity.noContent().build();
     }
 }
