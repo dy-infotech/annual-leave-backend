@@ -23,14 +23,28 @@ public class BasisDataFactory {
 	private final BasisDataRepository repository;
 
 	private Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
+	
+	private Map<BasisDataType, BasisData> loadByYear(int year) {
+	    Map<BasisDataType, BasisData> grouped = new HashMap<>();
 
+	    List<BasisData> list = repository.findByYear(String.valueOf(year));
+
+	    for (BasisData b : list) {
+	        grouped.put(BasisDataType.fromCode(b.getSeq()), b);
+	    }
+
+	    return grouped;
+	}
+	
 	@PostConstruct
 	private void init() {
-		List<BasisData> currentYearDataList = repository.findByYear(String.valueOf(LocalDate.now().getYear()));
-		Map<BasisDataType, BasisData> grouped = new HashMap<>();
-		for (BasisData b : currentYearDataList) {
-			grouped.put(BasisDataType.fromCode(b.getSeq()), b);
-		}
+		int currentYear = LocalDate.now().getYear();
+		Map<BasisDataType, BasisData> grouped = loadByYear(currentYear);
+
+	    if (grouped.isEmpty()) {
+//	        log.warn("BasisData for {} not found. Using previous year data.", currentYear);
+	        grouped = loadByYear(currentYear - 1);
+	    }
 
 		this.dataMap = Collections.unmodifiableMap(grouped);
 	}
