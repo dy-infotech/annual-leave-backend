@@ -1,17 +1,24 @@
 package com.dyinfotech.annualleavebackend.service;
 
-import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
-import com.dyinfotech.annualleavebackend.common.type.Role;
-import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.dto.SignInDto;
-import com.dyinfotech.annualleavebackend.dto.SignUpDto;
-import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
-import lombok.RequiredArgsConstructor;
+import java.time.LocalDate;
+import java.util.Optional;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
+import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
+import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.dto.SignInDto;
+import com.dyinfotech.annualleavebackend.dto.SignUpDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +31,7 @@ public class AuthService {
     @Transactional
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
         // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
-        Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
+        Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
 
         // 2. 이미 가입된 사원인지 확인 (password가 이미 채워져 있으면 가입 완료 상태)
@@ -32,7 +39,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 사원입니다.");
         }
 
-        // 3. 비밀번호 암호화 후 저장 (loginId = employeeNo)
+        // 3. 비밀번호 암호화 후 저장
         String encodedPassword = passwordEncoder.encode(request.getPassword());
 
         // Dirty Checking(변경 감지)
@@ -54,7 +61,7 @@ public class AuthService {
 
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
         // 1. loginId(=사번)로 직원 조회
-        Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
+        Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
 

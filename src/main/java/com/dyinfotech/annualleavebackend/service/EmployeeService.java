@@ -23,7 +23,7 @@ public class EmployeeService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         return EmployeeDto.EmployResponse.builder()
-                .employeeNo(employee.getEmployeeNo())
+                .employeeNumber(employee.getEmployeeNumber())
                 .name(employee.getName())
                 .position(employee.getPosition())
                 .department(employee.getDepartment())

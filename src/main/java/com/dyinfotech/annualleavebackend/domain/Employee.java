@@ -36,7 +36,7 @@ public class Employee {
     private Long employeeId;
 
     @Column(name = "employee_number", nullable = false, unique = true, length = 20)
-    private String employeeNo;
+    private String employeeNumber;
 
     @Column(name = "password")
     private String password;
@@ -102,9 +102,9 @@ public class Employee {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Employee(String employeeNo, String name, String department, String position,
+    public Employee(String employeeNumber, String name, String department, String position,
                     String currYear, Float currTotalLeaveDays, LocalDate hireDate) {
-        this.employeeNo = employeeNo;
+        this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
         this.position = position;

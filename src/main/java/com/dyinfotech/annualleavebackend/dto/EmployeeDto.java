@@ -25,7 +25,7 @@ public class EmployeeDto {
     @Builder
     public static class EmployResponse {
 
-        private String employeeNo;
+        private String employeeNumber;
         private String name;
         private String position;
         private String department;
@@ -34,7 +34,7 @@ public class EmployeeDto {
 
         public static EmployResponse from(Employee employee) {
             return EmployResponse.builder()
-                    .employeeNo(employee.getEmployeeNo())
+                    .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .position(employee.getPosition())
                     .department(employee.getDepartment())

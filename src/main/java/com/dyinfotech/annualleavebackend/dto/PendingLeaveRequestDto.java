@@ -14,7 +14,7 @@ public class PendingLeaveRequestDto {
     @Builder
     public static class PendingLeaveRequestResponse {
         private Long requestId;
-        private String employeeNo;
+        private String employeeNumber;
         private String employeeName;
         private String department;
         private String position;
@@ -26,7 +26,7 @@ public class PendingLeaveRequestDto {
         public static PendingLeaveRequestResponse from(LeaveRequest leaveRequest) {
             return PendingLeaveRequestResponse.builder()
                     .requestId(leaveRequest.getRequestId())
-                    .employeeNo(leaveRequest.getEmployee().getEmployeeNo())
+                    .employeeNumber(leaveRequest.getEmployee().getEmployeeNumber())
                     .employeeName(leaveRequest.getEmployee().getName())
                     .department(leaveRequest.getEmployee().getDepartment())
                     .position(leaveRequest.getEmployee().getPosition())
