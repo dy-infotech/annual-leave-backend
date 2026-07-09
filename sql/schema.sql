@@ -21,9 +21,9 @@ CREATE TABLE employee (
                           created_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP,
                           approver_id          	BIGINT			NULL COMMENT '승인한 관리자 번호',
                           updated_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                          
-                          CONSTRAINT fk_employee_team FOREIGN KEY (team) REFERENCES team(team)
 ) COMMENT '인사정보 + 로그인 계정 + 배정 연차';
+
+
 
 CREATE TABLE leave_request (
                                leave_request_id   BIGINT		AUTO_INCREMENT PRIMARY KEY,
@@ -40,35 +40,45 @@ CREATE TABLE leave_request (
                                managed_at         DATETIME		NULL COMMENT '처리 시각',
                                reject_reason      VARCHAR(200)	NULL COMMENT '반려 사유',
 
-                               created_at         DATETIME		NOT NULL DEFAULT CURRENT_TIMESTAMP
+                               created_at         DATETIME		NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
                                CONSTRAINT fk_request_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
                                CONSTRAINT fk_request_manager FOREIGN KEY (manager_id) REFERENCES employee(employee_id)
 ) COMMENT '휴가 신청 + 승인/반려 내역';
 
+
+
 CREATE TABLE team (
                                seq                BIGINT		AUTO_INCREMENT PRIMARY KEY,
-                               team               VARCHAR(30)	NOT NULL COMMENT '팀',
+                               team               VARCHAR(30)	NOT NULL UNIQUE COMMENT '팀',
                                project_manager_id BIGINT		NOT NULL COMMENT '프로젝트 담당자',
-                               parent_team        VARCHAR(30)	NOT NULL COMMENT '상위 팀'
+                               parent_team        VARCHAR(30)	NOT NULL COMMENT '상위 팀',
 
                                CONSTRAINT fk_project_manager FOREIGN KEY (project_manager_id) REFERENCES employee(employee_id)
 ) COMMENT '팀 정보 (결재라인 상급자 탐색용)';
 
+
 CREATE TABLE basis_data (
-                               year               VARCHAR(4)	NOT NULL PRIMARY KEY,
-                               seq                BIGINT		NOT NULL PRIMARY KEY,
+                               year               VARCHAR(4)	NOT NULL,
+                               seq                BIGINT		NOT NULL,
                                type               VARCHAR(2)	NOT NULL COMMENT '0: bool, 1: int, 2: long, 3: float, 4: double, 5: string, ...',
                                data               VARCHAR(50)	NOT NULL COMMENT '비고에 해당하는 값',
-                               remark             VARCHAR(200)	NOT NULL COMMENT '비고'
+                               remark             VARCHAR(200)	NOT NULL COMMENT '비고',
+                               
+                               PRIMARY KEY (year, seq)
 ) COMMENT '기초데이터 (연도별 연차 수, N년당 추가 연차 발생, 추가연차 발생시 연차 수, 만근 출석 퍼센트 등)';
 
+
+
 CREATE TABLE leave_adjustment (
-                               employee_id        BIGINT		NOT NULL PRIMARY KEY,
-                               year               VARCHAR(4)	NOT NULL PRIMARY KEY,
+                               employee_id        BIGINT		NOT NULL,
+                               year               VARCHAR(4)	NOT NULL,
                                sign               VARCHAR(5)	NOT NULL COMMENT 'plus, minus',
                                leave_days         FLOAT			NOT NULL COMMENT '조정 일수',
-                               reason             VARCHAR(200)	NOT NULL COMMENT '발생 사유'
-                               CONSTRAINT fk_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
+                               reason             VARCHAR(200)	NOT NULL COMMENT '발생 사유',
+                               
+                               PRIMARY KEY (employee_id, year)
 ) COMMENT '휴가 조정 내역(특별 휴가 추가, 만근 실패 차감)';
+
+
 

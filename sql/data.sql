@@ -4,5 +4,4 @@ VALUES
     ('A2020001', '이호영', 'SI사업팀', '스마트팩토리구축사업', '이사', '2020-03-15', YEAR(SYSDATE()), 15.0);
 
 INSERT INTO team (team, project_manager_id, parent_team)
-VALUES
-	('스마트팩토리구축사업', 2, '대표이사');
+SELECT '스마트팩토리구축사업', employee_id, '대표이사' FROM employee WHERE name = '이호영';
