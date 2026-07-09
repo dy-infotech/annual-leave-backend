@@ -35,72 +35,72 @@ public class BasisDataFactory {
 		this.dataMap = Collections.unmodifiableMap(grouped);
 	}
 
-	public Optional<BasisData> get(String year, BasisDataType type) {
+	public Optional<BasisData> get(BasisDataType type) {
 		return Optional.ofNullable(dataMap.get(type));
 	}
-	public Optional<BasisData> get(String year, Long seq) {
-		return get(year, BasisDataType.fromCode(seq));
+	public Optional<BasisData> get(Long seq) {
+		return get(BasisDataType.fromCode(seq));
 	}
 
 	// Typed accessors based on schema: 0: bool, 1: int, 2: long, 3: float, 4: double, 5: string
 	private Optional<Boolean> getAsBoolean(Optional<BasisData> basisData) {
 		return basisData.map(this::parseBoolean);
 	}
-	public Optional<Boolean> getAsBoolean(String year, BasisDataType type) {
-		return getAsBoolean(get(year, type));
+	public Optional<Boolean> getAsBoolean(BasisDataType type) {
+		return getAsBoolean(get(type));
 	}
-	public Optional<Boolean> getAsBoolean(String year, Long seq) {
-		return getAsBoolean(get(year, seq));
+	public Optional<Boolean> getAsBoolean(Long seq) {
+		return getAsBoolean(get(seq));
 	}
 
 	private Optional<Integer> getAsInteger(Optional<BasisData> basisData) {
 		return basisData.map(this::parseInteger);
 	}
-	public Optional<Integer> getAsInteger(String year, BasisDataType type) {
-		return getAsInteger(get(year, type));
+	public Optional<Integer> getAsInteger(BasisDataType type) {
+		return getAsInteger(get(type));
 	}
-	public Optional<Integer> getAsInteger(String year, Long seq) {
-		return getAsInteger(get(year, seq));
+	public Optional<Integer> getAsInteger(Long seq) {
+		return getAsInteger(get(seq));
 	}
 
 	private Optional<Long> getAsLong(Optional<BasisData> basisData) {
 		return basisData.map(this::parseLong);
 	}
-	public Optional<Long> getAsLong(String year, BasisDataType type) {
-		return getAsLong(get(year, type));
+	public Optional<Long> getAsLong(BasisDataType type) {
+		return getAsLong(get(type));
 	}
-	public Optional<Long> getAsLong(String year, Long seq) {
-		return getAsLong(get(year, seq));
+	public Optional<Long> getAsLong(Long seq) {
+		return getAsLong(get(seq));
 	}
 
 	private Optional<Float> getAsFloat(Optional<BasisData> basisData) {
 		return basisData.map(this::parseFloat);
 	}
-	public Optional<Float> getAsFloat(String year, BasisDataType type) {
-		return getAsFloat(get(year, type));
+	public Optional<Float> getAsFloat(BasisDataType type) {
+		return getAsFloat(get(type));
 	}
-	public Optional<Float> getAsFloat(String year, Long seq) {
-		return getAsFloat(get(year, seq));
+	public Optional<Float> getAsFloat(Long seq) {
+		return getAsFloat(get(seq));
 	}
 
 	private Optional<Double> getAsDouble(Optional<BasisData> basisData) {
 		return basisData.map(this::parseDouble);
 	}
-	public Optional<Double> getAsDouble(String year, BasisDataType type) {
-		return getAsDouble(get(year, type));
+	public Optional<Double> getAsDouble(BasisDataType type) {
+		return getAsDouble(get(type));
 	}
-	public Optional<Double> getAsDouble(String year, Long seq) {
-		return getAsDouble(get(year, seq));
+	public Optional<Double> getAsDouble(Long seq) {
+		return getAsDouble(get(seq));
 	}
 
 	private Optional<String> getAsString(Optional<BasisData> basisData) {
 		return basisData.map(BasisData::getData);
 	}
-	public Optional<String> getAsString(String year, BasisDataType type) {
-		return getAsString(get(year, type));
+	public Optional<String> getAsString(BasisDataType type) {
+		return getAsString(get(type));
 	}
-	public Optional<String> getAsString(String year, Long seq) {
-		return getAsString(get(year, seq));
+	public Optional<String> getAsString(Long seq) {
+		return getAsString(get(seq));
 	}
 
 	// Parsing helpers

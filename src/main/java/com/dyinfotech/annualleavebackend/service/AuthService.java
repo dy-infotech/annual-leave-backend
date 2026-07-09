@@ -35,12 +35,12 @@ public class AuthService {
     public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
 		// 사번 채번
     	LocalDate now = LocalDate.now();
-    	String currentYear = String.valueOf(now.getYear());
-    	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(currentYear, BasisDataType.EMPlOYEE_NUMBER_PREFIX);
+    	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPlOYEE_NUMBER_PREFIX);
     	if (employeeNumberPrefix.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사번 접두사 정보가 없습니다.");
 		}
-    	
+
+    	String currentYear = String.valueOf(now.getYear());
     	String prefix = employeeNumberPrefix.get().getData().replace("#{YEAR}", currentYear);
     	Optional<Employee> lastPrefixEmployee = employeeRepository.findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(prefix);
     	
@@ -62,11 +62,11 @@ public class AuthService {
     	if (yearsDifference > 0) {
     		// 1년차 할당 연차수 부여
     		yearsDifference -= 1;
-    		currentYearFloat += basisDataFactory.getAsInteger(currentYear, BasisDataType.FIRST_YEAR_LEAVE_DAYS).get();
+    		currentYearFloat += basisDataFactory.getAsInteger(BasisDataType.FIRST_YEAR_LEAVE_DAYS).get();
     		
     		// N년당 할당 연차수 부여
-    		int diff = basisDataFactory.getAsInteger(currentYear, BasisDataType.N_YEARS_OF_ADDITIONAL_LEAVE).get();
-    		int additionalLeaveDays = basisDataFactory.getAsInteger(currentYear, BasisDataType.ADDITIONAL_LEAVE_DAYS).get();
+    		int diff = basisDataFactory.getAsInteger(BasisDataType.N_YEARS_OF_ADDITIONAL_LEAVE).get();
+    		int additionalLeaveDays = basisDataFactory.getAsInteger(BasisDataType.ADDITIONAL_LEAVE_DAYS).get();
     		for (; yearsDifference >= diff; yearsDifference -= diff) {
 				currentYearFloat += additionalLeaveDays;
 			}
