@@ -1,8 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.Role;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;

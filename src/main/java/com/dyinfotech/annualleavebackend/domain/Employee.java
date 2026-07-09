@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.dyinfotech.annualleavebackend.common.type.Role;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -66,6 +68,12 @@ public class Employee {
 //    @Column(name = "role", nullable = false, length = 10)
     private Role role;
     
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "employee_id")
+    private List<LeaveAdjustment> leaveAdjustments;
+    
+    private float adjustedLeaveDays;
+    
     @Column(name = "curr_year", length = 4)
     private String currYear;
 
@@ -117,13 +125,20 @@ public class Employee {
     }
     
     @PostLoad
-    protected void initializeRole() {
+    protected void initialize() {
         // teamData 리스트에 값이 있으면 ADMIN, 없으면 EMPLOYEE로 설정
         if (this.teamData != null && !this.teamData.isEmpty()) {
             this.role = Role.ADMIN;
         } else {
             this.role = Role.EMPLOYEE;
         }
+        
+        // leaveAdjustments 리스트를 순회하며 adjustedLeaveDays 계산
+        float adjustedDays = 0.0f;
+        for (LeaveAdjustment leaveAdjustment : leaveAdjustments) {
+        	adjustedDays += leaveAdjustment.getSign().equals("plus") ? leaveAdjustment.getLeaveDays() : -leaveAdjustment.getLeaveDays();
+		}
+        this.adjustedLeaveDays = adjustedDays;
     }
 
     // 회원가입 완료 처리 (비밀번호 설정)

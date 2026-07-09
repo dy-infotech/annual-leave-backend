@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.LeaveAdjustment;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
@@ -89,10 +90,12 @@ public class LeaveRequestService {
         return weekdays;
     }
 
-    // 잔여 연차를 초과하지 않는지 체크
+    // 잔여 휴가 수를 초과하지 않는지 체크
     private void validateRemainingLeave(Employee employee, Float useDays) {
+    	// 사용한 휴가 수
         Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
-        Float remainingDays = employee.getCurrTotalLeaveDays() - usedDays;
+        // 남은 휴가 수 = 현재 총 휴가 수 + 조정된 휴가 수 - 사용한 휴가 수
+        Float remainingDays = CommonService.getRemainingDays(employee, usedDays);
 
         if (useDays > remainingDays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잔여 연차(" + remainingDays + "일)를 초과했습니다.");

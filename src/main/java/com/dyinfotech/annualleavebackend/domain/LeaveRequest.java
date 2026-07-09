@@ -3,6 +3,8 @@ package com.dyinfotech.annualleavebackend.domain;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

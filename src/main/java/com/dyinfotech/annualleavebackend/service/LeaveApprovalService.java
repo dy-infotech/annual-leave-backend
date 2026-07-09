@@ -1,8 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;

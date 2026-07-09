@@ -1,0 +1,34 @@
+package com.dyinfotech.annualleavebackend.common.type;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import lombok.Getter;
+
+@Getter
+public enum BasisDataType {
+	FIRST_YEAR_LEAVE_DAYS				(1L, "신규입사자 연차일수")
+	,N_YEARS_OF_ADDITIONAL_LEAVE		(2L, "N년당 추가연차 발생")
+	,ADDITIONAL_LEAVE_DAYS				(3L, "추가연차 일수")
+	,MINIMUM_ATTENDANCE_RATE_FOR_LEAVE	(4L, "만근 출석 퍼센트")
+	;
+	
+	private final long code;
+	private final String description;
+	
+	private static final Map<Long, BasisDataType> codeToEnumMap = new HashMap<>();
+	static {
+		for (BasisDataType type : BasisDataType.values()) {
+			codeToEnumMap.put(type.getCode(), type);
+		}
+	}
+	
+	BasisDataType(long code, String description) {
+		this.code = code;
+		this.description = description;
+	}
+	
+	public static BasisDataType fromCode(long code) {
+		return codeToEnumMap.get(code);
+	}
+}

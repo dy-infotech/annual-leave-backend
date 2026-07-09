@@ -1,4 +1,4 @@
-package com.dyinfotech.annualleavebackend.domain;
+package com.dyinfotech.annualleavebackend.common.type;
 
 public enum LeaveRequestStatus {
     PENDING,    // 승인 대기

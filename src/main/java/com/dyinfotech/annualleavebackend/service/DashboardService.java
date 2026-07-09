@@ -1,8 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.domain.Role;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
@@ -44,12 +44,11 @@ public class DashboardService {
 
     private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee) {
         Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
-        Float remainingDays = employee.getCurrTotalLeaveDays() - usedDays;
 
         return DashboardDto.MyLeaveInfoResponse.builder()
                 .totalLeaveDays(employee.getCurrTotalLeaveDays())
                 .usedLeaveDays(usedDays)
-                .remainingLeaveDays(remainingDays)
+                .remainingLeaveDays(CommonService.getRemainingDays(employee, usedDays))
                 .build();
     }
 

@@ -3,8 +3,8 @@ package com.dyinfotech.annualleavebackend.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
 
 import lombok.Builder;
 import lombok.Getter;
