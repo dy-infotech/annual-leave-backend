@@ -67,7 +67,7 @@ public class AuthService {
     		// N년당 할당 연차수 부여
     		int diff = basisDataFactory.getAsInteger(currentYear, BasisDataType.N_YEARS_OF_ADDITIONAL_LEAVE).get();
     		int additionalLeaveDays = basisDataFactory.getAsInteger(currentYear, BasisDataType.ADDITIONAL_LEAVE_DAYS).get();
-    		for (; yearsDifference > diff; yearsDifference -= diff) {
+    		for (; yearsDifference >= diff; yearsDifference -= diff) {
 				currentYearFloat += additionalLeaveDays;
 			}
     	} else {
