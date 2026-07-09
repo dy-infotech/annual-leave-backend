@@ -11,7 +11,7 @@ INSERT INTO basis_data (year, seq, type, data, remark)
 VALUES
 	(YEAR(SYSDATE()), 1, 1, '15', '1년차 연차일수'),
 	(YEAR(SYSDATE()), 2, 1, '2', 'N년당 추가연차 발생'),
-	(YEAR(SYSDATE()), 3, 1, '2', '추가연차 일수'),
+	(YEAR(SYSDATE()), 3, 1, '1', '추가연차 일수'),
 	(YEAR(SYSDATE()), 4, 3, '80.0', '만근 출석 퍼센트'),
 	(YEAR(SYSDATE()), 5, 5, 'A#{YEAR}', '사번 접두사')
 	;
