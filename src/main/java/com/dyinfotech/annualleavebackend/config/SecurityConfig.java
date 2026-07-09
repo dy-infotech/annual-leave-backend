@@ -11,6 +11,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.dyinfotech.annualleavebackend.common.type.Role;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -33,7 +35,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
 
                         // 관리자 전용 경로
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole(Role.ADMIN.name())
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
