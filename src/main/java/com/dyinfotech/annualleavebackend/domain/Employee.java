@@ -61,7 +61,7 @@ public class Employee {
 
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_manager_id")
-    @Singular("team")
+    @Singular("addTeam")
     private List<Team> teamData;
 
 //    @Enumerated(EnumType.STRING)
@@ -102,15 +102,18 @@ public class Employee {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Employee(String employeeNumber, String name, String department, String position,
-                    String currYear, Float currTotalLeaveDays, LocalDate hireDate) {
+    public Employee(String employeeNumber, String name, String department, String team, String position,
+                    String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
+        this.team = team;
         this.position = position;
+        this.email = email;
         this.currYear = currYear;
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
+        this.approverId = approverId;
     }
 
     @PrePersist
@@ -140,7 +143,11 @@ public class Employee {
 		}
         this.adjustedLeaveDays = adjustedDays;
     }
-
+    
+    public void setEmployeeNumber(String employeeNumber) {
+		this.employeeNumber = employeeNumber;
+	}
+    
     // 회원가입 완료 처리 (비밀번호 설정)
     public void completeSignUp(String encodedPassword) {
         changePassword(encodedPassword);

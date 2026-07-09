@@ -13,7 +13,9 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.dto.RegisterDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -24,9 +26,75 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AuthService {
 
+	private final BasisDataFactory basisDataFactory;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    
+    @Transactional
+    public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
+		// 사번 채번
+    	LocalDate now = LocalDate.now();
+    	String currentYear = String.valueOf(now.getYear());
+    	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(currentYear, BasisDataType.EMPlOYEE_NUMBER_PREFIX);
+    	if (employeeNumberPrefix.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사번 접두사 정보가 없습니다.");
+		}
+    	
+    	String prefix = employeeNumberPrefix.get().getData().replace("#{YEAR}", currentYear);
+    	Optional<Employee> lastPrefixEmployee = employeeRepository.findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(prefix);
+    	
+    	// 사번 설정
+    	String formatString = "%03d";
+    	String employeeNumber = null;
+    	if (lastPrefixEmployee.isPresent()) {
+			String lastEmployeeNumber = lastPrefixEmployee.get().getEmployeeNumber();
+			int lastNumber = Integer.parseInt(lastEmployeeNumber.substring(prefix.length()));
+			employeeNumber = prefix + String.format(formatString, lastNumber + 1);
+		} else {
+			employeeNumber = prefix + String.format(formatString, 1);
+		}
+    	
+    	// 연차 할당
+    	float currentYearFloat = 0.0f;
+    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
+    	int yearsDifference = now.getYear() - hireDate.getYear();
+    	if (yearsDifference > 0) {
+    		// 1년차 할당 연차수 부여
+    		yearsDifference -= 1;
+    		currentYearFloat += basisDataFactory.getAsInteger(currentYear, BasisDataType.FIRST_YEAR_LEAVE_DAYS).get();
+    		
+    		// N년당 할당 연차수 부여
+    		int diff = basisDataFactory.getAsInteger(currentYear, BasisDataType.N_YEARS_OF_ADDITIONAL_LEAVE).get();
+    		int additionalLeaveDays = basisDataFactory.getAsInteger(currentYear, BasisDataType.ADDITIONAL_LEAVE_DAYS).get();
+    		for (; yearsDifference > diff; yearsDifference -= diff) {
+				currentYearFloat += additionalLeaveDays;
+			}
+    	} else {
+    		// TODO: 입사년도가 현재년도와 일치할 경우 월차가 지급되므로 일단 처리하지 않는다.
+    	}
+    	
+    	// 근로자 정보 등록
+    	Employee employee = Employee.builder()
+				.employeeNumber(employeeNumber)
+				.name(request.getName())
+				.department(request.getDepartment())
+				.team(request.getTeam())
+				.position(request.getPosition())
+				.email(request.getEmail())
+				.hireDate(hireDate)
+				.currYear(currentYear)
+				.currTotalLeaveDays(currentYearFloat)
+				.approverId(request.getApproverId())
+				.build();
+    	
+    	employeeRepository.save(employee);
+    	
+        return RegisterDto.RegisterResponse.builder()
+                .employeeId(employee.getEmployeeId())
+                .loginId(employee.getEmployeeNumber())
+                .build();
+	}
 
     @Transactional
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
