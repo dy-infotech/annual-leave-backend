@@ -107,7 +107,7 @@ public class BasisDataFactory {
 	private Boolean parseBoolean(BasisData b) throws IllegalArgumentException {
 		BasisDataParseType type = BasisDataParseType.fromCode(Integer.parseInt(b.getType()));
 		if (type == null || type != BasisDataParseType.BOOLEAN) {
-			throw new IllegalArgumentException("BasisData type is not FLOAT: " + b.getType() + ", year: " + b.getYear() + ", seq: " + b.getSeq());
+			throw new IllegalArgumentException("BasisData type is not BOOLEAN: " + b.getType() + ", year: " + b.getYear() + ", seq: " + b.getSeq());
 		}
 		
 		String v = b.getData();
