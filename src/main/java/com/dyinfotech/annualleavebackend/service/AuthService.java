@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Role;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -26,8 +27,8 @@ public class AuthService {
         Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
 
-        // 2. 이미 가입된 사원인지 확인 (loginId가 이미 채워져 있으면 가입 완료 상태)
-        if (employee.getLoginId() != null) {
+        // 2. 이미 가입된 사원인지 확인 (password가 이미 채워져 있으면 가입 완료 상태)
+        if (employee.getPassword() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 사원입니다.");
         }
 
@@ -36,18 +37,24 @@ public class AuthService {
 
         // Dirty Checking(변경 감지)
         // 명시적으로 save()를 호출하지 않아도, @Transactional 범위 안에서 조회한 Entity의 필드를 변경하면 트랜잭션이 끝날 때 자동으로 Update
-        employee.completeSignUp(request.getEmployeeNo(), encodedPassword);
+        employee.completeSignUp(encodedPassword);
+        
+        // 4. Role 설정: teamData에 값이 있으면 ADMIN, 없으면 EMPLOYEE
+        if (employee.getTeamData() != null && !employee.getTeamData().isEmpty()) {
+            employee.setRole(Role.ADMIN);
+        } else {
+            employee.setRole(Role.EMPLOYEE);
+        }
 
         return SignUpDto.SignUpResponse.builder()
                 .employeeId(employee.getEmployeeId())
                 .name(employee.getName())
-                .loginId(employee.getLoginId())
                 .build();
     }
 
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
         // 1. loginId(=사번)로 직원 조회
-        Employee employee = employeeRepository.findByLoginId(request.getEmployeeNo())
+        Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
 
