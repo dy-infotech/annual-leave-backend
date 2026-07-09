@@ -147,8 +147,7 @@ public class Employee {
         // 올해 입사자는 월차 반영 (만근 실패시 월차 차감은 adjustedLeaveDays에서 처리)
         LocalDate now = LocalDate.now();
         if (hireDate.getYear() == now.getYear()) {
-        	LocalDate lastDayOfThisYear = now.withDayOfYear(now.lengthOfYear()); 						// 올해의 마지막 날
-			this.currTotalLeaveDays = (float)ChronoUnit.MONTHS.between(hireDate, lastDayOfThisYear);	// 입사월부터 연말까지의 개월 수를 계산하여 currTotalLeaveDays에 설정
+			this.currTotalLeaveDays = (float)ChronoUnit.MONTHS.between(hireDate, now);
 		}
     }
     
