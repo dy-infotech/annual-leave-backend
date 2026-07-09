@@ -30,8 +30,8 @@ public class LeaveAdjustment {
     @Column(name = "sign", length = 5)
     private String sign;
     
-    // TODO: 반반차 도입시 Decimal(5, 2). 1시간 연차 도입시 Decimal(6, 3)
-    @Column(name = "leave_days", nullable = false, precision = 4, scale = 1)
+    // TODO: DB도 Float로 변경 필요
+    @Column(name = "leave_days", nullable = false)
     private Float leaveDays;
 
     @Column(name = "reason", length = 200)
