@@ -1,14 +1,14 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 public class LeaveRequestDto {
 
@@ -23,7 +23,7 @@ public class LeaveRequestDto {
         private LocalDate endDate;
 
         @NotNull(message = "사용일수를 입력해주세요.")
-        private BigDecimal useDays;
+        private Float useDays;
     }
 
     @Getter
@@ -32,7 +32,7 @@ public class LeaveRequestDto {
         private Long requestId;
         private LocalDate startDate;
         private LocalDate endDate;
-        private BigDecimal useDays;
+        private Float useDays;
         private String status;
         private LocalDateTime createdAt;
 

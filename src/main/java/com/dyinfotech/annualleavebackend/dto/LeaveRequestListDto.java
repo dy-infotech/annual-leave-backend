@@ -1,13 +1,13 @@
 package com.dyinfotech.annualleavebackend.dto;
 
-import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
-import lombok.Builder;
-import lombok.Getter;
-
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
+
+import lombok.Builder;
+import lombok.Getter;
 
 public class LeaveRequestListDto {
 
@@ -37,7 +37,7 @@ public class LeaveRequestListDto {
         private LocalDateTime requestedAt;   // 휴가 신청일
         private LocalDate startDate;    // 휴가 기간 시작
         private LocalDate endDate;      // 휴가 기간 종료
-        private BigDecimal useDays;
+        private Float useDays;
         private String status;
         private String rejectReason;   // 반려 시에만 값 할당, 그 외엔 null
 

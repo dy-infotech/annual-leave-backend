@@ -66,15 +66,15 @@ public class Employee {
     @Column(name = "curr_year", length = 4)
     private String currYear;
 
-    // TODO: 반반차 도입시 Decimal(5, 2). 1시간 연차 도입시 Decimal(6, 3)
-    @Column(name = "curr_total_leave_days", nullable = false, precision = 4, scale = 1)
+    // TODO: DB도 Float로 변경 필요
+    @Column(name = "curr_total_leave_days", nullable = false)
     private Float currTotalLeaveDays;
     
     @Column(name = "prev_year", length = 4)
     private String prevYear;
     
-    // TODO: 반반차 도입시 Decimal(5, 2). 1시간 연차 도입시 Decimal(6, 3)
-    @Column(name = "prev_total_leave_days", nullable = false, precision = 4, scale = 1)
+    // TODO: DB도 Float로 변경 필요
+    @Column(name = "prev_total_leave_days", nullable = false)
     private Float prevTotalLeaveDays;
 
     @Column(name = "hire_date", nullable = false)

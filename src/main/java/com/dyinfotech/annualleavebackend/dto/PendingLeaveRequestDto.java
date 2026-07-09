@@ -1,12 +1,12 @@
 package com.dyinfotech.annualleavebackend.dto;
 
-import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import lombok.Builder;
-import lombok.Getter;
-
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+
+import lombok.Builder;
+import lombok.Getter;
 
 public class PendingLeaveRequestDto {
 
@@ -20,7 +20,7 @@ public class PendingLeaveRequestDto {
         private String position;
         private LocalDate startDate;
         private LocalDate endDate;
-        private BigDecimal useDays;
+        private Float useDays;
         private LocalDateTime createdAt;
 
         public static PendingLeaveRequestResponse from(LeaveRequest leaveRequest) {

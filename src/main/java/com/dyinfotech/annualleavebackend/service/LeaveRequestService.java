@@ -1,21 +1,22 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -53,21 +54,22 @@ public class LeaveRequestService {
     }
 
     // 0.5 단위인지 체크
-    private void validateUseDaysUnit(BigDecimal useDays) {
-        if (useDays.remainder(BigDecimal.valueOf(0.5)).compareTo(BigDecimal.ZERO) != 0) {
+    private void validateUseDaysUnit(Float useDays) {
+    	float remainder = useDays.floatValue() - useDays.intValue();
+        if (remainder != 0.0f && remainder != 0.5f) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0.5 단위로 입력해 주세요.");
         }
 
-        if (useDays.compareTo(BigDecimal.ZERO) <= 0) {
+        if (useDays <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
         }
     }
 
     // 신청 기간의 평일 수를 초과하지 않는지 체크
-    private void validateUseDaysWithinWeekdays(LocalDate startDate, LocalDate endDate, BigDecimal useDays) {
+    private void validateUseDaysWithinWeekdays(LocalDate startDate, LocalDate endDate, Float useDays) {
         long weekdays = countWeekdays(startDate, endDate);
 
-        if (useDays.compareTo(BigDecimal.valueOf(weekdays)) > 0) {
+        if ((long)Math.ceil(useDays.doubleValue()) > weekdays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수(" + useDays + "일)가 신청 기간 내 평일 수(" + weekdays + "일)를 초과했습니다.");
         }
     }
@@ -88,11 +90,11 @@ public class LeaveRequestService {
     }
 
     // 잔여 연차를 초과하지 않는지 체크
-    private void validateRemainingLeave(Employee employee, BigDecimal useDays) {
-        BigDecimal usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
-        BigDecimal remainingDays = employee.getTotalLeaveDays().subtract(usedDays);
+    private void validateRemainingLeave(Employee employee, Float useDays) {
+        Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
+        Float remainingDays = employee.getCurrTotalLeaveDays() - usedDays;
 
-        if (useDays.compareTo(remainingDays) > 0) {
+        if (useDays > remainingDays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잔여 연차(" + remainingDays + "일)를 초과했습니다.");
         }
     }

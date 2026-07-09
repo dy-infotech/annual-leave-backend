@@ -8,7 +8,8 @@ import java.util.Optional;
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByEmployeeNo(String employeeNo);
-    @Deprecated
-    Optional<Employee> findByLoginId(String loginId);
-    boolean existsByLoginId(String loginId);
+//    @Deprecated
+//    Optional<Employee> findByLoginId(String loginId);
+//    @Deprecated
+//    boolean existsByLoginId(String loginId);
 }
