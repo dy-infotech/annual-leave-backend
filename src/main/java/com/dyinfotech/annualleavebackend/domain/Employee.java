@@ -66,14 +66,12 @@ public class Employee {
     @Column(name = "curr_year", length = 4)
     private String currYear;
 
-    // TODO: DB도 Float로 변경 필요
     @Column(name = "curr_total_leave_days", nullable = false)
     private Float currTotalLeaveDays;
     
     @Column(name = "prev_year", length = 4)
     private String prevYear;
     
-    // TODO: DB도 Float로 변경 필요
     @Column(name = "prev_total_leave_days", nullable = false)
     private Float prevTotalLeaveDays;
 

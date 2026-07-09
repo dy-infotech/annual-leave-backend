@@ -30,7 +30,6 @@ public class LeaveAdjustment {
     @Column(name = "sign", length = 5)
     private String sign;
     
-    // TODO: DB도 Float로 변경 필요
     @Column(name = "leave_days", nullable = false)
     private Float leaveDays;
 

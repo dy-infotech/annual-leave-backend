@@ -42,7 +42,6 @@ public class LeaveRequest {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
-    // TODO: DB도 Float로 변경 필요
     @Column(name = "use_days", nullable = false)
     private Float useDays;
 
