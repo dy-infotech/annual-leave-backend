@@ -10,6 +10,7 @@ CREATE TABLE employee (
                           department        	VARCHAR(50)   	NULL COMMENT '부서',
                           team		        	VARCHAR(30) 	NULL COMMENT '팀',
                           position          	VARCHAR(50)		NULL COMMENT '직급',
+                          email			 	    VARCHAR(50)		NULL COMMENT '이메일',
                           hire_date         	DATE        	NOT NULL COMMENT '입사일',
                           fire_date         	DATE   			NULL COMMENT '퇴사일',
 

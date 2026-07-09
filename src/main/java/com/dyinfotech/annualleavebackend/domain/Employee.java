@@ -51,6 +51,9 @@ public class Employee {
     @Column(name = "position", length = 50)
     private String position;
 
+    @Column(name = "email", length = 50)
+    private String email;
+
 //    @Column(name = "login_id", unique = true, length = 50)
 //    private String loginId;
 
