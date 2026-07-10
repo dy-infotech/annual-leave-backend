@@ -15,6 +15,7 @@ public class RegisterDto {
         private String name;
 
         private String department;
+        @NotBlank(message = "팀을 입력해 주세요.")
         private String team;
         private String position;
         private String email;
