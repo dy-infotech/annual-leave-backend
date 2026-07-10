@@ -37,7 +37,7 @@ public class Employee {
     @Column(name = "department", length = 50)
     private String department;
     
-    @Column(name = "team", length = 30)
+    @Column(name = "team", nullable = false, length = 30)
     private String team;
 
     @Column(name = "position", length = 50)
@@ -66,7 +66,7 @@ public class Employee {
     @Transient
     private float adjustedLeaveDays;
     
-    @Column(name = "curr_year", length = 4)
+    @Column(name = "curr_year", nullable = false, length = 4)
     private String currYear;
 
     @Column(name = "curr_total_leave_days", nullable = false)
@@ -75,7 +75,7 @@ public class Employee {
     @Column(name = "prev_year", length = 4)
     private String prevYear;
     
-    @Column(name = "prev_total_leave_days", nullable = false)
+    @Column(name = "prev_total_leave_days")
     private Float prevTotalLeaveDays;
 
     @Column(name = "hire_date", nullable = false)
