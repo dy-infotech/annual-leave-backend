@@ -38,6 +38,7 @@ public class LeaveAdjustment {
     @Column(name = "reason", length = 200)
     private String reason;
 
+    // XXX: createdAt이 PK가 되면 초단위로 동시에 복합키가 일치하는 경우가 생길 수 있다.. 그러나 이 데이터는 그런 경우는 오히려 데이터 생성을 막아야 한다..
     @Id
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
