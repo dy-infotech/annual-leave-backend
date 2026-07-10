@@ -21,7 +21,7 @@ public class LeaveRejectDto {
     public static class LeaveRejectResponse {
         private Long requestId;
         private String status;
-        private String approverName;
+        private String managerName;
         private String rejectReason;
         private LocalDateTime processedAt;
 
@@ -29,9 +29,9 @@ public class LeaveRejectDto {
             return LeaveRejectResponse.builder()
                     .requestId(leaveRequest.getRequestId())
                     .status(leaveRequest.getStatus().name())
-                    .approverName(leaveRequest.getApprover().getName())
+                    .managerName(leaveRequest.getManager().getName())
                     .rejectReason(leaveRequest.getRejectReason())
-                    .processedAt(leaveRequest.getProcessedAt())
+                    .processedAt(leaveRequest.getManagedAt())
                     .build();
         }
     }
