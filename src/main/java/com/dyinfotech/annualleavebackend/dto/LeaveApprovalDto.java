@@ -14,14 +14,14 @@ public class LeaveApprovalDto {
         private Long requestId;
         private String status;
         private String managerName;
-        private LocalDateTime processedAt;
+        private LocalDateTime managedAt;
 
         public static LeaveApprovalResponse from(LeaveRequest leaveRequest) {
             return LeaveApprovalResponse.builder()
                     .requestId(leaveRequest.getRequestId())
                     .status(leaveRequest.getStatus().name())
                     .managerName(leaveRequest.getManager().getName())
-                    .processedAt(leaveRequest.getManagedAt())
+                    .managedAt(leaveRequest.getManagedAt())
                     .build();
         }
     }

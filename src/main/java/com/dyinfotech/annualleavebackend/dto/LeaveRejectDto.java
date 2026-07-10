@@ -23,7 +23,7 @@ public class LeaveRejectDto {
         private String status;
         private String managerName;
         private String rejectReason;
-        private LocalDateTime processedAt;
+        private LocalDateTime managedAt;
 
         public static LeaveRejectResponse from(LeaveRequest leaveRequest) {
             return LeaveRejectResponse.builder()
@@ -31,7 +31,7 @@ public class LeaveRejectDto {
                     .status(leaveRequest.getStatus().name())
                     .managerName(leaveRequest.getManager().getName())
                     .rejectReason(leaveRequest.getRejectReason())
-                    .processedAt(leaveRequest.getManagedAt())
+                    .managedAt(leaveRequest.getManagedAt())
                     .build();
         }
     }
