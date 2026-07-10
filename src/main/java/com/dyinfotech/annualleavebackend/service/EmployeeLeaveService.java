@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.common.type.Sign;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
@@ -129,6 +130,6 @@ public class EmployeeLeaveService {
         return teamRepository.existsByProjectManagerId(employeeId) ? Role.ADMIN : Role.EMPLOYEE;
     }
     public float getAdjustedLeaveDays(Long employeeId, String year) {
-        return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeId, year);
+        return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeId, year, Sign.plus.name());
     }
 }
