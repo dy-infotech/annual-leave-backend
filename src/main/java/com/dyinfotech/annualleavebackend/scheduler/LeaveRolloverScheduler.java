@@ -30,7 +30,7 @@ public class LeaveRolloverScheduler {
      * 		새해 정각에 모든 서버가 이 크론(Cron)을 동시에 실행하므로 DB 데이터 중복 업데이트 및 락(Lock) 문제가 발생합니다.
      * 		인프라 확장 시, ShedLock(분산 락) 라이브러리를 도입하거나 별도의 배치를 구축해야 합니다.
      */
-    @Transactional // ✨ 여러 직원의 데이터를 변경하므로 쓰기 트랜잭션 필수!
+    @Transactional // 여러 직원의 데이터를 변경하므로 쓰기 트랜잭션 필수
     @Scheduled(cron = "0 0 0 1 1 ?") 
     public void rolloverNewYearLeave() {
         log.info("=== [스케줄러] 새해 맞이 전직원 연차 롤오버 및 재계산 시작 ===");
@@ -42,7 +42,6 @@ public class LeaveRolloverScheduler {
         // 2. 루프를 돌며 안전하게 연차 갱신
         for (Employee employee : activeEmployees) {
             try {
-                // 기존에 만들어두신 연차 계산 및 setter 세팅 로직 재활용
             	String prevYear = employee.getCurrYear();
             	if (prevYear != null && prevYear != currentYear) {
             		employee.setPrevYear(prevYear);
