@@ -8,7 +8,7 @@ CREATE TABLE employee (
                           password          	VARCHAR(255)	NULL COMMENT '비밀번호 (NULL일 경우 아직 회원가입 전)',
                           name              	VARCHAR(50)   	NOT NULL COMMENT '성명',
                           department        	VARCHAR(50)   	NULL COMMENT '부서',
-                          team		        	VARCHAR(30) 	NULL COMMENT '팀',
+                          team		        	VARCHAR(30) 	NOT NULL COMMENT '팀 // 배정되지 않은 경우 대표이사 팀 선택 및 approver_id도 대표이사의 id로 해야 한다',
                           position          	VARCHAR(50)		NULL COMMENT '직급',
                           email			 	    VARCHAR(50)		NULL COMMENT '이메일',
                           hire_date         	DATE        	NOT NULL COMMENT '입사일',
