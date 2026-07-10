@@ -52,20 +52,17 @@ public class LeaveRequest {
     private LeaveRequestStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approver_id")
-    private Employee approver;
+    @JoinColumn(name = "manager_id")
+    private Employee manager;
 
     @Column(name = "reject_reason", length = 200)
     private String rejectReason;
 
-    @Column(name = "processed_at")
-    private LocalDateTime processedAt;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    @Column(name = "managed_at", nullable = false)
+    private LocalDateTime managedAt;
 
     @Builder
     public LeaveRequest(Employee employee, LocalDate startDate, LocalDate endDate, Float useDays) {
@@ -79,33 +76,33 @@ public class LeaveRequest {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.managedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.managedAt = LocalDateTime.now();
     }
 
-    public void approve(Employee approver) {
+    public void approve(Employee manager) {
         if (this.status != LeaveRequestStatus.PENDING) {
             throw new IllegalStateException("대기 상태인 요청만 승인할 수 있습니다.");
         }
 
         this.status = LeaveRequestStatus.APPROVED;
-        this.approver = approver;
-        this.processedAt = LocalDateTime.now();
+        this.manager = manager;
+//        this.processedAt = LocalDateTime.now();
     }
 
-    public void reject(Employee approver, String rejectReason) {
+    public void reject(Employee manager, String rejectReason) {
         if (this.status != LeaveRequestStatus.PENDING) {
             throw new IllegalStateException("대기 상태인 요청만 반려할 수 있습니다.");
         }
 
         this.status = LeaveRequestStatus.REJECTED;
-        this.approver = approver;
+        this.manager = manager;
         this.rejectReason = rejectReason;
-        this.processedAt = LocalDateTime.now();
+//        this.processedAt = LocalDateTime.now();
     }
 
     public void cancel() {

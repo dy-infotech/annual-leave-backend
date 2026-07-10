@@ -14,7 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "leave_request")
+@Table(name = "leave_adjustment")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LeaveAdjustment {
