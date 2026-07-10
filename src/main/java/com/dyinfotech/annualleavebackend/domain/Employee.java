@@ -2,17 +2,12 @@ package com.dyinfotech.annualleavebackend.domain;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-
-import com.dyinfotech.annualleavebackend.common.type.Role;
-import com.dyinfotech.annualleavebackend.common.type.Sign;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Singular;
 
 @Entity
 @Table(name = "employee")

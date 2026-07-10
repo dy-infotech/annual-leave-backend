@@ -44,6 +44,7 @@ public class BasisData {
     }
 
     // Composite id defined as a static inner class so BasisData is self-contained.
+    @Getter
     public static class BasisDataId implements java.io.Serializable {
         private String year;
         private Long seq;
@@ -54,14 +55,6 @@ public class BasisData {
         public BasisDataId(String year, Long seq) {
             this.year = year;
             this.seq = seq;
-        }
-
-        public String getYear() {
-            return year;
-        }
-
-        public Long getSeq() {
-            return seq;
         }
 
         @Override
