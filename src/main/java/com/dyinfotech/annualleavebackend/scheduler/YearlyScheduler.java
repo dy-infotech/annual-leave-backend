@@ -35,6 +35,10 @@ public class YearlyScheduler {
     @Transactional // 여러 직원의 데이터를 변경하므로 쓰기 트랜잭션 필수
     @Scheduled(cron = "0 0 0 1 1 ?") 
     public void yearlySchedule() {
+        log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 시작 ===");
+        basisDataFactory.reload();
+        log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 완료 ===");
+        
         log.info("=== [연간 스케줄러] 새해 맞이 전직원 연차 롤오버 및 재계산 시작 ===");
         LocalDate now = LocalDate.now();
         String currentYear = String.valueOf(now.getYear());
@@ -61,9 +65,5 @@ public class YearlyScheduler {
         }
         
         log.info("=== [연간 스케줄러] 전직원 연차 갱신 프로세스 완료 ===");
-
-        log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 시작 ===");
-        basisDataFactory.reload();
-        log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 완료 ===");
     }
 }
