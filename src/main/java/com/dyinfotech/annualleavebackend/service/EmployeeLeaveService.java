@@ -31,7 +31,8 @@ public class EmployeeLeaveService {
      * 2. 입사 1년 이상: 기본 연차에서 근무 연수에 따라 추가 연차 부여
      *    - 기본 연차: basis_data seq=1 (FIRST_YEAR_LEAVE_DAYS)
      *    - 추가 기준: basis_data seq=2 (N_YEARS_OF_ADDITIONAL_LEAVE)
-     *    - 예) N_YEARS=3이면 3년마다 1일 추가
+     *    - 추가 일수: basis_data seq=3 (ADDITIONAL_LEAVE_DAYS)
+     *    - 예) N_YEARS=3이면 3년마다 ADDITIONAL_LEAVE_DAYS일 추가
      *    - 최대값: basis_data seq=6 (MAXIMUM_LEAVE_DAYS)
      * 
      * @param hireDate 연차를 계산할 직원의 입사일
@@ -63,6 +64,12 @@ public class EmployeeLeaveService {
                 new IllegalArgumentException("기초 데이터에서 추가연차 기준 연수를 찾을 수 없습니다")
             );
 
+            int additionalLeaveDays = basisDataFactory.getAsInteger(
+                    BasisDataType.ADDITIONAL_LEAVE_DAYS
+            ).orElseThrow(() -> 
+                new IllegalArgumentException("기초 데이터에서 추가연차 일수를 찾을 수 없습니다")
+            );
+
             float maximumLeaveDays = basisDataFactory.getAsInteger(
                     BasisDataType.MAXIMUM_LEAVE_DAYS
             ).map(Integer::floatValue).orElseThrow(() -> 
@@ -71,10 +78,10 @@ public class EmployeeLeaveService {
 
             // 4. 추가 연차 계산
             // 근무 연수에서 1을 뺀 값이 nYearsOfAdditionalLeave 이상이면 추가 연차 부여
-            // 예) nYearsOfAdditionalLeave=3, yearsOfService=5 → additionalYears=4 → 4/3=1일 추가
+            // 예) nYearsOfAdditionalLeave=3, yearsOfService=5 → additionalYears=4 → (4/3=1일) * additionalLeaveDays 추가
             int additionalYears = yearsOfService - 1;
             if (additionalYears >= nYearsOfAdditionalLeave) {
-                baseLeaveDay += additionalYears / nYearsOfAdditionalLeave;
+                baseLeaveDay += (additionalYears / nYearsOfAdditionalLeave) * additionalLeaveDays;
             }
 
             // 5. 최대값 초과 방지
