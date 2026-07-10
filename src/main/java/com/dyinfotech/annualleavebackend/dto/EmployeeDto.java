@@ -1,12 +1,14 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import java.time.LocalDate;
+
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+
 import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
 
 public class EmployeeDto {
 
@@ -32,14 +34,14 @@ public class EmployeeDto {
         private LocalDate hireDate;
         private String role;
 
-        public static EmployResponse from(Employee employee) {
+        public static EmployResponse from(Employee employee, Role role) {
             return EmployResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .position(employee.getPosition())
                     .department(employee.getDepartment())
                     .hireDate(employee.getHireDate())
-//                    .role(employee.getRole().name())
+                    .role(role.name())
                     .build();
         }
     }

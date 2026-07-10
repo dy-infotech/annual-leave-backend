@@ -17,18 +17,13 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
-//    private final EmployeeLeaveService employeeLeaveService;
+    private final EmployeeLeaveService employeeLeaveService;
 
     public EmployeeDto.EmployResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
-        return EmployeeDto.EmployResponse.builder()
-                .employeeNumber(employee.getEmployeeNumber())
-                .name(employee.getName())
-                .position(employee.getPosition())
-                .department(employee.getDepartment())
-                .build();
+        return EmployeeDto.EmployResponse.from(employee, employeeLeaveService.resolveRole(employeeId));
     }
 
     @Transactional
