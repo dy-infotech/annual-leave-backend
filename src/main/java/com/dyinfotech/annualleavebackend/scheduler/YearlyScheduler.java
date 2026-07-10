@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService;
@@ -17,11 +18,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class LeaveRolloverScheduler {
+public class YearlyScheduler {
 
     private final EmployeeRepository employeeRepository;
     private final EmployeeLeaveService employeeLeaveService;
-
+    private final BasisDataFactory basisDataFactory;
+    
     /**
      * 매년 1월 1일 0시 0분 0초에 실행되는 연차 초기화 및 롤오버 스케줄러
      * 크론 표현식: 초 분 시 일 월 요일
@@ -32,8 +34,8 @@ public class LeaveRolloverScheduler {
      */
     @Transactional // 여러 직원의 데이터를 변경하므로 쓰기 트랜잭션 필수
     @Scheduled(cron = "0 0 0 1 1 ?") 
-    public void rolloverNewYearLeave() {
-        log.info("=== [스케줄러] 새해 맞이 전직원 연차 롤오버 및 재계산 시작 ===");
+    public void yearlySchedule() {
+        log.info("=== [연간 스케줄러] 새해 맞이 전직원 연차 롤오버 및 재계산 시작 ===");
         LocalDate now = LocalDate.now();
         String currentYear = String.valueOf(now.getYear());
         // 1. 퇴사자를 제외한 전직원 목록 조회 (필요 시 패치 조인이나 벌크 연산 고려)
@@ -58,6 +60,10 @@ public class LeaveRolloverScheduler {
             }
         }
         
-        log.info("=== [스케줄러] 전직원 연차 갱신 프로세스 완료 ===");
+        log.info("=== [연간 스케줄러] 전직원 연차 갱신 프로세스 완료 ===");
+
+        log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 시작 ===");
+        basisDataFactory.reload();
+        log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 완료 ===");
     }
 }

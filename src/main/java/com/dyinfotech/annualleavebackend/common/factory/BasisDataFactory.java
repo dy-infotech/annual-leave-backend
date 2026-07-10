@@ -38,6 +38,10 @@ public class BasisDataFactory {
 	
 	@PostConstruct
 	private void init() {
+		reload();
+	}
+	
+	public void reload() {
 		int currentYear = LocalDate.now().getYear();
 		Map<BasisDataType, BasisData> grouped = loadByYear(currentYear);
 
