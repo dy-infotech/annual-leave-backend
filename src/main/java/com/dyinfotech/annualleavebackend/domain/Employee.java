@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.common.type.Sign;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -130,7 +131,7 @@ public class Employee {
         float adjustedDays = 0.0f;
         if (this.leaveAdjustments != null) {
             for (LeaveAdjustment adjustment : this.leaveAdjustments) {
-                adjustedDays += "plus".equals(adjustment.getSign()) ? adjustment.getLeaveDays() : -adjustment.getLeaveDays();
+                adjustedDays += Sign.plus.name().equals(adjustment.getSign()) ? adjustment.getLeaveDays() : -adjustment.getLeaveDays();
             }
         }
         this.adjustedLeaveDays = adjustedDays;
