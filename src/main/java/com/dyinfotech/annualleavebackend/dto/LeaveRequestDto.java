@@ -15,6 +15,8 @@ public class LeaveRequestDto {
     @Getter
     @NoArgsConstructor
     public static class LeaveRequestCreateRequest {
+    	@NotNull(message = "휴가유형을 입력해주세요.")
+    	private String leaveType;
 
         @NotNull(message = "시작일을 입력해주세요.")
         private LocalDate startDate;
@@ -30,6 +32,7 @@ public class LeaveRequestDto {
     @Builder
     public static class LeaveRequestCreateResponse {
         private Long requestId;
+        private String leaveType;
         private LocalDate startDate;
         private LocalDate endDate;
         private Float useDays;
@@ -39,6 +42,7 @@ public class LeaveRequestDto {
         public static LeaveRequestCreateResponse from(LeaveRequest leaveRequest) {
             return LeaveRequestCreateResponse.builder()
                     .requestId(leaveRequest.getRequestId())
+                    .leaveType(leaveRequest.getLeaveType())
                     .startDate(leaveRequest.getStartDate())
                     .endDate(leaveRequest.getEndDate())
                     .useDays(leaveRequest.getUseDays())

@@ -52,7 +52,7 @@ public class LeaveRequestService {
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .employee(employee)
-                .leaveType("") // TODO: leaveType 설정해야함....
+                .leaveType(request.getLeaveType())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .useDays(request.getUseDays())
