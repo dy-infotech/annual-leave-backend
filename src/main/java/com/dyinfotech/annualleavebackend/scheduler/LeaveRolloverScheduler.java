@@ -43,7 +43,7 @@ public class LeaveRolloverScheduler {
         for (Employee employee : activeEmployees) {
             try {
             	String prevYear = employee.getCurrYear();
-            	if (prevYear != null && prevYear != currentYear) {
+            	if (prevYear != null && !prevYear.equals(currentYear)) {
             		employee.setPrevYear(prevYear);
             		employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
             		employee.setCurrYear(currentYear);
