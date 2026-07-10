@@ -56,26 +56,9 @@ public class AuthService {
 			employeeNumber = prefix + String.format(formatString, 1);
 		}
     	
-    	// 연차 할당
-    	float currentYearFloat = 0.0f;
-    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
-    	int yearsDifference = now.getYear() - hireDate.getYear();
-    	if (yearsDifference > 0) {
-    		// 1년차 할당 연차수 부여
-    		yearsDifference -= 1;
-    		currentYearFloat += basisDataFactory.getAsInteger(BasisDataType.FIRST_YEAR_LEAVE_DAYS).get();
-    		
-    		// N년당 할당 연차수 부여
-    		int diff = basisDataFactory.getAsInteger(BasisDataType.N_YEARS_OF_ADDITIONAL_LEAVE).get();
-    		int additionalLeaveDays = basisDataFactory.getAsInteger(BasisDataType.ADDITIONAL_LEAVE_DAYS).get();
-    		for (; yearsDifference >= diff; yearsDifference -= diff) {
-				currentYearFloat += additionalLeaveDays;
-			}
-    	} else {
-    		// TODO: 입사년도가 현재년도와 일치할 경우 월차가 지급되므로 일단 처리하지 않는다.
-    	}
     	
     	// 근로자 정보 등록
+    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
     	Employee employee = Employee.builder()
 				.employeeNumber(employeeNumber)
 				.name(request.getName())
@@ -85,7 +68,7 @@ public class AuthService {
 				.email(request.getEmail())
 				.hireDate(hireDate)
 				.currYear(currentYear)
-				.currTotalLeaveDays(currentYearFloat)
+				.currTotalLeaveDays(employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate))
 				.approverId(request.getApproverId())
 				.build();
     	

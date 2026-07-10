@@ -34,21 +34,21 @@ public class EmployeeLeaveService {
      *    - 예) N_YEARS=3이면 3년마다 1일 추가
      *    - 최대값: basis_data seq=6 (MAXIMUM_LEAVE_DAYS)
      * 
-     * @param employee 연차를 계산할 직원
+     * @param hireDate 연차를 계산할 직원의 입사일
      * @return calculatedLeaveDays
      */
-    public float getCalculatedCurrYearLeaveDays(Employee employee) {
+    public float getCalculatedCurrYearLeaveDays(LocalDate hireDate) {
         LocalDate now = LocalDate.now();
         
         float calculatedLeaveDays;
         // 1. 입사 1년 미만인지 판단
-        if (now.isBefore(employee.getHireDate().plusYears(1))) {
+        if (now.isBefore(hireDate.plusYears(1))) {
             // 월차 계산: 입사월 제외, 이후 경과 월수
-            int monthlyLeaveDays = calculateMonthlyLeaveDays(employee.getHireDate(), now);
+            int monthlyLeaveDays = calculateMonthlyLeaveDays(hireDate, now);
             calculatedLeaveDays = (float) Math.min(monthlyLeaveDays, 11);
         } else {
             // 2. 근무 연수 계산
-            int yearsOfService = Period.between(employee.getHireDate(), now).getYears();
+            int yearsOfService = Period.between(hireDate, now).getYears();
 
             // 3. BasisDataFactory에서 기초 데이터 조회
             float baseLeaveDay = basisDataFactory.getAsInteger(
@@ -83,6 +83,9 @@ public class EmployeeLeaveService {
 
         // 6. 계산된 값 반환
         return calculatedLeaveDays;
+    }
+    public float getCalculatedCurrYearLeaveDays(Employee employee) {
+    	return getCalculatedCurrYearLeaveDays(employee.getHireDate());
     }
 
     /**
