@@ -12,6 +12,7 @@ public enum BasisDataType {
 	,ADDITIONAL_LEAVE_DAYS				(3L, "추가연차 일수")
 	,MINIMUM_ATTENDANCE_RATE_FOR_LEAVE	(4L, "만근 출석 퍼센트")
 	,EMPlOYEE_NUMBER_PREFIX				(5L, "사번 접두사")
+	,MAXIMUM_LEAVE_DAYS					(6L, "최대 연차일수")
 	;
 	
 	private final long code;

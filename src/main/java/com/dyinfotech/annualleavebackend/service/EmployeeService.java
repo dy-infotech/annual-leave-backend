@@ -17,10 +17,14 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmployeeLeaveService employeeLeaveService;
 
     public EmployeeDto.EmployResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        // 현재 연도 연차일수 계산 및 설정
+        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
 
         return EmployeeDto.EmployResponse.builder()
                 .employeeNumber(employee.getEmployeeNumber())

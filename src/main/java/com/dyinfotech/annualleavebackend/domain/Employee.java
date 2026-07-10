@@ -2,7 +2,6 @@ package com.dyinfotech.annualleavebackend.domain;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.common.type.Role;
@@ -94,8 +93,7 @@ public class Employee {
     private LocalDateTime updatedAt;
 
     @Builder
-    public Employee(String employeeNumber, String name, String department, String team, String position,
-                    String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {
+    public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
@@ -121,26 +119,26 @@ public class Employee {
     
     @PostLoad
     protected void initialize() {
-        // teamData 리스트에 값이 있으면 ADMIN, 없으면 EMPLOYEE로 설정
+        // 1. Role 설정: teamData 리스트에 값이 있으면 ADMIN, 없으면 EMPLOYEE
         if (this.teamData != null && !this.teamData.isEmpty()) {
             this.role = Role.ADMIN;
         } else {
             this.role = Role.EMPLOYEE;
         }
         
-        // leaveAdjustments 리스트를 순회하며 adjustedLeaveDays 계산
+        // 2. 조정된 연차일수 계산: leaveAdjustments 리스트를 순회
         float adjustedDays = 0.0f;
-        for (LeaveAdjustment leaveAdjustment : leaveAdjustments) {
-        	adjustedDays += leaveAdjustment.getSign().equals("plus") ? leaveAdjustment.getLeaveDays() : -leaveAdjustment.getLeaveDays();
-		}
+        if (this.leaveAdjustments != null) {
+            for (LeaveAdjustment adjustment : this.leaveAdjustments) {
+                adjustedDays += "plus".equals(adjustment.getSign()) ? adjustment.getLeaveDays() : -adjustment.getLeaveDays();
+            }
+        }
         this.adjustedLeaveDays = adjustedDays;
         
-        // 올해 입사자는 월차 반영 (만근 실패시 월차 차감은 adjustedLeaveDays에서 처리)
-        LocalDate now = LocalDate.now();
-        if (hireDate.getYear() == now.getYear()) {
-			this.currTotalLeaveDays = (float)ChronoUnit.MONTHS.between(hireDate, now);
-		}
+        // 3. 현재 연도 연차일수는 Service에서 계산하여 setter를 통해 설정됨
+        // @PostLoad에서는 계산하지 않음 (BasisDataFactory는 Service에서만 접근 가능)
     }
+    
     
     public void setEmployeeNumber(String employeeNumber) {
 		this.employeeNumber = employeeNumber;
@@ -157,6 +155,22 @@ public class Employee {
     
     public void setRole(Role role) {
     	this.role = role;
+    }
+
+    public void setCurrYear(String year) {
+        this.currYear = year;
+    }
+
+    public void setCurrYearLeaveDays(Float leaveDays) {
+        this.currTotalLeaveDays = leaveDays;
+    }
+    
+    public void setPrevYear(String year) {
+        this.prevYear = year;
+    }
+
+    public void setPrevYearLeaveDays(Float leaveDays) {
+        this.prevTotalLeaveDays = leaveDays;
     }
 
 }

@@ -30,6 +30,7 @@ public class AuthService {
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
+    private final EmployeeLeaveService employeeLeaveService;
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
@@ -139,7 +140,10 @@ public class AuthService {
                     HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        // 3. JWT 발급
+        // 3. 현재 연도 연차일수 계산 및 설정
+        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
+
+        // 4. JWT 발급
         String token = jwtProvider.generateToken(employee.getEmployeeId(), employee.getRole().name());
 
         return SignInDto.SignInResponse.builder()
