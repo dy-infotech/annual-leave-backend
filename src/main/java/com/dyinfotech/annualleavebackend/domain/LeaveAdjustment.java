@@ -91,7 +91,7 @@ public class LeaveAdjustment {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            LeaveAdjustment that = (LeaveAdjustment) o;
+            LeaveAdjustmentId that = (LeaveAdjustmentId) o;
             return java.util.Objects.equals(employeeId, that.employeeId) && java.util.Objects.equals(year, that.year);
         }
 
