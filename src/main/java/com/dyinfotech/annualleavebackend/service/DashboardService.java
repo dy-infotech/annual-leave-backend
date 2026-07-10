@@ -19,6 +19,7 @@ public class DashboardService {
 
     private final EmployeeRepository employeeRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
 
     public DashboardDto getDashboard(Long employeeId) {
@@ -35,7 +36,7 @@ public class DashboardService {
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
 
         // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employee.getRole() == Role.ADMIN ? getAllEmployeeRequestSummary() : null;
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.resolveRole(employeeId) == Role.ADMIN ? getAllEmployeeRequestSummary() : null;
 
         return DashboardDto.builder()
                 .myLeaveInfoResponse(myLeaveInfo)
@@ -50,7 +51,7 @@ public class DashboardService {
         return DashboardDto.MyLeaveInfoResponse.builder()
                 .totalLeaveDays(currTotalLeaveDays)
                 .usedLeaveDays(usedDays)
-                .remainingLeaveDays(CommonService.getRemainingDays(employee, currTotalLeaveDays, usedDays))
+                .remainingLeaveDays(commonService.getRemainingDays(employee, currTotalLeaveDays, usedDays))
                 .build();
     }
 

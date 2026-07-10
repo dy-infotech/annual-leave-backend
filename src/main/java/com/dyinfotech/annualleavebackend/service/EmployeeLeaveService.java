@@ -3,25 +3,28 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.LocalDate;
 import java.time.Period;
 
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
+import com.dyinfotech.annualleavebackend.repository.TeamRepository;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * 직원의 연차 계산을 담당하는 서비스.
  * BasisDataFactory에서 기초 데이터(연차 기준)를 조회하여 현재 연도 연차일수를 계산한다.
  */
 @Service
+@RequiredArgsConstructor
 public class EmployeeLeaveService {
 
     private final BasisDataFactory basisDataFactory;
-
-    public EmployeeLeaveService(@Lazy BasisDataFactory basisDataFactory) {
-        this.basisDataFactory = basisDataFactory;
-    }
+    private final TeamRepository teamRepository;
+    private final LeaveAdjustmentRepository leaveAdjustmentRepository;
 
     /**
      * 직원의 현재 연도 연차일수를 계산해 반환한다
@@ -121,5 +124,11 @@ public class EmployeeLeaveService {
 
         return count;
     }
-
+    
+    public Role resolveRole(Long employeeId) {
+        return teamRepository.existsByProjectManagerId(employeeId) ? Role.ADMIN : Role.EMPLOYEE;
+    }
+    public float getAdjustedLeaveDays(Long employeeId, String year) {
+        return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeId, year);
+    }
 }

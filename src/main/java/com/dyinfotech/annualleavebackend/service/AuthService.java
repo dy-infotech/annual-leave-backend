@@ -97,13 +97,6 @@ public class AuthService {
         // Dirty Checking(변경 감지)
         // 명시적으로 save()를 호출하지 않아도, @Transactional 범위 안에서 조회한 Entity의 필드를 변경하면 트랜잭션이 끝날 때 자동으로 Update
         employee.completeSignUp(encodedPassword);
-        
-        // 4. Role 설정: teamData에 값이 있으면 ADMIN, 없으면 EMPLOYEE
-        if (employee.getTeamData() != null && !employee.getTeamData().isEmpty()) {
-            employee.setRole(Role.ADMIN);
-        } else {
-            employee.setRole(Role.EMPLOYEE);
-        }
 
         return SignUpDto.SignUpResponse.builder()
                 .employeeId(employee.getEmployeeId())
@@ -128,15 +121,16 @@ public class AuthService {
         if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
-
+        
         // 4. JWT 발급
-        String token = jwtProvider.generateToken(employee.getEmployeeId(), employee.getRole().name());
+        Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
+        String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
 
         return SignInDto.SignInResponse.builder()
                 .token(token)
                 .employeeId(employee.getEmployeeId())
                 .name(employee.getName())
-                .role(employee.getRole().name())
+                .role(role.name())
                 .build();
     }
 }

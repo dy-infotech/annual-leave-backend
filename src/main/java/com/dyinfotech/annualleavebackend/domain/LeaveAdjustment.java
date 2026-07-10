@@ -2,8 +2,6 @@ package com.dyinfotech.annualleavebackend.domain;
 
 import java.time.LocalDateTime;
 
-import com.dyinfotech.annualleavebackend.domain.BasisData.BasisDataId;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -40,6 +38,7 @@ public class LeaveAdjustment {
     @Column(name = "reason", length = 200)
     private String reason;
 
+    @Id
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -53,11 +52,13 @@ public class LeaveAdjustment {
         this.sign = sign;
         this.leaveDays = leaveDays;
         this.reason = reason;
+        this.createdAt = LocalDateTime.now();
     }
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
+    	// XXX: createdAt이 PK로 변경되었으므로 @PrePersist가 아니라 @Builder에서 처리되어야 한다..
+        //this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -67,24 +68,19 @@ public class LeaveAdjustment {
     }
 
     // Composite id defined as a static inner class so LeaveAdjustment is self-contained.
+    @Getter
     public static class LeaveAdjustmentId implements java.io.Serializable {
         private Long employeeId;
         private String year;
+        private LocalDateTime createdAt;
 
         public LeaveAdjustmentId() {
         }
 
-        public LeaveAdjustmentId(Long employeeId, String year) {
+        public LeaveAdjustmentId(Long employeeId, String year, LocalDateTime createdAt) {
             this.employeeId = employeeId;
             this.year = year;
-        }
-
-        public Long getEmployeeId() {
-            return employeeId;
-        }
-
-        public String getYear() {
-            return year;
+            this.createdAt = createdAt;
         }
 
         @Override
@@ -92,12 +88,14 @@ public class LeaveAdjustment {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
             LeaveAdjustmentId that = (LeaveAdjustmentId) o;
-            return java.util.Objects.equals(employeeId, that.employeeId) && java.util.Objects.equals(year, that.year);
+            return java.util.Objects.equals(employeeId, that.employeeId) && 
+            		java.util.Objects.equals(year, that.year) && 
+            		java.util.Objects.equals(createdAt, that.createdAt);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(employeeId, year);
+            return java.util.Objects.hash(employeeId, year, createdAt);
         }
     }
     

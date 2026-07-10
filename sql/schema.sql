@@ -77,8 +77,11 @@ CREATE TABLE leave_adjustment (
                                sign               VARCHAR(5)	NOT NULL COMMENT 'plus, minus',
                                leave_days         FLOAT			NOT NULL COMMENT '조정 일수',
                                reason             VARCHAR(200)	NOT NULL COMMENT '발생 사유',
+
+                               created_at         DATETIME		NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                               updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                
-                               PRIMARY KEY (employee_id, year),
+                               PRIMARY KEY (employee_id, year, created_at),
                                CONSTRAINT fk_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 ) COMMENT '휴가 조정 내역(특별 휴가 추가, 만근 실패 차감)';
 

@@ -24,6 +24,7 @@ public class LeaveRequestService {
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
+    private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
 
     @Transactional
@@ -110,11 +111,8 @@ public class LeaveRequestService {
     private void validateRemainingLeave(Employee employee, Float useDays) {
     	// 사용한 휴가 수
         Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
-        
-        // 선행 함수에 의해 연산이 필요하지 않지만 엄밀한 CommonService::getRemainingDays 사용을 위해서 계산을 진행하도록 진행한다
-        float calculatedCurrTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         // 남은 휴가 수 = 현재 총 휴가 수 + 조정된 휴가 수 - 사용한 휴가 수
-        Float remainingDays = CommonService.getRemainingDays(employee, calculatedCurrTotalLeaveDays, usedDays);
+        Float remainingDays = commonService.getRemainingDays(employee, usedDays);
 
         if (useDays > remainingDays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잔여 연차(" + remainingDays + "일)를 초과했습니다.");

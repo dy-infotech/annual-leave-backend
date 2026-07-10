@@ -9,7 +9,12 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class CommonService {
-	static Float getRemainingDays(Employee employee, float currTotalLeaveDays, Float usedDays) {
-        return currTotalLeaveDays + employee.getAdjustedLeaveDays() - usedDays;
+	private final EmployeeLeaveService employeeLeaveService;
+	
+	public Float getRemainingDays(Employee employee, float currTotalLeaveDays, Float usedDays) {
+        return currTotalLeaveDays + employeeLeaveService.getAdjustedLeaveDays(employee.getEmployeeId(), employee.getCurrYear()) - usedDays;
+	}
+	public Float getRemainingDays(Employee employee, Float usedDays) {
+        return getRemainingDays(employee, employeeLeaveService.getCalculatedCurrYearLeaveDays(employee), usedDays);
 	}
 }

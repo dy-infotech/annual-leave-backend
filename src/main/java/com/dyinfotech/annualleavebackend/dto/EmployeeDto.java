@@ -39,7 +39,7 @@ public class EmployeeDto {
                     .position(employee.getPosition())
                     .department(employee.getDepartment())
                     .hireDate(employee.getHireDate())
-                    .role(employee.getRole().name())
+//                    .role(employee.getRole().name())
                     .build();
         }
     }
