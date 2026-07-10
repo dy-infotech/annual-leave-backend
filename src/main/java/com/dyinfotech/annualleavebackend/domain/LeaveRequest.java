@@ -16,7 +16,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -38,6 +37,9 @@ public class LeaveRequest {
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
+    @Column(name = "leave_type", nullable = false, length = 50)
+    private String leaveType;
+
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
 
@@ -47,6 +49,9 @@ public class LeaveRequest {
     @Column(name = "use_days", nullable = false)
     private Float useDays;
 
+    @Column(name = "leave_reason", length = 200)
+    private String leaveReason;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     private LeaveRequestStatus status;
@@ -55,18 +60,19 @@ public class LeaveRequest {
     @JoinColumn(name = "manager_id")
     private Employee manager;
 
+    @Column(name = "managed_at")
+    private LocalDateTime managedAt;
+
     @Column(name = "reject_reason", length = 200)
     private String rejectReason;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "managed_at", nullable = false)
-    private LocalDateTime managedAt;
-
     @Builder
-    public LeaveRequest(Employee employee, LocalDate startDate, LocalDate endDate, Float useDays) {
+    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays) {
         this.employee = employee;
+        this.leaveType = leaveType;
         this.startDate = startDate;
         this.endDate = endDate;
         this.useDays = useDays;
@@ -76,12 +82,6 @@ public class LeaveRequest {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        this.managedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.managedAt = LocalDateTime.now();
     }
 
     public void approve(Employee manager) {
@@ -91,7 +91,7 @@ public class LeaveRequest {
 
         this.status = LeaveRequestStatus.APPROVED;
         this.manager = manager;
-//        this.processedAt = LocalDateTime.now();
+        this.managedAt = LocalDateTime.now();
     }
 
     public void reject(Employee manager, String rejectReason) {
@@ -102,7 +102,7 @@ public class LeaveRequest {
         this.status = LeaveRequestStatus.REJECTED;
         this.manager = manager;
         this.rejectReason = rejectReason;
-//        this.processedAt = LocalDateTime.now();
+        this.managedAt = LocalDateTime.now();
     }
 
     public void cancel() {

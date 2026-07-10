@@ -25,10 +25,14 @@ public class LeaveRequestService {
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
+    private final EmployeeLeaveService employeeLeaveService;
 
     @Transactional
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        // 현재 연도 연차일수 계산 및 설정
+        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
 
         validateDateRange(request.getStartDate(), request.getEndDate());
         validateUseDaysUnit(request.getUseDays());
@@ -37,6 +41,7 @@ public class LeaveRequestService {
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .employee(employee)
+                .leaveType("") // TODO: leaveType 설정해야함....
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .useDays(request.getUseDays())

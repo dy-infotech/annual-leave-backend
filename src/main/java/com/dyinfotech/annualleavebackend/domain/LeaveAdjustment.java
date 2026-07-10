@@ -2,9 +2,12 @@ package com.dyinfotech.annualleavebackend.domain;
 
 import java.time.LocalDateTime;
 
+import com.dyinfotech.annualleavebackend.domain.BasisData.BasisDataId;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.IdClass;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -16,6 +19,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "leave_adjustment")
 @Getter
+@IdClass(LeaveAdjustment.LeaveAdjustmentId.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class LeaveAdjustment {
 
@@ -60,6 +64,41 @@ public class LeaveAdjustment {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    // Composite id defined as a static inner class so BasisData is self-contained.
+    public static class LeaveAdjustmentId implements java.io.Serializable {
+        private Long employeeId;
+        private String year;
+
+        public LeaveAdjustmentId() {
+        }
+
+        public LeaveAdjustmentId(Long employeeId, String year) {
+            this.employeeId = employeeId;
+            this.year = year;
+        }
+
+        public Long getEmployeeId() {
+            return employeeId;
+        }
+
+        public String getYear() {
+            return year;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            LeaveAdjustmentId that = (LeaveAdjustmentId) o;
+            return java.util.Objects.equals(employeeId, that.employeeId) && java.util.Objects.equals(year, that.year);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(employeeId, year);
+        }
     }
     
 }

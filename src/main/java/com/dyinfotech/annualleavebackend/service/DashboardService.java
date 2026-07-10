@@ -21,10 +21,14 @@ public class DashboardService {
 
     private final EmployeeRepository employeeRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final EmployeeLeaveService employeeLeaveService;
 
     public DashboardDto getDashboard(Long employeeId) {
 
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        // 현재 연도 연차일수 계산 및 설정
+        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
 
         // 1. 내 휴가 정보
         DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee);
