@@ -66,7 +66,7 @@ public class LeaveAdjustment {
         this.updatedAt = LocalDateTime.now();
     }
 
-    // Composite id defined as a static inner class so BasisData is self-contained.
+    // Composite id defined as a static inner class so LeaveAdjustment is self-contained.
     public static class LeaveAdjustmentId implements java.io.Serializable {
         private Long employeeId;
         private String year;
