@@ -7,18 +7,7 @@ import java.util.List;
 
 import com.dyinfotech.annualleavebackend.common.type.Role;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.PostLoad;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -67,12 +56,14 @@ public class Employee {
 
 //    @Enumerated(EnumType.STRING)
 //    @Column(name = "role", nullable = false, length = 10)
+    @Transient
     private Role role;
     
     @OneToMany(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id")
     private List<LeaveAdjustment> leaveAdjustments;
-    
+
+    @Transient
     private float adjustedLeaveDays;
     
     @Column(name = "curr_year", length = 4)
