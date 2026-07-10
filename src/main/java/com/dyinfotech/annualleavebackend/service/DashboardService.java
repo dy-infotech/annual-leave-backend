@@ -12,8 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
-
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -27,11 +25,11 @@ public class DashboardService {
 
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
-        // 현재 연도 연차일수 계산 및 설정
-        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
+        // 현재 연도 연차일수 계산
+        float currYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
 
         // 1. 내 휴가 정보
-        DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee);
+        DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee, currYearLeaveDays);
 
         // 2. 내 휴가 요청 요약
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
@@ -46,11 +44,11 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee) {
+    private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee, float currTotalLeaveDays) {
         Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
 
         return DashboardDto.MyLeaveInfoResponse.builder()
-                .totalLeaveDays(employee.getCurrTotalLeaveDays())
+                .totalLeaveDays(currTotalLeaveDays)
                 .usedLeaveDays(usedDays)
                 .remainingLeaveDays(CommonService.getRemainingDays(employee, usedDays))
                 .build();

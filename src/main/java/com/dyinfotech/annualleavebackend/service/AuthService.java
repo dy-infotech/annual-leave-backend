@@ -141,7 +141,10 @@ public class AuthService {
         }
 
         // 3. 현재 연도 연차일수 계산 및 설정
-        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
+        float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
+        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
+        }
 
         // 4. JWT 발급
         String token = jwtProvider.generateToken(employee.getEmployeeId(), employee.getRole().name());

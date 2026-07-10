@@ -1,9 +1,11 @@
 package com.dyinfotech.annualleavebackend.repository;
 
-import com.dyinfotech.annualleavebackend.domain.Employee;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
+import com.dyinfotech.annualleavebackend.domain.Employee;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
@@ -15,4 +17,5 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     
     Optional<Employee> findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(String prefix);
     
+    List<Employee> findAllByFireDateIsNull();
 }

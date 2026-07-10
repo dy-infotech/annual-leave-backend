@@ -24,7 +24,7 @@ public class EmployeeLeaveService {
     }
 
     /**
-     * 직원의 현재 연도 연차일수를 계산하고 Employee 객체에 설정한다.
+     * 직원의 현재 연도 연차일수를 계산해 반환한다
      * 
      * 계산 규칙:
      * 1. 입사 1년 미만: 월차로 계산 (최대 11일)
@@ -35,21 +35,12 @@ public class EmployeeLeaveService {
      *    - 최대값: basis_data seq=6 (MAXIMUM_LEAVE_DAYS)
      * 
      * @param employee 연차를 계산할 직원
+     * @return calculatedLeaveDays
      */
-    public void calculateAndSetCurrentYearLeaveDays(Employee employee) {
+    public float getCalculatedCurrYearLeaveDays(Employee employee) {
         LocalDate now = LocalDate.now();
-        String currentYear = String.valueOf(now.getYear());
         
-        // 현재 연도를 currYear에 설정
-        if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
-			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
-        	employee.setPrevYear(employee.getCurrYear());
-        	employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
-        	employee.setCurrYear(currentYear);
-		}
-
         float calculatedLeaveDays;
-
         // 1. 입사 1년 미만인지 판단
         if (now.isBefore(employee.getHireDate().plusYears(1))) {
             // 월차 계산: 입사월 제외, 이후 경과 월수
@@ -90,8 +81,8 @@ public class EmployeeLeaveService {
             calculatedLeaveDays = Math.min(baseLeaveDay, maximumLeaveDays);
         }
 
-        // 6. Employee에 설정
-        employee.setCurrYearLeaveDays(calculatedLeaveDays);
+        // 6. 계산된 값 반환
+        return calculatedLeaveDays;
     }
 
     /**

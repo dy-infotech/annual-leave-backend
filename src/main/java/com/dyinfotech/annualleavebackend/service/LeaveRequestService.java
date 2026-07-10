@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.LeaveAdjustment;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
@@ -31,8 +30,20 @@ public class LeaveRequestService {
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
+        String currentYear = String.valueOf(LocalDate.now().getYear());
+        // 현재 연도를 currYear에 설정
+        if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
+			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
+        	employee.setPrevYear(employee.getCurrYear());
+        	employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
+        	employee.setCurrYear(currentYear);
+		}
+        
         // 현재 연도 연차일수 계산 및 설정
-        employeeLeaveService.calculateAndSetCurrentYearLeaveDays(employee);
+        float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
+        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
+        }
 
         validateDateRange(request.getStartDate(), request.getEndDate());
         validateUseDaysUnit(request.getUseDays());
