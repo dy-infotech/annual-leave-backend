@@ -50,7 +50,7 @@ public class DashboardService {
         return DashboardDto.MyLeaveInfoResponse.builder()
                 .totalLeaveDays(currTotalLeaveDays)
                 .usedLeaveDays(usedDays)
-                .remainingLeaveDays(CommonService.getRemainingDays(employee, usedDays))
+                .remainingLeaveDays(CommonService.getRemainingDays(employee, currTotalLeaveDays, usedDays))
                 .build();
     }
 
