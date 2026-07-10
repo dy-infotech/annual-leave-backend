@@ -37,6 +37,9 @@ public class LeaveRequest {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
+    
+    @Column(name = "leave_type", nullable = false, length = 50)
+    private String leaveType;
 
     @Column(name = "start_date", nullable = false)
     private LocalDate startDate;
@@ -47,25 +50,25 @@ public class LeaveRequest {
     @Column(name = "use_days", nullable = false)
     private Float useDays;
 
+    @Column(name = "leave_reason", length = 200)
+    private String leaveReason;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     private LeaveRequestStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "approver_id")
-    private Employee approver;
+    @JoinColumn(name = "manager_id")
+    private Employee manager;
+
+    @Column(name = "managed_at")
+    private LocalDateTime managedAt;
 
     @Column(name = "reject_reason", length = 200)
     private String rejectReason;
 
-    @Column(name = "processed_at")
-    private LocalDateTime processedAt;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
 
     @Builder
     public LeaveRequest(Employee employee, LocalDate startDate, LocalDate endDate, Float useDays) {
@@ -79,12 +82,6 @@ public class LeaveRequest {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
 
     public void approve(Employee approver) {
@@ -93,8 +90,8 @@ public class LeaveRequest {
         }
 
         this.status = LeaveRequestStatus.APPROVED;
-        this.approver = approver;
-        this.processedAt = LocalDateTime.now();
+        this.manager = approver;
+        this.managedAt = LocalDateTime.now();
     }
 
     public void reject(Employee approver, String rejectReason) {
@@ -103,9 +100,9 @@ public class LeaveRequest {
         }
 
         this.status = LeaveRequestStatus.REJECTED;
-        this.approver = approver;
+        this.manager = approver;
         this.rejectReason = rejectReason;
-        this.processedAt = LocalDateTime.now();
+        this.managedAt = LocalDateTime.now();
     }
 
     public void cancel() {
