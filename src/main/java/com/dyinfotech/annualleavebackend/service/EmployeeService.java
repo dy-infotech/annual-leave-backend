@@ -44,8 +44,13 @@ public class EmployeeService {
                 	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
         
-        // 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
-        authService.validateLogin(employee, request.getCurrentPassword());
+
+        // 비밀번호 일치 여부 확인
+        if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
+        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccess_count());
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
+        }
 
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
         employee.changePassword(encodedNewPassword);

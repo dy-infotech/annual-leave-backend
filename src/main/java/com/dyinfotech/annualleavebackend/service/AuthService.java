@@ -45,7 +45,9 @@ public class AuthService {
     	LocalDate now = LocalDate.now();
     	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPlOYEE_NUMBER_PREFIX);
     	if (employeeNumberPrefix.isEmpty()) {
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사번 접두사 정보가 없습니다.");
+    		String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType.EMPlOYEE_NUMBER_PREFIX";
+    		log.error(errorMsg);
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
 		}
     	
     	// 팀 정보와 관리자 매칭
@@ -99,11 +101,17 @@ public class AuthService {
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
         // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
         Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
+                .orElseThrow(() -> {
+                	String errorMsg = "등록되지 않은 사번입니다.";
+                	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
+                	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
 
         // 2. 이미 가입된 사원인지 확인 (password가 이미 채워져 있으면 가입 완료 상태)
         if (employee.getPassword() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 사원입니다.");
+        	String errorMsg = "이미 가입된 사원입니다.";
+        	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, errorMsg);
         }
 
         // 3. 비밀번호 암호화 후 저장
@@ -137,18 +145,22 @@ public class AuthService {
         // 비밀번호 일치 여부 확인
         if (!passwordEncoder.matches(password, employee.getPassword())) {
         	employee.increaseAccessCount();
-        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",inputPassword: " + password + ",realPassword: " + employee.getPassword() + ",failCount : " + employee.getAccess_count() );
+        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccess_count());
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
         	employee.initAccessCount();
         }
     }
+    
+    @Transactional
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
         // 1. employeeNumber(=사번)로 직원 조회
         Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
+                .orElseThrow(() -> {
+                	log.error("사번이 존재하지 않습니다. employeeNumber: " + request.getEmployeeNumber());
+                	return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+                });
         
         // 2. 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
         validateLogin(employee, request.getPassword());
