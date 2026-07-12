@@ -33,8 +33,9 @@ public class LeaveRequestService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
     private final HolidayRepository holidayRepository;
-    private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
+    private final NotificationService notificationService;
+    private final CommonService commonService;
 
     @Transactional
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
@@ -77,6 +78,11 @@ public class LeaveRequestService {
                 .build();
 
         leaveRequestRepository.save(leaveRequest);
+        
+        // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
+        notificationService.sendNotificationToTeams(List.of(FcmService.TEAM_TOPIC_PREFIX + employee.getTeam()), 
+        											employee.getEmployeeNumber() + "님의 휴가 신청", 
+        											"[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }

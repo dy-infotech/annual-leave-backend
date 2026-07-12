@@ -29,6 +29,9 @@ jwt:
 openapi:
   service-key: ${SERVICE_KEY}
 
+fcm:
+  certification: classpath:firebase-service-account.json
+
 logging:
   level:
     root: info

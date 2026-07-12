@@ -41,4 +41,8 @@ public class TeamService {
 		
 		return new AbstractMap.SimpleEntry<>(isMyTeamManager, teams.toString());
 	}
+	
+	public boolean isTeamManager(Long employeeId) {
+		return teamRepository.existsByProjectManagerId(employeeId);
+	}
 }

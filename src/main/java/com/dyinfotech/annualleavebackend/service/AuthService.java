@@ -37,6 +37,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
+    private final NotificationService notificationService;
     private final TeamService teamService;
     
     @Transactional
@@ -174,6 +175,22 @@ public class AuthService {
         // 4. JWT 발급
         Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
+        
+        // 5. 팀 프로젝트 매니저면 FCM Token 구독 처리
+        if (teamService.isTeamManager(employee.getEmployeeId())) {
+        	String fcmToken = request.getFcmToken();
+        	if (fcmToken != null && !fcmToken.isBlank()) {
+        		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
+                notificationService.syncToken(
+                    employee.getEmployeeId(), 
+                    fcmToken, 
+                    request.getDeviceOs(), 
+                    employee.getTeam()
+                );
+        	} else {
+        		log.warn("관리자 권한을 가졌으나 요청에 FCM 토큰이 누락되었습니다. employeeId: {}", employee.getEmployeeId());
+        	}
+        }
 
         return SignInDto.SignInResponse.builder()
                 .token(token)
