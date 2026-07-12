@@ -21,7 +21,7 @@ public class NotificationService {
      * ① 로그인 및 토크 동기화 (UPSERT)
      */
     @Transactional
-    public void syncToken(Long employeeId, String fcmToken, String deviceOs, String teamId) {
+    public void syncToken(Long employeeId, String fcmToken, String deviceOs, Long approverId) {
         // DB에 기존 토큰이 있는지 조회하여 애플리케이션 레벨 UPSERT 구현
         tokenRepository.findByFcmToken(fcmToken)
             .ifPresentOrElse(
@@ -38,7 +38,7 @@ public class NotificationService {
             );
 
         // 구글 서버 토픽 구독은 비동기로 처리하여 로그인 API 지연 방지
-        fcmService.subscribeTopics(fcmToken, teamId);
+        fcmService.subscribeTopics(fcmToken, approverId);
     }
 
     /**
@@ -46,12 +46,12 @@ public class NotificationService {
      * TODO: 로그아웃 기능 구현 및 토큰 삭제 적용
      */
     @Transactional
-    public void logoutToken(String fcmToken, String teamId) {
+    public void logoutToken(String fcmToken, Long approverId) {
         // DB에서 삭제
         tokenRepository.deleteByFcmToken(fcmToken);
         
         // 구글 서버에 토픽 해제 요청
-        fcmService.unsubscribeTopics(fcmToken, teamId);
+        fcmService.unsubscribeTopics(fcmToken, approverId);
     }
 
     /**
@@ -59,7 +59,7 @@ public class NotificationService {
      * TODO: 인사권자에 대한 Role 추가 및 해당 권한자가 프로젝트 매니저 이동시 해당 함수 적용
      */
     @Transactional(readOnly = true)
-    public void handleHrMovement(Long employeeId, String oldTeamId, String newTeamId) {
+    public void handleHrMovement(Long employeeId, Long oldApproverId, Long newApproverId) {
         // 해당 유저가 가진 모든 기기 토큰 추출
         List<FcmToken> userTokens = tokenRepository.findByEmployeeId(employeeId);
         List<String> tokens = userTokens.stream()
@@ -68,14 +68,14 @@ public class NotificationService {
 
         // 이전 팀 토픽 끊고 새 팀 토픽 연결 (비동기 묶음 처리)
         if (!tokens.isEmpty()) {
-            fcmService.switchTeamTopic(tokens, oldTeamId, newTeamId);
+            fcmService.switchTeamTopic(tokens, oldApproverId, newApproverId);
         }
     }
 
     /**
      * ④ 알림 발송 공통 메서드
      */
-    public void sendNotificationToTeams(List<String> teamIds, String title, String body) {
-        fcmService.sendConditionNotification(teamIds, title, body);
+    public void sendNotificationToTeams(List<Long> approverIds, String title, String body) {
+        fcmService.sendConditionNotification(approverIds, title, body);
     }
 }

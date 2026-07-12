@@ -185,7 +185,7 @@ public class AuthService {
                     employee.getEmployeeId(), 
                     fcmToken, 
                     request.getDeviceOs(), 
-                    employee.getTeam()
+                    employee.getApproverId()
                 );
         	} else {
         		log.warn("관리자 권한을 가졌으나 요청에 FCM 토큰이 누락되었습니다. employeeId: {}", employee.getEmployeeId());

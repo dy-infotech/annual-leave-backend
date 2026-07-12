@@ -80,7 +80,7 @@ public class LeaveRequestService {
         leaveRequestRepository.save(leaveRequest);
         
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        notificationService.sendNotificationToTeams(List.of(FcmService.TEAM_TOPIC_PREFIX + employee.getTeam()), 
+        notificationService.sendNotificationToTeams(List.of(employee.getApproverId()), 
         											employee.getEmployeeNumber() + "님의 휴가 신청", 
         											"[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
 

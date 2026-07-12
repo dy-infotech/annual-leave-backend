@@ -19,41 +19,41 @@ public class FcmService {
 	public static final String TEAM_TOPIC_PREFIX = "team_";
 	
 	@Async("fcmExecutor") // 별도의 스레드 풀 사용 권장
-	public void subscribeTopics(String fcmToken, String teamId) {
+	public void subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
 //			FirebaseMessaging.getInstance().subscribeToTopic(tokens, "all");
-			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + teamId);
-			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", fcmToken, teamId);
+			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
+			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", fcmToken, approverId);
 		} catch (Exception e) {
 			log.error("FCM 토픽 구독 중 오류 발생", e);
 		}
 	}
 	
 	@Async("fcmExecutor")
-	public void unsubscribeTopics(String fcmToken, String teamId) {
+	public void unsubscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
 //			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, "all");
-			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + teamId);
-			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", fcmToken, teamId);
+			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
+			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", fcmToken, approverId);
 		} catch (Exception e) {
 			log.error("FCM 토픽 해제 중 오류 발생", e);
 		}
 	}
 	
 	@Async("fcmExecutor")
-	public void switchTeamTopic(List<String> tokens, String oldTeamId, String newTeamId) {
+	public void switchTeamTopic(List<String> tokens, Long oldApproverId, Long newApproverId) {
 		try {
 			if (tokens.isEmpty()) return;
 			
 			// 1. 이전 팀 토픽 해제
-			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + oldTeamId);
+			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + oldApproverId);
 			
 			// 2. 새로운 팀 토픽 구독
-			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + newTeamId);
+			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + newApproverId);
 			
-			log.info("인사이동 토픽 전환 완료 - 이전: {}, 신규: {}, 대상 토큰 수: {}", oldTeamId, newTeamId, tokens.size());
+			log.info("인사이동 토픽 전환 완료 - 이전: {}, 신규: {}, 대상 토큰 수: {}", oldApproverId, newApproverId, tokens.size());
 		} catch (Exception e) {
 			log.error("인사이동 토픽 전환 중 오류 발생", e);
 		}
@@ -61,9 +61,9 @@ public class FcmService {
 	}
 	
 	@Async("fcmExecutor")
-	public void sendConditionNotification(List<String> teamIds, String title, String body) {
+	public void sendConditionNotification(List<Long> approverIds, String title, String body) {
 		try {
-			String condition = teamIds.stream()
+			String condition = approverIds.stream()
 					.map(id -> "'team_" + id + "' in topics")
 					.collect(Collectors.joining(" || "));
 			
