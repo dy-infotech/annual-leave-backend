@@ -1,11 +1,15 @@
 package com.dyinfotech.annualleavebackend.config;
 
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.common.type.Role;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
@@ -28,7 +33,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null && jwtProvider.validateToken(token)) {
             Long employeeId = jwtProvider.getEmployeeId(token);
             String role = jwtProvider.getRole(token);
-
+            
+            // Role 검증 (XXX: 테스트 필요)
+            if (role == null || role.isBlank() || (!Role.ADMIN.name().equals(role) && !Role.EMPLOYEE.name().equals(role))) {
+                log.warn("[인증 실패] 위변조되지 않은 토큰이나 Role 클레임이 누락되었습니다. employeeId: {}", employeeId);
+                
+                // 다음 필터로 넘기지 않고(filterChain.doFilter 생략) 즉시 클라이언트에게 에러를 응답합니다.
+                sendUnauthorizedResponse(response, "유효하지 않은 토큰 권한 정보입니다.");
+                return; 
+            }
+            
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
             var authentication = new UsernamePasswordAuthenticationToken(
@@ -54,5 +68,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         return null;
+    }
+    
+    /**
+     * 💡 인증 실패 시 클라이언트에게 401 Unauthorized JSON 응답을 명확하게 내려주는 헬퍼 메서드
+     */
+    private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        
+        // 📌 프로젝트 내에 ObjectMapper 빈이 있다면 주입받아 공통 ErrorResponse 객체를 JSON으로 직렬화해 던지는 것을 추천합니다.
+        String jsonResponse = String.format(
+            "{\"status\": 401, \"error\": \"Unauthorized\", \"message\": \"%s\"}", 
+            message
+        );
+        
+        response.getWriter().write(jsonResponse);
     }
 }
