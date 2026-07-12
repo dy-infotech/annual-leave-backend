@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -22,7 +23,9 @@ import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LeaveRequestService {
@@ -35,7 +38,15 @@ public class LeaveRequestService {
 
     @Transactional
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
-        Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        LeaveType leaveType = LeaveType.fromName(request.getLeaveType());
+        // XXX: 클라에서 받은 정보의 LeaveType을 검증한다.
+        if (leaveType == null) {
+        	String errorMsg = "LeaveRequest::createLeaveRequest LeaveType 에러. employeeId : " + employeeId + ",leaveType : " + request.getLeaveType();
+        	log.error(errorMsg);
+        	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "휴가유형 파라미터가 잘못되었습니다.");
+        }
+    	
+    	Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         String currentYear = String.valueOf(LocalDate.now().getYear());
         // 현재 연도를 currYear에 설정
@@ -53,7 +64,7 @@ public class LeaveRequestService {
         }
 
         validateDateRange(request.getStartDate(), request.getEndDate());
-        validateUseDaysUnit(request.getUseDays());
+        validateUseDaysUnit(leaveType, request.getUseDays());
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
         validateRemainingLeave(employee, request.getUseDays());
 
@@ -78,7 +89,7 @@ public class LeaveRequestService {
     }
 
     // 0.5 단위인지 체크
-    private void validateUseDaysUnit(Float useDays) {
+    private void validateUseDaysUnit(LeaveType leaveType, Float useDays) {
     	float remainder = useDays.floatValue() - useDays.intValue();
         if (remainder != 0.0f && remainder != 0.5f) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0.5 단위로 입력해 주세요.");
@@ -86,6 +97,11 @@ public class LeaveRequestService {
 
         if (useDays <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
+        }
+        
+        // XXX: 반차는 1일씩만 사용하도록 수정
+        if ((leaveType.equals(LeaveType.AM_HALF) || leaveType.equals(LeaveType.PM_HALF)) && useDays > 1) {
+        	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반차는 하루 단위로 사용해야 합니다.");
         }
     }
 
