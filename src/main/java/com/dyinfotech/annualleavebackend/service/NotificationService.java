@@ -20,7 +20,7 @@ public class NotificationService {
     private final FcmService fcmService;
     
     /**
-     * ① 로그인 및 토크 동기화 (UPSERT)
+     * ① 로그인 및 토크 동기화
      */
     @Transactional
     public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
