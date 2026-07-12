@@ -18,13 +18,41 @@ import lombok.extern.slf4j.Slf4j;
 public class FcmService {
 	public static final String TEAM_TOPIC_PREFIX = "team_";
 	
+	/**
+	 * FCM Token의 중간 값들을 마스킹. 로그에 표기할 때 보안적으로 방어하기 위함.
+	 * @param token
+	 * @return maskedToken
+	 */
+	private String maskFcmToken(String token) {
+	    if (token == null || token.isBlank()) {
+	        return token;
+	    }
+
+	    int length = token.length();
+	    
+	    // 혹시 모를 아주 짧은 문자열에 대한 예외 처리 (최소 4자 이상일 때만 분할)
+	    if (length < 4) {
+	        return "****";
+	    }
+
+	    // 1/4 지점과 3/4 지점 계산
+	    int start = length / 4;
+	    int end = (length * 3) / 4;
+	    int maskLength = end - start;
+
+	    // 앞부분 + 마스킹(*) + 뒷부분 조합
+	    return token.substring(0, start) 
+	            + "*".repeat(maskLength) 
+	            + token.substring(end);
+	}
+	
 	@Async("fcmExecutor") // 별도의 스레드 풀 사용 권장
 	public void subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
 //			FirebaseMessaging.getInstance().subscribeToTopic(tokens, "all");
 			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
-			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", fcmToken, approverId);
+			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
 		} catch (Exception e) {
 			log.error("FCM 토픽 구독 중 오류 발생", e);
 		}
@@ -36,7 +64,7 @@ public class FcmService {
 			List<String> tokens = Collections.singletonList(fcmToken);
 //			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, "all");
 			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
-			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", fcmToken, approverId);
+			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
 		} catch (Exception e) {
 			log.error("FCM 토픽 해제 중 오류 발생", e);
 		}
