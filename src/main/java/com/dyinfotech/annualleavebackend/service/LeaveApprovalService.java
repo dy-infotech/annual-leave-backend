@@ -58,7 +58,7 @@ public class LeaveApprovalService {
             	}
         	}
     		log.error(errorMsg);
-    		new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+    		throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
         
         // 요청자와 관리자 정보 분리
