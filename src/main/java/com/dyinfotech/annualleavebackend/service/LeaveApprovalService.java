@@ -51,7 +51,7 @@ public class LeaveApprovalService {
         	if (employees.isEmpty()) {
         		errorMsg = "존재하지 않는 요청자와 관리자입니다. requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId;
         	} else {
-            	if (employees.get(0).getEmployeeId() == employeeId) {
+            	if (employees.get(0).getEmployeeId().equals(employeeId)) {
             		errorMsg = "존재하지 않는 요청자입니다. requestId : " + requestId + ",employeeId : " + employeeId;
             	} else {
             		errorMsg = "존재하지 않는 관리자입니다. requestId : " + requestId + ",approverId : " + approverId;
@@ -64,7 +64,7 @@ public class LeaveApprovalService {
         // 요청자와 관리자 정보 분리
         Employee employee = null;
         Employee approver = null;
-        if (employees.get(0).getEmployeeId() == employeeId) {
+        if (employees.get(0).getEmployeeId().equals(employeeId)) {
         	employee = employees.get(0);
         	approver = employees.get(1);
         } else {
