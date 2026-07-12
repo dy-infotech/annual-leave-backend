@@ -16,6 +16,7 @@ import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.jsonwebtoken.lang.Collections;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,8 +53,6 @@ public class HolidaySyncService {
         String yearStr = String.valueOf(year);
         String monthStr = String.format("%02d", month);
 
-        // 해당 년/월의 기존 공휴일 데이터 삭제 (중복 방지 및 갱신)
-        holidayRepository.deleteByYearAndMonth(yearStr, monthStr);
 
         try {
         	URI uri = UriComponentsBuilder.fromUriString(API_URL)
@@ -68,7 +67,14 @@ public class HolidaySyncService {
                     .retrieve()
                     .body(String.class);
 
-            parseAndSave(response);
+            List<Holiday> holidays = parseAndSave(response);
+
+            // API 호출 성공시 해당 년/월의 기존 공휴일 데이터 삭제 (중복 방지 및 갱신)
+            holidayRepository.deleteByYearAndMonth(yearStr, monthStr);
+            if (!holidays.isEmpty()) {
+            	holidayRepository.saveAll(holidays);
+            }
+            
             log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", yearStr, monthStr);
 
         } catch (Exception e) {
@@ -92,7 +98,7 @@ public class HolidaySyncService {
     	}
     }
 
-    private void parseAndSave(String jsonResponse) throws Exception {
+    private List<Holiday> parseAndSave(String jsonResponse) throws Exception {
         JsonNode root = objectMapper.readTree(jsonResponse);
         JsonNode responseNode = root.path("response");
         JsonNode headerNode = responseNode.path("header");
@@ -105,7 +111,7 @@ public class HolidaySyncService {
         
         JsonNode itemsNode = responseNode.path("body").path("items");
         if (itemsNode.isMissingNode() || itemsNode.path("item").isMissingNode()) {
-            return;
+            return Collections.emptyList();
         }
         
         // 2개 이상의 데이터면 isArray: true, 1개의 데이터면 isObject: true
@@ -122,9 +128,7 @@ public class HolidaySyncService {
             if (h != null) holidays.add(h);
         }
 
-        if (!holidays.isEmpty()) {
-            holidayRepository.saveAll(holidays);
-        }
+        return holidays;
     }
 
     private Holiday convertToEntity(JsonNode item) {
