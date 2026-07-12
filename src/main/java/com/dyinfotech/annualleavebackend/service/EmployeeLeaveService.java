@@ -2,31 +2,67 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 직원의 연차 계산을 담당하는 서비스.
  * BasisDataFactory에서 기초 데이터(연차 기준)를 조회하여 현재 연도 연차일수를 계산한다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmployeeLeaveService {
 
     private final BasisDataFactory basisDataFactory;
     private final TeamRepository teamRepository;
+    private final EmployeeRepository employeeRepository;
     private final LeaveAdjustmentRepository leaveAdjustmentRepository;
-
+    
+    /**
+     * 전직원 새해 연차 롤오버 및 재계산
+     * 이 메서드가 끝나는 순간 전직원 변경사항이 DB에 Commit 되며 락(Lock)이 즉시 해제
+     * @param currentYear
+     */
+    @Transactional
+    public void renewAllActiveEmployeesLeave(String currentYear) {
+        // 1. 퇴사자를 제외한 전직원 목록 조회 (필요 시 패치 조인이나 벌크 연산 고려)
+        List<Employee> activeEmployees = employeeRepository.findAllByFireDateIsNull();
+        
+        // 2. 루프를 돌며 안전하게 연차 갱신
+        for (Employee employee : activeEmployees) {
+            try {
+            	String prevYear = employee.getCurrYear();
+            	if (prevYear != null && !prevYear.equals(currentYear)) {
+            		employee.setPrevYear(prevYear);
+            		employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
+            		employee.setCurrYear(currentYear);
+            		employee.setCurrYearLeaveDays(getCalculatedCurrYearLeaveDays(employee));
+                    log.info("직원 번호 [{}] 연차 갱신 완료", employee.getEmployeeNumber());
+            	} else {
+            		log.error("직원 번호 [{}] 연차 갱신 실패", employee.getEmployeeNumber());
+            	}
+            } catch (Exception e) {
+                // 한 명이 에러 나도 다른 직원들은 갱신되어야 하므로 예외 처리 개별 적용
+                log.error("직원 번호 [{}] 연차 갱신 중 에러 발생: {}", employee.getEmployeeNumber(), e.getMessage());
+            }
+        }
+    }
+    
     /**
      * 직원의 현재 연도 연차일수를 계산해 반환한다
      * 
