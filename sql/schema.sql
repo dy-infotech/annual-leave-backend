@@ -104,7 +104,7 @@ CREATE TABLE fcm_token (
                                token_id			  BIGINT AUTO_INCREMENT PRIMARY KEY,
                                employee_id        BIGINT		NOT NULL COMMENT '근로자 인덱스',
                                fcm_token		  VARCHAR(255)	NOT NULL UNIQUE COMMENT 'FCM 디바이스 토큰',
-                               device_os          VARCHAR(10)	NOT NULL COMMENT 'ANDROID, IOS, WEB 등',
+                               device_os          VARCHAR(10)	NULL COMMENT 'ANDROID, IOS, WEB 등',
                                updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                
                                CONSTRAINT fk_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
