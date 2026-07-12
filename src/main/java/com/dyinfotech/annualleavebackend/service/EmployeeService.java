@@ -22,7 +22,6 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmployeeLeaveService employeeLeaveService;
-    private final AuthService authService;
 
     public EmployeeDto.EmployResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)

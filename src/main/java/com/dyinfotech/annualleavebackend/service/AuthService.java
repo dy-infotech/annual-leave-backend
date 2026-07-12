@@ -182,10 +182,9 @@ public class AuthService {
         	if (fcmToken != null && !fcmToken.isBlank()) {
         		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
                 notificationService.syncToken(
-                    employee.getEmployeeId(), 
+                    employee.getEmployeeId(),
                     fcmToken, 
-                    request.getDeviceOs(), 
-                    employee.getApproverId()
+                    request.getDeviceOs()
                 );
         	} else {
         		log.warn("관리자 권한을 가졌으나 요청에 FCM 토큰이 누락되었습니다. employeeId: {}", employee.getEmployeeId());

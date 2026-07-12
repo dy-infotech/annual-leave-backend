@@ -1,7 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,24 +21,23 @@ public class NotificationService {
      * ① 로그인 및 토크 동기화 (UPSERT)
      */
     @Transactional
-    public void syncToken(Long employeeId, String fcmToken, String deviceOs, Long approverId) {
-        // DB에 기존 토큰이 있는지 조회하여 애플리케이션 레벨 UPSERT 구현
-        tokenRepository.findByFcmToken(fcmToken)
-            .ifPresentOrElse(
-                existingToken -> {
-                    // 주인이 바뀌었거나 정보가 바뀌었다면 업데이트
-                    existingToken.setEmployeeId(employeeId);
-                    existingToken.setDeviceOs(deviceOs);
-                },
-                () -> {
-                    // 완전히 새로운 토큰이면 인서트
-                    FcmToken newToken = new FcmToken(employeeId, fcmToken, deviceOs);
-                    tokenRepository.save(newToken);
-                }
-            );
+    public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
+        // 무조건 DB에 수정을 시도하여 updated_at을 현재 시간(LocalDateTime.now())으로 갱신
+        int updatedRows = tokenRepository.updateTokenAndTouch(
+                employeeId, 
+                deviceOs, 
+                LocalDateTime.now(), 
+                fcmToken
+        );
+        
+        // 업데이트된 행이 0개라는 것은 DB에 이 토큰이 없다는 뜻이므로 완전히 새로운 토큰으로 생성(INSERT)
+        if (updatedRows == 0) {
+            FcmToken newToken = new FcmToken(employeeId, fcmToken, deviceOs);
+            tokenRepository.save(newToken);
+        }
 
         // 구글 서버 토픽 구독은 비동기로 처리하여 로그인 API 지연 방지
-        fcmService.subscribeTopics(fcmToken, approverId);
+        fcmService.subscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
     }
 
     /**
@@ -46,34 +45,16 @@ public class NotificationService {
      * TODO: 로그아웃 기능 구현 및 토큰 삭제 적용
      */
     @Transactional
-    public void logoutToken(String fcmToken, Long approverId) {
+    public void logoutToken(String fcmToken, Long employeeId) {
         // DB에서 삭제
         tokenRepository.deleteByFcmToken(fcmToken);
         
         // 구글 서버에 토픽 해제 요청
-        fcmService.unsubscribeTopics(fcmToken, approverId);
+        fcmService.unsubscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
     }
 
     /**
-     * ③ 인사 이동 및 부서 변경 처리
-     * TODO: 인사권자에 대한 Role 추가 및 해당 권한자가 프로젝트 매니저 이동시 해당 함수 적용
-     */
-    @Transactional(readOnly = true)
-    public void handleHrMovement(Long employeeId, Long oldApproverId, Long newApproverId) {
-        // 해당 유저가 가진 모든 기기 토큰 추출
-        List<FcmToken> userTokens = tokenRepository.findByEmployeeId(employeeId);
-        List<String> tokens = userTokens.stream()
-                .map(FcmToken::getFcmToken)
-                .collect(Collectors.toList());
-
-        // 이전 팀 토픽 끊고 새 팀 토픽 연결 (비동기 묶음 처리)
-        if (!tokens.isEmpty()) {
-            fcmService.switchTeamTopic(tokens, oldApproverId, newApproverId);
-        }
-    }
-
-    /**
-     * ④ 알림 발송 공통 메서드
+     * ③ 알림 발송 공통 메서드
      */
     public void sendNotificationToTeams(List<Long> approverIds, String title, String body) {
         fcmService.sendConditionNotification(approverIds, title, body);

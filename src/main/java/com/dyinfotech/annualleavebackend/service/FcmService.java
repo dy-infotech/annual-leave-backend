@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -7,16 +8,21 @@ import java.util.stream.Collectors;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class FcmService {
 	public static final String TEAM_TOPIC_PREFIX = "team_";
+	
+	private final FcmTokenRepository fcmTokenRepository;
 	
 	/**
 	 * FCM Token의 중간 값들을 마스킹. 로그에 표기할 때 보안적으로 방어하기 위함.
@@ -71,24 +77,6 @@ public class FcmService {
 	}
 	
 	@Async("fcmExecutor")
-	public void switchTeamTopic(List<String> tokens, Long oldApproverId, Long newApproverId) {
-		try {
-			if (tokens.isEmpty()) return;
-			
-			// 1. 이전 팀 토픽 해제
-			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + oldApproverId);
-			
-			// 2. 새로운 팀 토픽 구독
-			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + newApproverId);
-			
-			log.info("인사이동 토픽 전환 완료 - 이전: {}, 신규: {}, 대상 토큰 수: {}", oldApproverId, newApproverId, tokens.size());
-		} catch (Exception e) {
-			log.error("인사이동 토픽 전환 중 오류 발생", e);
-		}
-		
-	}
-	
-	@Async("fcmExecutor")
 	public void sendConditionNotification(List<Long> approverIds, String title, String body) {
 		try {
 			String condition = approverIds.stream()
@@ -105,5 +93,9 @@ public class FcmService {
 		} catch (Exception e) {
 			log.error("조건부 알림 발송 실패", e);
 		}
+	}
+	
+	public void deleteInactiveToken(LocalDateTime now, int N) {
+		fcmTokenRepository.deleteByUpdatedAtBefore(now.minusMonths(N));
 	}
 }
