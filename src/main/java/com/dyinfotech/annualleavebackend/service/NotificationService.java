@@ -27,20 +27,13 @@ public class NotificationService {
     @Transactional
     public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
     	// 기기 재사용 및 소유자 변경 케이스 추적
-        tokenRepository.findByFcmToken(fcmToken).ifPresent(existingToken -> {
-            Long oldEmployeeId = existingToken.getEmployeeId();
-            
-            // 토큰의 옛날 주인과 지금 로그인한 사람이 다르다면 기기 재사용
-            if (!oldEmployeeId.equals(employeeId)) {
-                log.info("기기 소유자 변경 감지 (이전 사번 ID: {} -> 신규 사번 ID: {})", oldEmployeeId, employeeId);
-                
-                // 이전 사원의 팀 정보를 조회하여 옛날 팀 토픽만 저격 해제
-                employeeRepository.findById(oldEmployeeId).ifPresent(oldEmployee -> {
-                    // 비동기로 옛날 토픽 해제 요청 보냄
-                    fcmService.unsubscribeTopics(fcmToken, oldEmployee.getApproverId());
-                });
-            }
-        });
+    	tokenRepository.findByFcmToken(fcmToken).ifPresent(existingToken -> {
+    	    Long oldEmployeeId = existingToken.getEmployeeId();
+    	    if (!oldEmployeeId.equals(employeeId)) {
+    	        log.info("기기 소유자 변경 감지 (이전 사번 ID: {} -> 신규 사번 ID: {})", oldEmployeeId, employeeId);
+    	        fcmService.unsubscribeTopics(fcmToken, oldEmployeeId);
+    	    }
+    	});
     	
         // 무조건 DB에 수정을 시도하여 updated_at을 현재 시간(LocalDateTime.now())으로 갱신
         int updatedRows = tokenRepository.updateTokenAndTouch(
