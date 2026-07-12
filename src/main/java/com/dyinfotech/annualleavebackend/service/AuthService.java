@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
@@ -30,10 +31,11 @@ import lombok.RequiredArgsConstructor;
 public class AuthService {
 
 	private final BasisDataFactory basisDataFactory;
-    private final EmployeeRepository employeeRepository;
+    private final EmployeeRepository employeeRepository;;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
+    private final TeamService teamService;
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
@@ -43,6 +45,13 @@ public class AuthService {
     	if (employeeNumberPrefix.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "사번 접두사 정보가 없습니다.");
 		}
+    	
+    	// 팀 정보와 관리자 매칭
+    	Entry<Boolean, String> teamData = teamService.getTeamManagerData(request.getTeam(), request.getApproverId());
+    	if (!teamData.getKey()) {
+    		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다. team : " + request.getTeam() + ",approverId : " + request.getApproverId() + ",approverTeam=[" + teamData.getValue() + "]";
+			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
+    	}
 
     	String currentYear = String.valueOf(now.getYear());
     	String prefix = employeeNumberPrefix.get().getData().replace("#{YEAR}", currentYear);
@@ -58,7 +67,6 @@ public class AuthService {
 		} else {
 			employeeNumber = prefix + String.format(formatString, 1);
 		}
-    	
     	
     	// 근로자 정보 등록
     	LocalDate hireDate = LocalDate.parse(request.getHireDate());

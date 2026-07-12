@@ -28,10 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LeaveApprovalService {
-
-    private final TeamRepository teamRepository;
 	private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
+    private final TeamService teamService;
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests() {
         return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(LeaveRequestStatus.PENDING)
@@ -73,23 +72,9 @@ public class LeaveApprovalService {
         }
         
         // 관리자가 요청자의 팀 소속인지 확인
-        boolean isMyTeamManager = false;
-        List<Team> teamList = teamRepository.findAllByProjectManagerId(approverId);
-        StringBuilder teams = new StringBuilder();
-        for (Team team : teamList) {
-        	if (employee.getTeam().equals(team.getTeam())) {
-        		isMyTeamManager = true;
-        		break;
-        	}
-        	teams.append(team.getTeam()).append(",");
-        }
-        int length = teams.length();
-        if (length > 0) {        	
-        	teams.setLength(teams.length() - 1);
-        }
-        
-        if (!isMyTeamManager) {
-        	String errorMsg = "승인할 수 없는 관리자입니다. requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",approverTeam=[" + teams.toString() + "]";
+        Map.Entry<Boolean, String> teamData = teamService.getTeamManagerData(employee.getTeam(), approverId);
+        if (!teamData.getKey()) {
+        	String errorMsg = "승인할 수 없는 관리자입니다. requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg);
         	throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
