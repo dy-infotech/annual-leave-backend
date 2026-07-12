@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +17,6 @@ import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import io.jsonwebtoken.lang.Collections;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
