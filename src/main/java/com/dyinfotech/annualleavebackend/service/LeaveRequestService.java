@@ -173,12 +173,19 @@ public class LeaveRequestService {
 
     @Transactional
     public void cancel(Long employeeId, Long requestId) {
+    	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+                .orElseThrow(() -> {
+                	String errorMsg = "존재하지 않는 휴가 신청 정보입니다.";
+                	log.error(errorMsg + " " + detailMsg);
+                	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
 
         // 본인 신청이 아닐 경우 취소 불가
         if (!leaveRequest.getEmployee().getEmployeeId().equals(employeeId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 휴가 신청만 취소할 수 있습니다.");
+        	String errorMsg = "본인의 휴가 신청만 취소할 수 있습니다.";
+        	log.error(errorMsg + " " + detailMsg);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
         }
 
         try {

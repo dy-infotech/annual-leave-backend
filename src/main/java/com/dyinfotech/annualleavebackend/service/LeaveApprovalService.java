@@ -12,13 +12,11 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
-import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,16 +45,20 @@ public class LeaveApprovalService {
         List<Employee> employees = employeeRepository.findAllByEmployeeIdIn(List.of(employeeId, approverId));
         if (employees.size() < 2) {
         	String errorMsg = null;
+        	String detailMsg = null;
         	if (employees.isEmpty()) {
-        		errorMsg = "존재하지 않는 요청자와 관리자입니다. requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId;
+        		errorMsg = "존재하지 않는 요청자와 관리자입니다.";
+        		detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId;
         	} else {
             	if (employees.get(0).getEmployeeId().equals(employeeId)) {
-            		errorMsg = "존재하지 않는 요청자입니다. requestId : " + requestId + ",employeeId : " + employeeId;
+            		errorMsg = "존재하지 않는 요청자입니다.";
+            		detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
             	} else {
-            		errorMsg = "존재하지 않는 관리자입니다. requestId : " + requestId + ",approverId : " + approverId;
+            		errorMsg = "존재하지 않는 관리자입니다.";
+            		detailMsg = "requestId : " + requestId + ",approverId : " + approverId;
             	}
         	}
-    		log.error(errorMsg);
+    		log.error(errorMsg + " " + detailMsg);
     		throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
         
@@ -74,8 +76,9 @@ public class LeaveApprovalService {
         // 관리자가 요청자의 팀 소속인지 확인
         Map.Entry<Boolean, String> teamData = teamService.getTeamManagerData(employee.getTeam(), approverId);
         if (!teamData.getKey()) {
-        	String errorMsg = "승인할 수 없는 관리자입니다. requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",approverTeam=[" + teamData.getValue() + "]";
-    		log.error(errorMsg);
+        	String errorMsg = "승인할 수 없는 관리자입니다.";
+        	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",approverTeam=[" + teamData.getValue() + "]";
+    		log.error(errorMsg + " " + detailMsg);
         	throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
         

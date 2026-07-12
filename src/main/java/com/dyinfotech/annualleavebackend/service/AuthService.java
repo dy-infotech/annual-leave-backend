@@ -25,7 +25,9 @@ import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -49,7 +51,9 @@ public class AuthService {
     	// 팀 정보와 관리자 매칭
     	Entry<Boolean, String> teamData = teamService.getTeamManagerData(request.getTeam(), request.getApproverId());
     	if (!teamData.getKey()) {
-    		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다. team : " + request.getTeam() + ",approverId : " + request.getApproverId() + ",approverTeam=[" + teamData.getValue() + "]";
+    		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
+    		String detailMsg = "team : " + request.getTeam() + ",approverId : " + request.getApproverId() + ",approverTeam=[" + teamData.getValue() + "]";
+    		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
     	}
 
@@ -116,13 +120,8 @@ public class AuthService {
     }
 
     private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
-        // 1. employeeNumber(=사번)로 직원 조회
-        Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
-        
-        // 2. 로그인 실패 최대 횟수 제한
+    public void validateLogin(Employee employee, String password) throws ResponseStatusException {
+        // 로그인 실패 최대 횟수 제한
         int loginFailMaxCount = basisDataFactory.getAsInteger(BasisDataType.LOGIN_FAIL_MAX_COUNT).orElse(30);
         int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
         if (employee.getAccess_count() >= loginFailMaxCount) {
@@ -135,22 +134,32 @@ public class AuthService {
         	}
         }
         
-        // 3. 비밀번호 일치 여부 확인
-        if (!passwordEncoder.matches(request.getPassword(), employee.getPassword())) {
+        // 비밀번호 일치 여부 확인
+        if (!passwordEncoder.matches(password, employee.getPassword())) {
         	employee.increaseAccessCount();
+        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",inputPassword: " + password + ",realPassword: " + employee.getPassword() + ",failCount : " + employee.getAccess_count() );
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
         	employee.initAccessCount();
         }
+    }
+    public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
+        // 1. employeeNumber(=사번)로 직원 조회
+        Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
+        
+        // 2. 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
+        validateLogin(employee, request.getPassword());
 
-        // 4. 현재 연도 연차일수 계산 및 설정
+        // 3. 현재 연도 연차일수 계산 및 설정
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
         
-        // 5. JWT 발급
+        // 4. JWT 발급
         Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
 
