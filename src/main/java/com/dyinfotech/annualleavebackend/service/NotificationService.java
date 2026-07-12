@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
-import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -17,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @RequiredArgsConstructor
 public class NotificationService {
-	private final EmployeeRepository employeeRepository;
 	private final FcmTokenRepository tokenRepository;
     private final FcmService fcmService;
     
