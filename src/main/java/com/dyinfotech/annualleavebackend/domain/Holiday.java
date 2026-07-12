@@ -41,7 +41,7 @@ public class Holiday {
     }
     
 
-    // Composite id defined as a static inner class so LeaveAdjustment is self-contained.
+    // Composite id defined as a static inner class so Holiday is self-contained.
     @Getter
     public static class HolidayId implements java.io.Serializable {
         private String year;
