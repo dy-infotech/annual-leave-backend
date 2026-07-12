@@ -91,7 +91,7 @@ CREATE TABLE holiday (
                                name               VARCHAR(50)	NOT NULL COMMENT '공휴일 이름',
                                year               VARCHAR(4)	NOT NULL COMMENT '공휴일 연도',
                                month			  VARCHAR(2)	NOT NULL COMMENT '공휴일 월',
-                               day		          VARCHAR(2)	NOT NULL COMMENT '공휴일 일자'
+                               day		          VARCHAR(2)	NOT NULL COMMENT '공휴일 일자',
                                
                                PRIMARY KEY (year, month, day)
 ) COMMENT '연간 공휴일 정보 // 국경일로 변경시 data_kind, is_holiday 컬럼 추가 필요';
