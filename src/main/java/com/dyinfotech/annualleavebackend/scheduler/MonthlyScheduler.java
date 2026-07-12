@@ -19,7 +19,7 @@ public class MonthlyScheduler {
 	
     /// 매월 1일 새벽 3시에 주기적으로 공휴일 정보 동기화
     @Scheduled(cron = "0 0 3 1 * ?") 
-    public void yearlySchedule() {
+    public void monthlySchedule() {
     	LocalDate now = LocalDate.now();
         log.info("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 캐싱 시작 ===", now.getYear(), now.getMonthValue());
         holidaySyncService.syncHolidays(now.getYear(), now.getMonthValue());
