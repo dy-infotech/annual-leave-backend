@@ -13,6 +13,7 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -95,6 +96,7 @@ public class FcmService {
 		}
 	}
 	
+	@Transactional
 	public void deleteInactiveToken(LocalDateTime now, int N) {
 		fcmTokenRepository.deleteByUpdatedAtBefore(now.minusMonths(N));
 	}
