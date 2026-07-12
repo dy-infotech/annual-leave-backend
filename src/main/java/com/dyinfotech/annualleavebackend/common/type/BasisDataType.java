@@ -13,6 +13,8 @@ public enum BasisDataType {
 	,MINIMUM_ATTENDANCE_RATE_FOR_LEAVE	(4L, "만근 출석 퍼센트")
 	,EMPlOYEE_NUMBER_PREFIX				(5L, "사번 접두사")
 	,MAXIMUM_LEAVE_DAYS					(6L, "최대 연차일수")
+	,KASI_SPECIAL_DAY_API_SERVICE_URL	(7L, "한국천문연구원_특일 정보 API 서비스 URL")
+	,KASI_HOLIDAY_REQUEST_ADDRESS		(8L, "한국천문연구원_특일 정보 API 공휴일 요청 주소")
 	;
 	
 	private final long code;

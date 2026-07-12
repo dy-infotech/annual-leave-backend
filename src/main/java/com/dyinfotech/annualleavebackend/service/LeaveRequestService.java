@@ -2,7 +2,10 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -10,10 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -24,6 +29,7 @@ public class LeaveRequestService {
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
+    private final HolidayRepository holidayRepository;
     private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
 
@@ -93,14 +99,36 @@ public class LeaveRequestService {
     }
 
     private long countWeekdays(LocalDate startDate, LocalDate endDate) {
+    	// 1. 조회할 연도 목록 추출 (보통 1개 연도이거나 해를 넘기면 2개 연도)
+    	Set<String> years = new HashSet<>();
+    	years.add(String.valueOf(startDate.getYear()));
+    	years.add(String.valueOf(endDate.getYear()));
+    	
+    	// 2. 해당 연도들의 공휴일 전체 조회
+        List<Holiday> holidays = holidayRepository.findAllByYearIn(years);
+        
+        // 3. LocalDate의 Set으로 변환
+        Set<LocalDate> holidayDates = holidays.stream()
+                .map(h -> LocalDate.of(
+                        Integer.parseInt(h.getYear()), 
+                        Integer.parseInt(h.getMonth()), 
+                        Integer.parseInt(h.getDay())
+                ))
+                .collect(Collectors.toSet());
+    	
         long weekdays = 0;
         LocalDate date = startDate;
-
+        
+        // 4. 주말 및 공휴일 제외 로직 돌리기
         while (!date.isAfter(endDate)) {
-            DayOfWeek dayOfWeek = date.getDayOfWeek();
-            if (dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY) {
-                weekdays++;
+        	DayOfWeek dayOfWeek = date.getDayOfWeek();
+
+            if (dayOfWeek != DayOfWeek.SATURDAY && 
+                dayOfWeek != DayOfWeek.SUNDAY && 
+                !holidayDates.contains(date)) {
+            	weekdays += 1.0f;
             }
+            
             date = date.plusDays(1);
         }
 

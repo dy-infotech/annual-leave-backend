@@ -11,6 +11,7 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService;
+import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ public class YearlyScheduler {
 
     private final EmployeeRepository employeeRepository;
     private final EmployeeLeaveService employeeLeaveService;
+    private final HolidaySyncService holidaySyncService;
     private final BasisDataFactory basisDataFactory;
     
     /**
@@ -65,5 +67,13 @@ public class YearlyScheduler {
         }
         
         log.info("=== [연간 스케줄러] 전직원 연차 갱신 프로세스 완료 ===");
+        
+        log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 시작 ===", currentYear);
+        
+        for (int month = 1; month <= 12; month++) {
+            holidaySyncService.syncHolidays(now.getYear(), month);
+        }
+        
+        log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 완료 ===", currentYear);
     }
 }

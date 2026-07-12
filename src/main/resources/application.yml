@@ -22,6 +22,9 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 3600000   # 1시간
 
+openapi:
+  service-key: ${SERVICE_KEY}
+
 logging:
   level:
     root: info
