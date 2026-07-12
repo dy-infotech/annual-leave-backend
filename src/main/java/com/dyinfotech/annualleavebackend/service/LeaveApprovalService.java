@@ -83,7 +83,10 @@ public class LeaveApprovalService {
         	}
         	teams.append(team.getTeam()).append(",");
         }
-        teams.setLength(teams.length() - 1);
+        int length = teams.length();
+        if (length > 0) {        	
+        	teams.setLength(teams.length() - 1);
+        }
         
         if (!isMyTeamManager) {
         	String errorMsg = "승인할 수 없는 관리자입니다. requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",approverTeam=[" + teams.toString() + "]";
