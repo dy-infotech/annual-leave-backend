@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,6 +17,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 //    boolean existsByLoginId(String loginId);
     
     Optional<Employee> findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(String prefix);
+    
+    List<Employee> findAllByEmployeeIdIn(Collection<Long> employeeIds);
     
     List<Employee> findAllByFireDateIsNull();
 }

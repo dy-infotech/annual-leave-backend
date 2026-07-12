@@ -79,6 +79,8 @@ public class HolidaySyncService {
 
         } catch (Exception e) {
             log.error("[공공데이터] {}년 {}월 공휴일 동기화 중 에러 발생", yearStr, monthStr, e);
+            
+            throw new RuntimeException("공휴일 동기화 실패로 인한 트랜잭션 롤백", e);
         }
     }
     
@@ -106,7 +108,7 @@ public class HolidaySyncService {
         if (!ResultCode.SUCCESS.getCode().equals(resultCode)) {
         	String errorMsg = "[공공데이터] 공휴일 데이터 파싱 오류 resultCode: " + resultCode + ", resultMsg: " + headerNode.path("resultMsg").asText();
         	log.error(errorMsg);
-        	throw new Exception(errorMsg);
+        	throw new RuntimeException(errorMsg);
         }
         
         JsonNode itemsNode = responseNode.path("body").path("items");
