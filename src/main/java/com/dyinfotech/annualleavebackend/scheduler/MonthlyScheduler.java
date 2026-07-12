@@ -39,7 +39,7 @@ public class MonthlyScheduler {
         	fcmService.deleteInactiveToken(LocalDateTime.now(), 3);
             log.info("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 완료 ===", now.getYear(), now.getMonthValue());
         } catch (Exception e) {
-            log.error("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 중 예외 발생 (스케줄러는 계속 진행) ===", now.getYear(), now.getMonthValue());
+            log.error("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 중 예외 발생 (스케줄러는 계속 진행) ===", now.getYear(), now.getMonthValue(), e);
         }
     }
 }
