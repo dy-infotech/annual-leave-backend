@@ -12,12 +12,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "fcm_token")
 @Getter
-@Setter
 @NoArgsConstructor
 public class FcmToken {
 	@Id
@@ -44,4 +42,12 @@ public class FcmToken {
         this.fcmToken = fcmToken;
         this.deviceOs = deviceOs;
     }
+
+	public void setEmployeeId(Long employeeId) {
+		this.employeeId = employeeId;
+	}
+
+	public void setDeviceOs(String deviceOs) {
+		this.deviceOs = deviceOs;
+	}
 }
