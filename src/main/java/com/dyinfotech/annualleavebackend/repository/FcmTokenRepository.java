@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.repository;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -10,6 +11,9 @@ import org.springframework.data.repository.query.Param;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 
 public interface FcmTokenRepository extends JpaRepository<FcmToken, Long> {
+	// 토큰 존재 여부 확인용 (UPSERT 구현체에서 사용)
+	Optional<FcmToken> findByFcmToken(String fcmToken);
+	
 	// 로그아웃 시 토큰 삭제
 	void deleteByFcmToken(String fcmToken);
 	
