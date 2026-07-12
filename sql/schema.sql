@@ -6,6 +6,8 @@ CREATE TABLE employee (
                           employee_id       	BIGINT			AUTO_INCREMENT PRIMARY KEY,
                           employee_number   	VARCHAR(20) 	NOT NULL UNIQUE COMMENT '사번',
                           password          	VARCHAR(255)	NULL COMMENT '비밀번호 (NULL일 경우 아직 회원가입 전)',
+                          access_count			INT				NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수',
+                          accessed_at			DATETIME		NULL COMMENT '로그인 실패 시각',
                           name              	VARCHAR(50)   	NOT NULL COMMENT '성명',
                           department        	VARCHAR(50)   	NULL COMMENT '부서',
                           team		        	VARCHAR(30) 	NOT NULL COMMENT '팀 // 배정되지 않은 경우 대표이사 팀 선택 및 approver_id도 대표이사의 id로 해야 한다',

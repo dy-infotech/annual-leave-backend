@@ -1,6 +1,9 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
@@ -104,25 +107,42 @@ public class AuthService {
                 .build();
     }
 
+    private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
-        // 1. loginId(=사번)로 직원 조회
+        // 1. employeeNumber(=사번)로 직원 조회
         Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
-
-        // 2. 비밀번호 일치 여부 확인
+        
+        // 2. 로그인 실패 최대 횟수 제한
+        int loginFailMaxCount = basisDataFactory.getAsInteger(BasisDataType.LOGIN_FAIL_MAX_COUNT).orElse(30);
+        int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
+        if (employee.getAccess_count() >= loginFailMaxCount) {
+        	LocalDateTime unblockTime = employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
+        	if (unblockTime.isAfter(LocalDateTime.now())) {
+        		employee.initAccessCount();
+        	} else {
+                throw new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : " + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
+        	}
+        }
+        
+        // 3. 비밀번호 일치 여부 확인
         if (!passwordEncoder.matches(request.getPassword(), employee.getPassword())) {
+        	employee.increaseAccessCount();
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+        } else {
+        	employee.initAccessCount();
         }
 
-        // 3. 현재 연도 연차일수 계산 및 설정
+        // 4. 현재 연도 연차일수 계산 및 설정
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
         
-        // 4. JWT 발급
+        // 5. JWT 발급
         Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
 

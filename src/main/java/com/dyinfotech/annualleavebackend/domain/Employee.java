@@ -25,6 +25,12 @@ public class Employee {
 
     @Column(name = "password")
     private String password;
+    
+    @Column(name = "access_count")
+    private Integer access_count;
+    
+    @Column(name = "accessed_at")
+    private LocalDateTime accessedAt;
 
     @Column(name = "name", nullable = false, length = 50)
     private String name;
@@ -108,6 +114,16 @@ public class Employee {
 
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
+    }
+    
+    public void increaseAccessCount() {
+    	++this.access_count;
+    	this.accessedAt = LocalDateTime.now();
+    }
+    
+    public void initAccessCount() {
+    	this.access_count = 0;
+    	this.accessedAt = LocalDateTime.now();
     }
     
     public void setCurrYear(String year) {
