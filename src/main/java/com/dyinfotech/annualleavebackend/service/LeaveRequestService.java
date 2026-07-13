@@ -80,14 +80,21 @@ public class LeaveRequestService {
 
         leaveRequestRepository.save(leaveRequest);
         
-        Long resolvedApproverId = teamService.resolveApproverId(employee);
-        if (resolvedApproverId != null && !resolvedApproverId.equals(employee.getApproverId())) {
-            employee.changeApprover(resolvedApproverId);
+        boolean hasApproverId = false;
+        List<Long> resolvedApproverIds = teamService.resolveApproverIds(employee);
+        for (Long resolvedApproverId : resolvedApproverIds) {
+        	if (resolvedApproverId.equals(employee.getApproverId())) {
+        		hasApproverId = true;
+        		break;
+        	}
+        }
+        if (!hasApproverId) {
+        	employee.changeApprover(resolvedApproverIds.get(0));
         }
 
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        if (resolvedApproverId != null) {
-            notificationService.sendNotificationToTeams(List.of(resolvedApproverId),
+        if (!resolvedApproverIds.isEmpty()) {
+            notificationService.sendNotificationToTeams(resolvedApproverIds,
                     employee.getEmployeeNumber() + "님의 휴가 신청",
                     "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
         }

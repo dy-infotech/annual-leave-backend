@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -12,6 +13,7 @@ import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 
+import io.jsonwebtoken.lang.Collections;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -49,21 +51,35 @@ public class TeamService {
 		return teamRepository.existsByProjectManagerId(employeeId);
 	}
 
-	public Long resolveApproverId(Employee employee) {
-		Team myTeam = teamRepository.findFirstByTeam(employee.getTeam())
-				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
-
-		if (employee.getEmployeeId().equals(myTeam.getProjectManagerId())) {
-			String parentTeam = myTeam.getParentTeam();
-			if (parentTeam == null || parentTeam.isBlank()) {
-				return null;
-			}
-
-			Team parent = teamRepository.findFirstByTeam(parentTeam)
-					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다."));
-			return parent.getProjectManagerId();
+	public List<Long> resolveApproverIds(Employee employee) {
+		List<Team> myTeam = teamRepository.findAllByTeam(employee.getTeam());
+		if (myTeam.isEmpty()) {
+			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}
-
-		return myTeam.getProjectManagerId();
+		
+		List<Long> approvers = new ArrayList<>();
+		for (Team team : myTeam) {
+			if (employee.getEmployeeId().equals(team.getProjectManagerId())) {
+				String parent = team.getParentTeam();
+				if (parent == null || parent.isBlank()) {
+					return Collections.emptyList();
+				}
+				
+				List<Team> parentTeams = teamRepository.findAllByTeam(parent);
+				if (parentTeams.isEmpty()) {
+					throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다.");
+				}
+				
+				List<Long> parentApprovers = new ArrayList<>();
+				for (Team parentTeam : parentTeams) {
+					parentApprovers.add(parentTeam.getProjectManagerId());
+				}
+				
+				return parentApprovers;
+			}
+			approvers.add(team.getProjectManagerId());
+		}
+		
+		return approvers;
 	}
 }

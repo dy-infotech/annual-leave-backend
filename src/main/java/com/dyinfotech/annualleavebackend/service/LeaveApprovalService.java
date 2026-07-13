@@ -74,10 +74,17 @@ public class LeaveApprovalService {
         }
         
         // 관리자가 요청자의 승인자인지 확인
-        Long expectedApproverId = teamService.resolveApproverId(employee);
-        if (expectedApproverId == null || !expectedApproverId.equals(approverId)) {
-            String errorMsg = "승인할 수 없는 관리자입니다.";
-            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",expectedApproverId : " + expectedApproverId;
+        boolean isApprover = false;
+        List<Long> expectedApproverIds = teamService.resolveApproverIds(employee);
+        for (Long expectedApproverId : expectedApproverIds) {
+        	if (expectedApproverId.equals(approverId)) {
+        		isApprover = true;
+        		break;
+        	}
+        }
+        if (!isApprover) {
+        	String errorMsg = "승인할 수 없는 관리자입니다.";
+            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",expectedApproverId : " + expectedApproverIds;
     		log.error(errorMsg + " " + detailMsg);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
