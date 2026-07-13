@@ -115,11 +115,6 @@ public class Employee {
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
     }
- 
-//    // 💡 여기에 추가해 주세요!  // 최민지
-//    public void updatePassword(String encodedPassword) {
-//        this.password = encodedPassword;
-//    }
     
     public void increaseAccessCount() {
     	++this.access_count;
