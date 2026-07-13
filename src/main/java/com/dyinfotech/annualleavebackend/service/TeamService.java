@@ -1,10 +1,11 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -51,18 +52,18 @@ public class TeamService {
 		return teamRepository.existsByProjectManagerId(employeeId);
 	}
 
-	public List<Long> resolveApproverIds(Employee employee) {
+	public Set<Long> resolveApproverIds(Employee employee) {
 		List<Team> myTeam = teamRepository.findAllByTeam(employee.getTeam());
 		if (myTeam.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}
 		
-		List<Long> approvers = new ArrayList<>();
+		Set<Long> approvers = new HashSet<>();
 		for (Team team : myTeam) {
 			if (employee.getEmployeeId().equals(team.getProjectManagerId())) {
 				String parent = team.getParentTeam();
 				if (parent == null || parent.isBlank()) {
-					return Collections.emptyList();
+					return Collections.emptySet();
 				}
 				
 				List<Team> parentTeams = teamRepository.findAllByTeam(parent);
@@ -70,7 +71,7 @@ public class TeamService {
 					throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다.");
 				}
 				
-				List<Long> parentApprovers = new ArrayList<>();
+				Set<Long> parentApprovers = new HashSet<>();
 				for (Team parentTeam : parentTeams) {
 					parentApprovers.add(parentTeam.getProjectManagerId());
 				}

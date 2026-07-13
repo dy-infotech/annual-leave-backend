@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -75,7 +76,7 @@ public class LeaveApprovalService {
         
         // 관리자가 요청자의 승인자인지 확인
         boolean isApprover = false;
-        List<Long> expectedApproverIds = teamService.resolveApproverIds(employee);
+        Set<Long> expectedApproverIds = teamService.resolveApproverIds(employee);
         for (Long expectedApproverId : expectedApproverIds) {
         	if (expectedApproverId.equals(approverId)) {
         		isApprover = true;

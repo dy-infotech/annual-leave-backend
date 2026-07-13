@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -78,7 +79,7 @@ public class FcmService {
 	}
 	
 	@Async("fcmExecutor")
-	public void sendConditionNotification(List<Long> approverIds, String title, String body) {
+	public void sendConditionNotification(Collection<Long> approverIds, String title, String body) {
 		try {
 			String condition = approverIds.stream()
 					.map(id -> "'team_" + id + "' in topics")

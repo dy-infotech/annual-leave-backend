@@ -1,7 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Collection;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,7 +67,7 @@ public class NotificationService {
     /**
      * ③ 알림 발송 공통 메서드
      */
-    public void sendNotificationToTeams(List<Long> approverIds, String title, String body) {
+    public void sendNotificationToTeams(Collection<Long> approverIds, String title, String body) {
         fcmService.sendConditionNotification(approverIds, title, body);
     }
 }

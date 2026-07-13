@@ -81,7 +81,7 @@ public class LeaveRequestService {
         leaveRequestRepository.save(leaveRequest);
         
         boolean hasApproverId = false;
-        List<Long> resolvedApproverIds = teamService.resolveApproverIds(employee);
+        Set<Long> resolvedApproverIds = teamService.resolveApproverIds(employee);
         for (Long resolvedApproverId : resolvedApproverIds) {
         	if (resolvedApproverId.equals(employee.getApproverId())) {
         		hasApproverId = true;
@@ -89,7 +89,7 @@ public class LeaveRequestService {
         	}
         }
         if (!hasApproverId && !resolvedApproverIds.isEmpty()) {
-        	employee.changeApprover(resolvedApproverIds.get(0));
+        	employee.changeApprover(resolvedApproverIds.iterator().next());
         }
 
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
