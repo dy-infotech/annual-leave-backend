@@ -115,6 +115,10 @@ public class Employee {
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
     }
+
+    public void changeApprover(Long approverId) {
+        this.approverId = approverId;
+    }
     
     public void increaseAccessCount() {
     	++this.access_count;

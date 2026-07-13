@@ -4,8 +4,11 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 
@@ -44,5 +47,23 @@ public class TeamService {
 	
 	public boolean isTeamManager(Long employeeId) {
 		return teamRepository.existsByProjectManagerId(employeeId);
+	}
+
+	public Long resolveApproverId(Employee employee) {
+		Team myTeam = teamRepository.findFirstByTeam(employee.getTeam())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+
+		if (employee.getEmployeeId().equals(myTeam.getProjectManagerId())) {
+			String parentTeam = myTeam.getParentTeam();
+			if (parentTeam == null || parentTeam.isBlank()) {
+				return null;
+			}
+
+			Team parent = teamRepository.findFirstByTeam(parentTeam)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다."));
+			return parent.getProjectManagerId();
+		}
+
+		return myTeam.getProjectManagerId();
 	}
 }

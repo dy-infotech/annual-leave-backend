@@ -36,6 +36,7 @@ public class LeaveRequestService {
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
     private final CommonService commonService;
+    private final TeamService teamService;
 
     @Transactional
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
@@ -79,10 +80,17 @@ public class LeaveRequestService {
 
         leaveRequestRepository.save(leaveRequest);
         
+        Long resolvedApproverId = teamService.resolveApproverId(employee);
+        if (resolvedApproverId != null && !resolvedApproverId.equals(employee.getApproverId())) {
+            employee.changeApprover(resolvedApproverId);
+        }
+
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        notificationService.sendNotificationToTeams(List.of(employee.getApproverId()), 
-        											employee.getEmployeeNumber() + "님의 휴가 신청", 
-        											"[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
+        if (resolvedApproverId != null) {
+            notificationService.sendNotificationToTeams(List.of(resolvedApproverId),
+                    employee.getEmployeeNumber() + "님의 휴가 신청",
+                    "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
+        }
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }
