@@ -73,13 +73,13 @@ public class LeaveApprovalService {
         	approver = employees.get(0);
         }
         
-        // 관리자가 요청자의 팀 소속인지 확인
-        Map.Entry<Boolean, String> teamData = teamService.getTeamManagerData(employee.getTeam(), approverId);
-        if (!teamData.getKey()) {
-        	String errorMsg = "승인할 수 없는 관리자입니다.";
-        	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",approverTeam=[" + teamData.getValue() + "]";
+        // 관리자가 요청자의 승인자인지 확인
+        Long expectedApproverId = teamService.resolveApproverId(employee);
+        if (expectedApproverId == null || !expectedApproverId.equals(approverId)) {
+            String errorMsg = "승인할 수 없는 관리자입니다.";
+            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",expectedApproverId : " + expectedApproverId;
     		log.error(errorMsg + " " + detailMsg);
-        	throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
         
         return new AbstractMap.SimpleEntry<>(leaveRequest, approver);
