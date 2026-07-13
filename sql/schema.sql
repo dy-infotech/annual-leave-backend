@@ -65,7 +65,7 @@ CREATE TABLE basis_data (
                                year               VARCHAR(4)	NOT NULL,
                                seq                BIGINT		NOT NULL,
                                type               VARCHAR(2)	NOT NULL COMMENT '0: bool, 1: int, 2: long, 3: float, 4: double, 5: string, ...',
-                               data               VARCHAR(50)	NOT NULL COMMENT '비고에 해당하는 값',
+                               data               VARCHAR(100)	NOT NULL COMMENT '비고에 해당하는 값',
                                remark             VARCHAR(200)	NOT NULL COMMENT '비고',
                                
                                PRIMARY KEY (year, seq)
@@ -107,7 +107,7 @@ CREATE TABLE fcm_token (
                                device_os          VARCHAR(10)	NULL COMMENT 'ANDROID, IOS, WEB 등',
                                updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                                
-                               CONSTRAINT fk_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
+                               CONSTRAINT fk_fcm_token_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 ) COMMENT 'FCM 디바이스 토큰';
 
 

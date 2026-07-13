@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
+import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto;
 import com.dyinfotech.annualleavebackend.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +28,11 @@ public class AuthController {
     public ResponseEntity<SignInDto.SignInResponse> signIn(@Valid @RequestBody SignInDto.SignInRequest request) {
         return ResponseEntity.ok(authService.signIn(request));
     }
-
+    
+    // 💡 주소가 다르게 매핑되어 있다면 아래와 같이 플러터 요청 주소와 일치시킵니다.    
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordDto.Request request) {
+        authService.forgotPassword(request); // 서비스 메서드명도 맞추면 알아보기 쉽습니다.
+        return ResponseEntity.ok().build();   // 성공 시 200 OK 반환 (앱의 response.statusCode != 200 조건 만족)
+    }
 }

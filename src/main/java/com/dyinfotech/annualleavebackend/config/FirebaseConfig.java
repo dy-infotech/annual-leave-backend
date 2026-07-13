@@ -20,7 +20,12 @@ public class FirebaseConfig {
 	
 	@PostConstruct
     public void initialize() {
+		// 리소스 자체가 없으면 생략
+		if (!credentialResource.exists()) {
+			return;
+		}
         try  (InputStream serviceAccount = credentialResource.getInputStream()) {
+        	
         	// 1. json 없을 경우 생략
         	if (!credentialResource.isOpen()) {
         		return;

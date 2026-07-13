@@ -12,6 +12,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+ 
+import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
+import org.springframework.mail.SimpleMailMessage; // 추가됨
+import org.springframework.mail.javamail.JavaMailSender; // 추가됨
+
+import java.util.UUID; // 추가됨
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
@@ -33,12 +39,14 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthService {
 
 	private final BasisDataFactory basisDataFactory;
-    private final EmployeeRepository employeeRepository;;
+    private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
     private final TeamService teamService;
+    
+    private final JavaMailSender mailSender; // 이메일 발송 객체 추가
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
@@ -197,5 +205,46 @@ public class AuthService {
                 .name(employee.getName())
                 .role(role.name())
                 .build();
+    }
+    
+    
+    // 💡 컨트롤러의 forgotPassword 요청을 처리하는 실제 서비스 메서드
+    @Transactional
+    public void forgotPassword(ForgotPasswordDto.Request request) {
+    	 
+        // 1. 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생)
+        Employee employee = employeeRepository.findByEmployeeNumberAndEmail(request.getEmployeeNumber(), request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록된 정보가 일치하지 않습니다."));
+
+        // 2. 임시 비밀번호 생성 (영어 대소문자 + 숫자 조합 10자리)
+        String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
+
+        // 3. 비밀번호 암호화 후 업데이트 (completeSignUp 메서드를 재사용하거나 updatePassword를 사용합니다)
+        String encodedPassword = passwordEncoder.encode(temporaryPassword);
+       // employee.completeSignUp(encodedPassword); // 👈 회원가입 때 쓰신 변수변경 메서드를 재사용하여 안전하게 교체합니다.
+        employee.changePassword(encodedPassword);
+
+
+        // 4. 임시 비밀번호 이메일 전송
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("dyinfotech@dyinfotech.com"); // 💡 [필수 추가] yml의 username과 일치하는 전체 이메일 주소
+            message.setTo(employee.getEmail());
+            message.setSubject("[(주)디와이정보기술] 연차관리 시스템 임시 비밀번호 발급");
+            message.setText("안녕하세요. (주)디와이정보기술 연차관리 시스템입니다.\n\n" +
+		                    "요청하신 임시 비밀번호는 다음과 같습니다.\n" +
+		                    "임시 비밀번호: " + temporaryPassword + "\n\n" +
+		                    "로그인 후 반드시 비밀번호를 변경해 주세요.");
+            
+            mailSender.send(message); // 👈 이메일 발송 실행
+        } catch (Exception e) {
+        	 e.printStackTrace();
+
+        	    throw new ResponseStatusException(
+        	        HttpStatus.INTERNAL_SERVER_ERROR,
+        	        "이메일 발송 중 오류가 발생했습니다.",
+        	        e
+        	    );
+        }
     }
 }

@@ -22,6 +22,21 @@ spring:
      format_sql: true      # SQL 쿼리를 한 줄이 아니라 개행/들여쓰기로 예쁘게 포맷팅
      highlight_sql: true   # 콘솔창에서 SQL 키워드에 색상을 입혀 가독성 향상
 
+  mail:
+    host: smtp.cafe24.com
+    port: 587
+    username: #{MAIL_USERNAME}
+    password: #{MAIL_PASSWORD}
+    properties:
+     mail:
+       smtp:
+          auth: true
+          connectiontimeout: 5000
+          timeout: 5000
+          startls:
+            enable: true
+            required: true
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: 3600000   # 1시간

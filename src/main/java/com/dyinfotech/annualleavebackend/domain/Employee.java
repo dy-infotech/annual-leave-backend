@@ -44,7 +44,7 @@ public class Employee {
     @Column(name = "position", length = 50)
     private String position;
 
-    @Column(name = "email", length = 50)
+    @Column(name = "email", length = 100)
     private String email;
 
 //    @Column(name = "login_id", unique = true, length = 50)
@@ -115,6 +115,11 @@ public class Employee {
     public void changePassword(String encodedPassword) {
         this.password = encodedPassword;
     }
+ 
+//    // 💡 여기에 추가해 주세요!  // 최민지
+//    public void updatePassword(String encodedPassword) {
+//        this.password = encodedPassword;
+//    }
     
     public void increaseAccessCount() {
     	++this.access_count;
@@ -141,5 +146,4 @@ public class Employee {
     public void setPrevYearLeaveDays(Float leaveDays) {
         this.prevTotalLeaveDays = leaveDays;
     }
-
 }

@@ -9,7 +9,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
-
     Optional<Employee> findByEmployeeNumber(String employeeNumber);
 //    @Deprecated
 //    Optional<Employee> findByLoginId(String loginId);
@@ -21,4 +20,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     List<Employee> findAllByEmployeeIdIn(Collection<Long> employeeIds);
     
     List<Employee> findAllByFireDateIsNull();
+    
+    Optional<Employee> findByEmployeeNumberAndEmail(String employeeNo, String email);
 }
