@@ -25,18 +25,12 @@ public class FirebaseConfig {
 			return;
 		}
         try  (InputStream serviceAccount = credentialResource.getInputStream()) {
-        	
-        	// 1. json 없을 경우 생략
-        	if (!credentialResource.isOpen()) {
-        		return;
-        	}
-        	
-            // 2. 구글 인증 객체 생성
+            // 1. 구글 인증 객체 생성
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
-            // 3. 파이어베이스 앱 초기화 (중복 초기화 방지)
+            // 2. 파이어베이스 앱 초기화 (중복 초기화 방지)
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options);
             }
