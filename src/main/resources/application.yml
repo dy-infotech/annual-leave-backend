@@ -33,7 +33,7 @@ spring:
           auth: true
           connectiontimeout: 5000
           timeout: 5000
-          startls:
+          starttls:
             enable: true
             required: true
 
