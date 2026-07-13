@@ -20,10 +20,12 @@ public class FirebaseConfig {
 	
 	@PostConstruct
     public void initialize() {
-        try {
-            // 1. 리소스 폴더에서 인증키 파일 읽기
-            InputStream serviceAccount = credentialResource.getInputStream();
-
+        try  (InputStream serviceAccount = credentialResource.getInputStream()) {
+        	// 1. json 없을 경우 생략
+        	if (!credentialResource.isOpen()) {
+        		return;
+        	}
+        	
             // 2. 구글 인증 객체 생성
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
