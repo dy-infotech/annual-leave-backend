@@ -153,7 +153,7 @@ public class AuthService {
         }
         
         // 비밀번호 일치 여부 확인
-        if (!passwordEncoder.matches(passwordEncoder.encode(password), employee.getPassword())) {
+        if (!passwordEncoder.matches(password, employee.getPassword())) {
         	employee.increaseAccessCount();
         	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccess_count());
             throw new ResponseStatusException(
