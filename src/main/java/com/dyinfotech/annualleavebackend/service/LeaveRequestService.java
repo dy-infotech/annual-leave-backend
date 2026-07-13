@@ -88,7 +88,7 @@ public class LeaveRequestService {
         		break;
         	}
         }
-        if (!hasApproverId) {
+        if (!hasApproverId && !resolvedApproverIds.isEmpty()) {
         	employee.changeApprover(resolvedApproverIds.get(0));
         }
 
