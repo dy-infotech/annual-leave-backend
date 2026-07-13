@@ -9,6 +9,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class AnnualLeaveBackendApplication {
 
     public static void main(String[] args) {
+    	java.security.Security.setProperty("jdk.tls.disabledAlgorithms", "");
     	SpringApplication.run(AnnualLeaveBackendApplication.class, args);
     }
 

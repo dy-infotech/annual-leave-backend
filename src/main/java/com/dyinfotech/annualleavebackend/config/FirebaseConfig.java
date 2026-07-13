@@ -15,7 +15,8 @@ import jakarta.annotation.PostConstruct;
 
 @Configuration
 public class FirebaseConfig {
-	@Value("${fcm.certification}")
+	//@Value("${fcm.certification}")
+	@Value("firebase-service-account.json")
     private Resource credentialResource;
 	
 	@PostConstruct
