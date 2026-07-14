@@ -17,7 +17,7 @@ public enum ManageType {
 	}
 	
 	public boolean hasCode(int data) {
-		return (code | data) > 0;
+		return (code & data) > 0;
 	}
 	public int getAppliedCode(int data) {
 		return code | data;
