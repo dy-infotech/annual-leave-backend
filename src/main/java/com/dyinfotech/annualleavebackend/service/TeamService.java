@@ -104,6 +104,6 @@ public class TeamService {
 	}
 	
 	public Collection<String> findAllTeamName() {
-		return teamRepository.findAll().stream().map(e -> e.getTeam()).toList();
+		return teamRepository.findAll().stream().map(Team::getTeam).toList();
 	}
 }
