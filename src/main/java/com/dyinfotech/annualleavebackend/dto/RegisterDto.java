@@ -3,7 +3,6 @@ package com.dyinfotech.annualleavebackend.dto;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
