@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,8 @@ public class HolidaySyncService {
     
     private final String API_URL;
     
+    private final ReentrantLock lock = new ReentrantLock();
+    
     public HolidaySyncService(
     		BasisDataFactory basisDataFactory,
             HolidayRepository holidayRepository,
@@ -52,7 +55,6 @@ public class HolidaySyncService {
     public void syncHolidays(int year, int month) {
         String yearStr = String.valueOf(year);
         String monthStr = String.format("%02d", month);
-
 
         try {
         	URI uri = UriComponentsBuilder.fromUriString(API_URL)

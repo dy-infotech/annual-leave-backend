@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -37,8 +38,11 @@ public class LeaveRequestService {
     private final HolidayRepository holidayRepository;
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
+    private final HolidaySyncService holidaySyncService;
     private final CommonService commonService;
     private final TeamService teamService;
+    
+    private final ReentrantLock lock = new ReentrantLock();
 
     @Transactional
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
@@ -126,8 +130,26 @@ public class LeaveRequestService {
         }
     }
     
+    @Transactional
+    private void syncHolidays(int year) {
+    	for (int month = 1; month <= 12; ++month) {
+    		holidaySyncService.syncHolidays(year, month);
+    	}
+    }
+    
     public List<SpecialDayDto.SpecialDayResponse> getHolidays(String year) {
-    	List<Holiday> holidays = holidayRepository.findAllByYear(year);
+    	List<Holiday> holidays;
+    	
+		lock.lock();
+		try {
+	    	holidays = holidayRepository.findAllByYear(year);
+	    	if (holidays.isEmpty()) {
+	    		syncHolidays(Integer.parseInt(year));
+	    	}
+		} finally {
+			lock.unlock();
+		}
+    	
     	List<SpecialDayDto.SpecialDayResponse> specialDayResponses = new ArrayList<>();
     	for (Holiday holiday : holidays) {
     		specialDayResponses.add(SpecialDayDto.SpecialDayResponse.builder()
