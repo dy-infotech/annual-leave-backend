@@ -52,7 +52,8 @@ public class TeamService {
 		return teamRepository.existsByProjectManagerId(employeeId);
 	}
 
-	public Set<Long> resolveApproverIds(Employee employee) {
+
+	private Set<Long> resolveApproverIds(Employee employee) {
 		List<Team> myTeam = teamRepository.findAllByTeam(employee.getTeam());
 		if (myTeam.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
@@ -82,5 +83,22 @@ public class TeamService {
 		}
 		
 		return approvers;
+	}
+	public Map.Entry<Boolean, Set<Long>> getEntryOfHasApproverAndApproverIds(Employee employee) {
+        boolean hasApproverId = false;
+        Set<Long> resolvedApproverIds = resolveApproverIds(employee);
+        for (Long resolvedApproverId : resolvedApproverIds) {
+        	if (resolvedApproverId.equals(employee.getApproverId())) {
+        		hasApproverId = true;
+        		break;
+        	}
+        }
+        // !resolvedApproverIds.isEmpty()는 로그인시 방어코드로 유효하므로 조건 삭제 금지
+        if (!hasApproverId && !resolvedApproverIds.isEmpty()) {
+        	// 팀 정보에 맞는 승인자로 변경하는 방어코드이므로 삭제 금지 (삭제 시 푸시 알림 고장 가능성 높음)
+        	employee.changeApprover(resolvedApproverIds.iterator().next());
+        }
+        
+        return new AbstractMap.SimpleEntry<>(hasApproverId, resolvedApproverIds);
 	}
 }

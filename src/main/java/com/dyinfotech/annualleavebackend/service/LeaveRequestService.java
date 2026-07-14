@@ -79,22 +79,9 @@ public class LeaveRequestService {
                 .build();
 
         leaveRequestRepository.save(leaveRequest);
-        
-        // 푸시 알림 전송 대상 탐색 및 방어코드 유지
-        boolean hasApproverId = false;
-        Set<Long> resolvedApproverIds = teamService.resolveApproverIds(employee);
-        for (Long resolvedApproverId : resolvedApproverIds) {
-        	if (resolvedApproverId.equals(employee.getApproverId())) {
-        		hasApproverId = true;
-        		break;
-        	}
-        }
-        // 로그인시 처리하도록 수정되어 발생하지 않을 상황이지만 방어코드로 유지한다
-        if (!hasApproverId && !resolvedApproverIds.isEmpty()) {
-        	employee.changeApprover(resolvedApproverIds.iterator().next());
-        }
 
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
+        Set<Long> resolvedApproverIds = teamService.getEntryOfHasApproverAndApproverIds(employee).getValue();
         if (!resolvedApproverIds.isEmpty()) {
             notificationService.sendNotificationToTeams(resolvedApproverIds,
                     employee.getEmployeeNumber() + "님의 휴가 신청",
