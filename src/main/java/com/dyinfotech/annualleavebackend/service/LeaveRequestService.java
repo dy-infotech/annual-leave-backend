@@ -146,6 +146,7 @@ public class LeaveRequestService {
 	    	holidays = holidayRepository.findAllByYear(year);
 	    	if (holidays.isEmpty()) {
 	    		syncHolidays(Integer.parseInt(year));
+	    		holidays = holidayRepository.findAllByYear(year);
 	    	}
 		} finally {
 			lock.unlock();
