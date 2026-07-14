@@ -11,11 +11,12 @@ import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 public class LeaveRequestListDto {
 
     @Getter
+    @Setter
     @NoArgsConstructor
     public static class LeaveRequestListRequest {
 
@@ -31,10 +32,6 @@ public class LeaveRequestListDto {
             this.startDate = startDate;
             this.endDate = endDate;
             this.status = status;
-        }
-        
-        public void setEmployeeId(Long employeeId) {
-        	this.employeeId = employeeId;
         }
     }
 

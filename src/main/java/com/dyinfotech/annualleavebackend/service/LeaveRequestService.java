@@ -155,7 +155,7 @@ public class LeaveRequestService {
     	List<SpecialDayDto.SpecialDayResponse> specialDayResponses = new ArrayList<>();
     	for (Holiday holiday : holidays) {
     		specialDayResponses.add(SpecialDayDto.SpecialDayResponse.builder()
-							    	    		.name(year)
+							    	    		.name(holiday.getName())
 							    	    		.date(LocalDate.of(Integer.parseInt(holiday.getYear()), 
 							    	    							Integer.parseInt(holiday.getMonth()), 
 							    	    							Integer.parseInt(holiday.getDay())))
