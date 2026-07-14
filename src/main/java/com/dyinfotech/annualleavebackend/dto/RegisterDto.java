@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import com.dyinfotech.annualleavebackend.common.type.Role;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Builder;
@@ -20,12 +22,10 @@ public class RegisterDto {
         private String team;
         private String position;
         private String email;
+        private Role role;
 
         @NotBlank(message = "입사일을 입력해 주세요.")
         private String hireDate;
-        
-        @NotNull(message = "승인자 번호를 입력해 주세요.")
-        private Long approverId;
     }
 
     @Getter

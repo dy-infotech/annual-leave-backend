@@ -10,8 +10,10 @@ import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
@@ -29,11 +31,22 @@ public class TeamService {
 	 * @param approverId 팀의 관리자
 	 * @return Entry<Boolean, String>(isMyTeamManager, approverTeamList)
 	 */
-	public Map.Entry<Boolean, String> getTeamManagerData(String targetTeam, Long approverId) {
+	public Map.Entry<Boolean, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
 		boolean isMyTeamManager = false;
 		StringBuilder teams = new StringBuilder();
 		
 		List<Team> teamList = teamRepository.findAllByProjectManagerId(approverId);
+		List<Team> targetTeamList = teamRepository.findAllByTeam(targetTeam);
+		// 신규 팀인 경우
+		if (targetTeamList.isEmpty()) {
+			// 대표이사만 생성 가능
+			if (approverPosition.equals(PositionType.CEO)) {
+				return new AbstractMap.SimpleEntry<>(Boolean.TRUE, "");
+			} else {
+				return new AbstractMap.SimpleEntry<>(Boolean.FALSE, teamList.stream().map(Team::getTeam).toList().toString());
+			}
+		}
+		// 기존 팀인 경우
 		for (Team team : teamList) {
 			if (team.getTeam().equals(targetTeam)) {
 				isMyTeamManager = true;
@@ -44,6 +57,17 @@ public class TeamService {
 		int length = teams.length();
 		if (length > 0) {
 			teams.setLength(length - 1);
+		}
+		
+		if (!isMyTeamManager) {
+			// 상위 팀의 관리자인지 확인 (targetTeamList가 isEmpty인 경우는 early return 처리되었으므로 분기문 처리 안 함)
+			String parentTeam = targetTeamList.get(0).getParentTeam();
+			for (Team team : teamList) {
+				if (team.getTeam().equals(parentTeam)) {
+					isMyTeamManager = true;
+					break;
+				}
+			}
 		}
 		
 		return new AbstractMap.SimpleEntry<>(isMyTeamManager, teams.toString());
@@ -105,5 +129,10 @@ public class TeamService {
 	
 	public Collection<String> findAllTeamName() {
 		return teamRepository.findAll().stream().map(Team::getTeam).toList();
+	}
+	
+	@Transactional
+	public void saveTeam(Team team) {
+		teamRepository.save(team);
 	}
 }

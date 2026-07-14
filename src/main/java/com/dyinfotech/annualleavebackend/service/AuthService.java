@@ -25,6 +25,7 @@ import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
 import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
 import com.dyinfotech.annualleavebackend.dto.RegisterDto;
@@ -86,12 +87,25 @@ public class AuthService {
 		}
     	
     	// 팀 정보와 관리자 매칭
-    	Entry<Boolean, String> teamData = teamService.getTeamManagerData(request.getTeam(), request.getApproverId());
+    	Entry<Boolean, String> teamData = teamService.getTeamManagerData(requesterPosition, request.getTeam(), employeeId);
     	if (!teamData.getKey()) {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
-    		String detailMsg = "team : " + request.getTeam() + ",approverId : " + request.getApproverId() + ",approverTeam=[" + teamData.getValue() + "]";
+    		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
+    	}
+    	
+    	// 팀의 관리자로 등록되는 건지 확인
+    	boolean makeAdminAccount = false;
+    	if (Role.ADMIN.equals(request.getRole())) {
+    		if (PositionType.CEO.equals(requesterPosition)) {
+    			makeAdminAccount = true;
+    		} else {
+        		String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";
+        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + requesterPosition.getName();
+        		log.error(errorMsg + " " + detailMsg);
+    			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
+    		}
     	}
 
     	String currentYear = String.valueOf(now.getYear());
@@ -121,10 +135,20 @@ public class AuthService {
 				.hireDate(hireDate)
 				.currYear(currentYear)
 				.currTotalLeaveDays(employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate))
-				.approverId(request.getApproverId())
+				.approverId(employeeId)
 				.build();
     	
     	employeeRepository.save(employee);
+    	
+    	// 팀의 관리자로 등록되어야 한다면
+    	if (makeAdminAccount) {
+    		teamService.saveTeam(Team.builder()
+									.team(request.getTeam())
+									.projectManagerId(employee.getEmployeeId())
+									// XXX: 대표이사만 등록 가능하므로 대표이사 팀을 넣으면 될 것 같다. 차후에 문제가 생기면 getParentTeam으로 수정.
+									.parentTeam(requester.getTeam())
+									.build());
+    	}
     	
         return RegisterDto.RegisterResponse.builder()
                 .employeeId(employee.getEmployeeId())
