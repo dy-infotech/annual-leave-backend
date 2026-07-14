@@ -84,7 +84,7 @@ public class TeamService {
 		
 		return approvers;
 	}
-	public Map.Entry<Boolean, Set<Long>> getEntryOfHasApproverAndApproverIds(Employee employee) {
+	public Set<Long> refreshApproverIds(Employee employee) {
         boolean hasApproverId = false;
         Set<Long> resolvedApproverIds = resolveApproverIds(employee);
         for (Long resolvedApproverId : resolvedApproverIds) {
@@ -99,6 +99,6 @@ public class TeamService {
         	employee.changeApprover(resolvedApproverIds.iterator().next());
         }
         
-        return new AbstractMap.SimpleEntry<>(hasApproverId, resolvedApproverIds);
+        return resolvedApproverIds;
 	}
 }

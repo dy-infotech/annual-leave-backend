@@ -81,7 +81,7 @@ public class LeaveRequestService {
         leaveRequestRepository.save(leaveRequest);
 
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        Set<Long> resolvedApproverIds = teamService.getEntryOfHasApproverAndApproverIds(employee).getValue();
+        Set<Long> resolvedApproverIds = teamService.refreshApproverIds(employee);
         if (!resolvedApproverIds.isEmpty()) {
             notificationService.sendNotificationToTeams(resolvedApproverIds,
                     employee.getEmployeeNumber() + "님의 휴가 신청",
