@@ -72,12 +72,13 @@ public class LeaveRequest {
     private LocalDateTime createdAt;
 
     @Builder
-    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays) {
+    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, String leaveReason) {
         this.employee = employee;
         this.leaveType = leaveType;
         this.startDate = startDate;
         this.endDate = endDate;
         this.useDays = useDays;
+        this.leaveReason = leaveReason;
         this.status = LeaveRequestStatus.PENDING;
     }
 

@@ -45,6 +45,9 @@ openapi:
 fcm:
   certification: classpath:firebase-service-account.json
 
+public-data-portal:
+  service-key: ${PUBLIC_DATA_PORTAL_SERVICE_KEY}
+
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*}

@@ -82,6 +82,7 @@ public class LeaveRequestService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .useDays(request.getUseDays())
+                .leaveReason(request.getLeaveReason())
                 .build();
 
         leaveRequestRepository.save(leaveRequest);
