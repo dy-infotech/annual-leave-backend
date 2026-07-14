@@ -21,6 +21,7 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
+import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.BasisData;
@@ -87,8 +88,8 @@ public class AuthService {
 		}
     	
     	// 팀 정보와 관리자 매칭
-    	Entry<Boolean, String> teamData = teamService.getTeamManagerData(requesterPosition, request.getTeam(), employeeId);
-    	if (!teamData.getKey()) {
+    	Entry<Integer, String> teamData = teamService.getTeamManagerData(requesterPosition, request.getTeam(), employeeId);
+    	if (!ManageType.IS_TEAM_MANAGER.hasCode(teamData.getKey())) {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
     		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg + " " + detailMsg);
@@ -106,6 +107,11 @@ public class AuthService {
         		log.error(errorMsg + " " + detailMsg);
     			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     		}
+    	} else if (!ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
+    		String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
+    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + requesterPosition.getName();
+    		log.error(errorMsg + " " + detailMsg);
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}
 
     	String currentYear = String.valueOf(now.getYear());
