@@ -80,13 +80,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
         
-        Map<String, Object> errorDetails = new HashMap<>();
-        errorDetails.put("status", HttpServletResponse.SC_UNAUTHORIZED);
-        errorDetails.put("error", "Unauthorized");
-        errorDetails.put("message", message);
-        
         // ObjectMapper를 사용해 객체를 JSON 문자열로 변환(직렬화)
-        String jsonResponse = objectMapper.writeValueAsString(errorDetails);
+        String jsonResponse = objectMapper.writeValueAsString(Map.of("status", HttpServletResponse.SC_UNAUTHORIZED,
+        															"error", "Unauthorized",
+        															"message", message));
         
         response.getWriter().write(jsonResponse);
     }
