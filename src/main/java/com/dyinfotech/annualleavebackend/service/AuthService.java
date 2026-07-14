@@ -265,4 +265,12 @@ public class AuthService {
         	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
         }
     }
+    
+    @Transactional
+    public void logout(Long employeeId, String fcmToken) {
+        if (fcmToken != null && !fcmToken.isBlank()) {
+            notificationService.logoutToken(fcmToken, employeeId);
+        }
+        // fcmToken 없으면 서버 측 정리 불필요 — 클라가 토큰 폐기 (200 반환)
+    }
 }

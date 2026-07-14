@@ -41,8 +41,10 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+                		// 로그아웃은 인증 필요
+                		.requestMatchers("/api/auth/logout").authenticated()
                         // 인증 없이 접근 가능한 경로
-                        .requestMatchers("/api/auth/**").permitAll()
+                		.requestMatchers("/api/auth/**").permitAll()
 
                         // 관리자 전용 경로
                         .requestMatchers("/api/admin/**").hasRole(Role.ADMIN.name())
