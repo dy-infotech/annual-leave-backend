@@ -56,6 +56,10 @@ dependencies {
     implementation 'com.google.firebase:firebase-admin:9.4.0'
 }
 
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add("-parameters")
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }
