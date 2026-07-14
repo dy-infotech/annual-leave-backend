@@ -155,6 +155,15 @@ public class AuthService {
 									.parentTeam(requester.getTeam())
 									.build());
     	}
+    	// 신규 팀은 아니지만 관리자로 등록되어야 한다면
+    	else if (makeAdminAccount) {
+    		teamService.saveTeam(Team.builder()
+									.team(request.getTeam())
+									.projectManagerId(employee.getEmployeeId())
+									// XXX: getTeamManagerData 호출될 때 해당 팀이 존재하는 걸 확인했으므로 get(0)으로 처리한다.
+									.parentTeam(teamService.findAllByTeam(request.getTeam()).get(0).getParentTeam())
+									.build());
+    	}
     	
         return RegisterDto.RegisterResponse.builder()
                 .employeeId(employee.getEmployeeId())

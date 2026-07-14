@@ -26,6 +26,9 @@ import lombok.RequiredArgsConstructor;
 public class TeamService {
 	private final TeamRepository teamRepository;
 	
+	public List<Team> findAllByTeam(String team) {
+		return teamRepository.findAllByTeam(team);
+	}
 	/**
 	 * 관리자가 해당 팀을 관리하는지 정보 탐색해서 전달
 	 * @param targetTeam 탐색할 팀 정보
@@ -37,7 +40,7 @@ public class TeamService {
 		StringBuilder teams = new StringBuilder();
 		
 		List<Team> teamList = teamRepository.findAllByProjectManagerId(approverId);
-		List<Team> targetTeamList = teamRepository.findAllByTeam(targetTeam);
+		List<Team> targetTeamList = findAllByTeam(targetTeam);
 		// 신규 팀인 경우
 		if (targetTeamList.isEmpty()) {
 			// 대표이사만 생성 가능
@@ -80,7 +83,7 @@ public class TeamService {
 
 
 	private Set<Long> resolveApproverIds(Employee employee) {
-		List<Team> myTeam = teamRepository.findAllByTeam(employee.getTeam());
+		List<Team> myTeam = findAllByTeam(employee.getTeam());
 		if (myTeam.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}
@@ -93,7 +96,7 @@ public class TeamService {
 					return Collections.emptySet();
 				}
 				
-				List<Team> parentTeams = teamRepository.findAllByTeam(parent);
+				List<Team> parentTeams = findAllByTeam(parent);
 				if (parentTeams.isEmpty()) {
 					throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다.");
 				}
