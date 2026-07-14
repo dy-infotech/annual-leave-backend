@@ -17,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class HolidayInitializer implements ApplicationRunner {
 	private final HolidaySyncService holidaySyncService;
-    private final HolidayRepository holidayRepository;
     
 	@Override
 	public void run(ApplicationArguments args) throws Exception {
@@ -32,7 +31,7 @@ public class HolidayInitializer implements ApplicationRunner {
 
         log.info("=== [시스템 초기화] {}년 공휴일 데이터 존재 여부 검사 ===", year);
 		// DB에 해당 년도 공휴일 데이터가 아예 비어있는지 체크
-        if (holidayRepository.findAllByYear(yearStr).isEmpty()) {
+        if (holidaySyncService.findAllByYear(yearStr).isEmpty()) {
             log.info("=== [시스템 초기화] DB가 비어 있습니다. 공휴일 초기 동기화를 시작합니다. ===");
             
             for (int month = 1; month <= 12; month++) {

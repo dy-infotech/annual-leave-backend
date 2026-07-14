@@ -2,11 +2,13 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -17,7 +19,6 @@ import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -46,6 +47,16 @@ public class HolidaySyncService {
     	this.serviceKey = serviceKey;
     	this.API_URL = this.basisDataFactory.getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL).orElse("http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService") + "/" + 
     					this.basisDataFactory.getAsString(BasisDataType.KASI_HOLIDAY_REQUEST_ADDRESS).orElse("getRestDeInfo");
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Holiday> findAllByYear(String year) {
+    	return holidayRepository.findAllByYear(year);
+    }
+    
+    @Transactional(readOnly = true)
+    public List<Holiday> findAllByYearIn(Collection<String> years) {
+    	return holidayRepository.findAllByYearIn(years);
     }
     
     public List<Holiday> fetchHolidaysFromApi(int year, int month) {

@@ -2,7 +2,6 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,7 +33,6 @@ public class LeaveRequestService {
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
-    private final HolidayRepository holidayRepository;
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
     private final HolidaySyncService holidaySyncService;
@@ -141,7 +139,7 @@ public class LeaveRequestService {
 //							    	    		.build());
 //    	}
 //    	return specialDayResponses;
-        return holidayRepository.findAllByYear(year).stream()
+        return holidaySyncService.findAllByYear(year).stream()
         						.map(holiday -> SpecialDayDto.SpecialDayResponse.builder()
 				        														.name(holiday.getName())
 				        														.date(LocalDate.of(Integer.parseInt(holiday.getYear()),
@@ -158,7 +156,7 @@ public class LeaveRequestService {
     	years.add(String.valueOf(endDate.getYear()));
     	
     	// 2. 해당 연도들의 공휴일 전체 조회
-        List<Holiday> holidays = holidayRepository.findAllByYearIn(years);
+        List<Holiday> holidays = holidaySyncService.findAllByYearIn(years);
         
         // 3. LocalDate의 Set으로 변환
         Set<LocalDate> holidayDates = holidays.stream()
