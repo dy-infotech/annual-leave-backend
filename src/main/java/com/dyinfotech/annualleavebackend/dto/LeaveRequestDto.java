@@ -26,6 +26,8 @@ public class LeaveRequestDto {
 
         @NotNull(message = "사용일수를 입력해주세요.")
         private Float useDays;
+
+        private String leaveReason;
     }
 
     @Getter
