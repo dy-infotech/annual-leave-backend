@@ -1,12 +1,12 @@
 package com.dyinfotech.annualleavebackend.common.init;
 
 import java.time.LocalDate;
+import java.util.concurrent.CompletableFuture;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.stereotype.Component;
 
-import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
 import lombok.RequiredArgsConstructor;
@@ -22,8 +22,21 @@ public class HolidayInitializer implements ApplicationRunner {
 	public void run(ApplicationArguments args) throws Exception {
 		// TODO Auto-generated method stub
 		int currentYear = LocalDate.now().getYear();
-        setSpecialDays(currentYear);
-        setSpecialDays(currentYear + 1);
+		
+		// CompletableFuture를 사용하여 별도의 백그라운드 스레드에서 비동기로 실행합니다.
+        // 이로 인해 스프링 컨텍스트는 대기하지 않고 즉시 기동을 완료합니다.
+        CompletableFuture.runAsync(() -> {
+            log.info("=== [시스템 초기화] 백그라운드 공휴일 동기화 스레드 시작 ===");
+            
+            // 올해와 내년 데이터를 순차적으로 세팅
+            setSpecialDays(currentYear);
+            setSpecialDays(currentYear + 1);
+            
+            log.info("=== [시스템 초기화] 백그라운드 공휴일 동기화 완료 ===");
+        }).exceptionally(ex -> {
+            log.error("=== [시스템 초기화] 백그라운드 동기화 중 에러 발생 ===", ex);
+            return null;
+        });
 	}
 	
 	private void setSpecialDays(int year) {
