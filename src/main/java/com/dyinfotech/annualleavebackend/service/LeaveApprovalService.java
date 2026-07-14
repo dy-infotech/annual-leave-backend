@@ -77,7 +77,6 @@ public class LeaveApprovalService {
         // 관리자가 요청자의 승인자인지 확인 (로그인 시 업데이트되므로 문제되지 않으나 방어코드로 유지한다)
         Map.Entry<Boolean, Set<Long>> approverEntry = teamService.getEntryOfHasApproverAndApproverIds(employee);
         boolean isApprover = false;
-        Set<Long> expectedApproverIds = approverEntry.getValue();
     	StringBuilder approverString = new StringBuilder();
     	for (Long id : approverEntry.getValue()) {
     		if (id.equals(approverId)) {
