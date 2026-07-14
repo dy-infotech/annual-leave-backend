@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,7 +22,7 @@ public class AdminAuthController {
 
     private final AuthService authService;
     
-    @PostMapping("/common")
+    @GetMapping("/common")
 //	public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData(@Valid @RequestBody RegisterCommonDto.RegisterCommonRequest request) {
 //		return ResponseEntity.ok(authService.getCommonData(request));
     public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData() {
