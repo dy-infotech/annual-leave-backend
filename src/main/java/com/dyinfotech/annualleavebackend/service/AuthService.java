@@ -54,7 +54,8 @@ public class AuthService {
     private String mailFrom;
     
     @Transactional(readOnly = true)
-    public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
+//	public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
+    public RegisterCommonDto.RegisterCommonResponse getCommonData() {
     	return RegisterCommonDto.RegisterCommonResponse.builder()
     													.department(Arrays.asList(DepartmentType.values()).stream().map(DepartmentType::getName).toList())
     													.team(teamService.findAllTeamName())

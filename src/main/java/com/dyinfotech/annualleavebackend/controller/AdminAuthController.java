@@ -22,8 +22,10 @@ public class AdminAuthController {
     private final AuthService authService;
     
     @PostMapping("/common")
-    public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData(@Valid @RequestBody RegisterCommonDto.RegisterCommonRequest request) {
-    	return ResponseEntity.ok(authService.getCommonData(request));
+//	public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData(@Valid @RequestBody RegisterCommonDto.RegisterCommonRequest request) {
+//		return ResponseEntity.ok(authService.getCommonData(request));
+    public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData() {
+    	return ResponseEntity.ok(authService.getCommonData());
     }
 
     @PostMapping("/register")
