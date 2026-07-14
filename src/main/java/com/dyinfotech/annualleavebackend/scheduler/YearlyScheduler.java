@@ -51,7 +51,7 @@ public class YearlyScheduler {
         for (int month = 1; month <= 12; month++) {
             // 루프 내부에서 잡아줘야 1월 API가 터져도 2월, 3월... 12월까지 정상 동작
             try {
-                holidaySyncService.syncHolidays(now.getYear(), month);
+                holidaySyncService.deleteAndSaveHolidays(now.getYear(), month, holidaySyncService.fetchHolidaysFromApi(now.getYear(), month));
                 log.info("[연간 스케줄러] {}년 {}월 공휴일 동기화 완료", currentYear, month);
             } catch (Exception e) {
                 log.error("[연간 스케줄러] {}년 {}월 공휴일 동기화 실패 (다음 월로 건너뜁니다): {}", currentYear, month, e.getMessage());

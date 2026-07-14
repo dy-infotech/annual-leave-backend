@@ -26,7 +26,7 @@ public class MonthlyScheduler {
     	LocalDate now = LocalDate.now();
         log.info("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 캐싱 시작 ===", now.getYear(), now.getMonthValue());
         try {
-            holidaySyncService.syncHolidays(now.getYear(), now.getMonthValue());
+        	holidaySyncService.deleteAndSaveHolidays(now.getYear(), now.getMonthValue(), holidaySyncService.fetchHolidaysFromApi(now.getYear(), now.getMonthValue()));
             log.info("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 캐싱 완료 ===", now.getYear(), now.getMonthValue());
         } catch (Exception e) {
             log.error("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 중 예외 발생 (스케줄러는 계속 진행) ===", now.getYear(), now.getMonthValue(), e);

@@ -48,39 +48,42 @@ public class HolidaySyncService {
     					this.basisDataFactory.getAsString(BasisDataType.KASI_HOLIDAY_REQUEST_ADDRESS).orElse("getRestDeInfo");
     }
     
-    @Transactional
-    public void syncHolidays(int year, int month) {
+    public List<Holiday> fetchHolidaysFromApi(int year, int month) {
         String yearStr = String.valueOf(year);
         String monthStr = String.format("%02d", month);
 
         try {
-        	URI uri = UriComponentsBuilder.fromUriString(API_URL)
-                    .queryParam("serviceKey", serviceKey)
-                    .queryParam("solYear", yearStr)
-                    .queryParam("solMonth", monthStr)
-                    .queryParam("_type", "json")
-                    .build(true) // true: 서비스키 내의 % 인코딩이 깨지는 것을 방지
-                    .toUri();
+            URI uri = UriComponentsBuilder.fromUriString(API_URL)
+                .queryParam("serviceKey", serviceKey)
+                .queryParam("solYear", yearStr)
+                .queryParam("solMonth", monthStr)
+                .queryParam("_type", "json")
+                .build(true)
+                .toUri();
+
             String response = restClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .body(String.class);
+                .uri(uri)
+                .retrieve()
+                .body(String.class);
 
-            List<Holiday> holidays = parseAndSave(response);
-
-            // API 호출 성공시 해당 년/월의 기존 공휴일 데이터 삭제 (중복 방지 및 갱신)
-            holidayRepository.deleteByYearAndMonth(yearStr, monthStr);
-            if (!holidays.isEmpty()) {
-            	holidayRepository.saveAll(holidays);
-            }
-            
-            log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", yearStr, monthStr);
-
+            return parseHolidays(response); // 파싱만 수행 (DB 저장 X)
         } catch (Exception e) {
-            log.error("[공공데이터] {}년 {}월 공휴일 동기화 중 에러 발생", yearStr, monthStr, e);
-            
-            throw new RuntimeException("공휴일 동기화 실패로 인한 트랜잭션 롤백", e);
+            log.error("[공공데이터] {}년 {}월 공휴일 조회 중 에러 발생", yearStr, monthStr, e);
+            throw new RuntimeException("공휴일 조회 실패", e);
         }
+    }
+    
+    @Transactional
+    public void deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {
+        String yearStr = String.valueOf(year);
+        String monthStr = String.format("%02d", month);
+
+        holidayRepository.deleteByYearAndMonth(yearStr, monthStr);
+        if (!holidays.isEmpty()) {
+            holidayRepository.saveAll(holidays);
+        }
+        
+        log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", yearStr, monthStr);
     }
     
     private enum ResultCode {
@@ -99,7 +102,7 @@ public class HolidaySyncService {
     	}
     }
 
-    private List<Holiday> parseAndSave(String jsonResponse) throws Exception {
+    private List<Holiday> parseHolidays(String jsonResponse) throws Exception {
         JsonNode root = objectMapper.readTree(jsonResponse);
         JsonNode responseNode = root.path("response");
         JsonNode headerNode = responseNode.path("header");
