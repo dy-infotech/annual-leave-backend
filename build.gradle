@@ -9,12 +9,16 @@ group = 'com.dyinfotech'
 version = '0.0.1-SNAPSHOT'
 description = 'annual-leave-backend'
 
-java {
-    toolchain {
-    	// Cafe24 maximum jdk version is 17
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
+
+//java {
+//    toolchain {
+//    	// Cafe24 maximum jdk version is 17
+//        languageVersion = JavaLanguageVersion.of(17)
+//    }
+//}
+
+// make JDK 21 and 25 compatible with JDK 17.
+compileJava.options.release = 17
 
 repositories {
     mavenCentral()
