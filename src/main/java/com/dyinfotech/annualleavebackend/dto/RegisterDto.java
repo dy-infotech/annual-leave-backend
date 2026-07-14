@@ -31,7 +31,7 @@ public class RegisterDto {
     @Builder
     public static class RegisterResponse {
         private Long employeeId;
-        private String employeeNumber;		// equals to employeeNumber
+        private String employeeNumber;
     }
 
 }
