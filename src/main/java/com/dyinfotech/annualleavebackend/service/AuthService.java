@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,15 +22,19 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
+import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
 import com.dyinfotech.annualleavebackend.dto.RegisterDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
+import io.jsonwebtoken.lang.Arrays;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,6 +54,15 @@ public class AuthService {
     private final JavaMailSender mailSender; // 이메일 발송 객체 추가
     @Value("${spring.mail.username}")
     private String mailFrom;
+    
+    @Transactional
+    public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
+    	return RegisterCommonDto.RegisterCommonResponse.builder()
+    													.department(Arrays.asList(DepartmentType.values()).stream().map(DepartmentType::getName).toList())
+    													.team(teamService.findAllTeamName())
+    													.position(Arrays.asList(PositionType.values()).stream().map(PositionType::getName).toList())
+    													.build();
+    }
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
