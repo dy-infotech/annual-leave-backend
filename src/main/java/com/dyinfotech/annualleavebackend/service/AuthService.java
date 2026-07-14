@@ -152,7 +152,7 @@ public class AuthService {
     	
         return RegisterDto.RegisterResponse.builder()
                 .employeeId(employee.getEmployeeId())
-                .loginId(employee.getEmployeeNumber())
+                .employeeNumber(employee.getEmployeeNumber())
                 .build();
 	}
 
