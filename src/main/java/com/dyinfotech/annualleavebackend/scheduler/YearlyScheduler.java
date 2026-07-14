@@ -36,26 +36,30 @@ public class YearlyScheduler {
         
         log.info("=== [연간 스케줄러] 새해 맞이 전직원 연차 롤오버 및 재계산 시작 ===");
         LocalDate now = LocalDate.now();
-        String currentYear = String.valueOf(now.getYear());
+        int currentYear = now.getYear();
+        String currentYearStr = String.valueOf(now.getYear());
         // 메서드 내부에서 예외를 잡더라도, DB 커넥션 장애나 findAll 조회 자체에서 에러가 터지면
         // 밖으로 예외가 튀어 나와 아래 로직이 멈추므로 try-catch 처리
         try {
-            employeeLeaveService.renewAllActiveEmployeesLeave(currentYear);
+            employeeLeaveService.renewAllActiveEmployeesLeave(currentYearStr);
             log.info("=== [연간 스케줄러] 전직원 연차 갱신 프로세스 완료 ===");
         } catch (Exception e) {
             log.error("=== [연간 스케줄러] 전직원 연차 갱신 프로세스 전체 실패 (공휴일 동기화는 강제로 계속 진행합니다) ===", e);
         }
         
-        log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 시작 ===", currentYear);
+        log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 시작 ===", currentYearStr);
         
-        for (int month = 1; month <= 12; month++) {
-            // 루프 내부에서 잡아줘야 1월 API가 터져도 2월, 3월... 12월까지 정상 동작
-            try {
-                holidaySyncService.deleteAndSaveHolidays(now.getYear(), month, holidaySyncService.fetchHolidaysFromApi(now.getYear(), month));
-                log.info("[연간 스케줄러] {}년 {}월 공휴일 동기화 완료", currentYear, month);
-            } catch (Exception e) {
-                log.error("[연간 스케줄러] {}년 {}월 공휴일 동기화 실패 (다음 월로 건너뜁니다): {}", currentYear, month, e.getMessage());
-            }
+        // 올해와 내년치 데이터 처리
+    	for (int year = 0; year <= 1; ++year) {
+    		for (int month = 1; month <= 12; month++) {
+    			// 루프 내부에서 잡아줘야 1월 API가 터져도 2월, 3월... 12월까지 정상 동작
+        		try {
+        			holidaySyncService.deleteAndSaveHolidays(currentYear + year, month, holidaySyncService.fetchHolidaysFromApi(currentYear + year, month));
+        			log.info("[연간 스케줄러] {}년 {}월 공휴일 동기화 완료", currentYear + year, month);
+        		} catch (Exception e) {
+        			log.error("[연간 스케줄러] {}년 {}월 공휴일 동기화 실패 (다음 월로 건너뜁니다): {}", currentYear + year, month, e.getMessage());
+        		}
+        	}
         }
         
         log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 완료 ===", currentYear);
