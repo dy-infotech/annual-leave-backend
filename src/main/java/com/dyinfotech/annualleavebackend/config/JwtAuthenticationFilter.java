@@ -1,7 +1,19 @@
 package com.dyinfotech.annualleavebackend.config;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -10,20 +22,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
-import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.List;
-
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
-
+	private final ObjectMapper objectMapper;
     private final JwtProvider jwtProvider;
 
     @Override
@@ -71,17 +74,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
     
     /**
-     * 💡 인증 실패 시 클라이언트에게 401 Unauthorized JSON 응답을 명확하게 내려주는 헬퍼 메서드
+     * 인증 실패 시 클라이언트에게 401 Unauthorized JSON 응답을 명확하게 내려주는 헬퍼 메서드
      */
     private void sendUnauthorizedResponse(HttpServletResponse response, String message) throws IOException {
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         response.setContentType("application/json;charset=UTF-8");
         
-        // 📌 프로젝트 내에 ObjectMapper 빈이 있다면 주입받아 공통 ErrorResponse 객체를 JSON으로 직렬화해 던지는 것을 추천합니다.
-        String jsonResponse = String.format(
-            "{\"status\": 401, \"error\": \"Unauthorized\", \"message\": \"%s\"}", 
-            message
-        );
+        Map<String, Object> errorDetails = new HashMap<>();
+        errorDetails.put("status", HttpServletResponse.SC_UNAUTHORIZED);
+        errorDetails.put("error", "Unauthorized");
+        errorDetails.put("message", message);
+        
+        // ObjectMapper를 사용해 객체를 JSON 문자열로 변환(직렬화)
+        String jsonResponse = objectMapper.writeValueAsString(errorDetails);
         
         response.getWriter().write(jsonResponse);
     }
