@@ -16,7 +16,9 @@ import com.dyinfotech.annualleavebackend.repository.BasisDataRepository;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class BasisDataFactory {
@@ -46,7 +48,7 @@ public class BasisDataFactory {
 		Map<BasisDataType, BasisData> grouped = loadByYear(currentYear);
 
 	    if (grouped.isEmpty()) {
-//	        log.warn("BasisData for {} not found. Using previous year data.", currentYear);
+	        log.warn("BasisData for {} not found. Using previous year data.", currentYear);
 	        grouped = loadByYear(currentYear - 1);
 	    }
 

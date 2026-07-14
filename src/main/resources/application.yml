@@ -5,10 +5,6 @@ spring:
   config:
     import: "optional:file:.env[.properties]" # .env file load
 
-  threads:
-    virtual:
-      enabled: true
-
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}

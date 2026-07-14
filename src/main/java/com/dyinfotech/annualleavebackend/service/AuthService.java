@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.UUID; // 추가됨
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -20,15 +20,19 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
+import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
 import com.dyinfotech.annualleavebackend.dto.RegisterDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
+import io.jsonwebtoken.lang.Arrays;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,9 +53,30 @@ public class AuthService {
     @Value("${spring.mail.username}")
     private String mailFrom;
     
+    @Transactional(readOnly = true)
+//	public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
+    public RegisterCommonDto.RegisterCommonResponse getCommonData() {
+    	return RegisterCommonDto.RegisterCommonResponse.builder()
+    													.department(Arrays.asList(DepartmentType.values()).stream().map(DepartmentType::getName).toList())
+    													.team(teamService.findAllTeamName())
+    													.position(Arrays.asList(PositionType.values()).stream().map(PositionType::getName).toList())
+    													.build();
+    }
+    
     @Transactional
-    public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
-		// 사번 채번
+    public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
+    	// 현재 요청자 직급과 신청받은 직급을 비교
+    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	PositionType requesterPosition = PositionType.getType(requester.getPosition());
+    	PositionType targetPosition = PositionType.getType(request.getPosition());
+    	if (requesterPosition == null || targetPosition == null || requesterPosition.ordinal() <= targetPosition.ordinal()) {
+    		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
+    		String detailMsg = "requesterId : " + employeeId + "requesterPosition : " + requesterPosition + ", targetPosition: " + targetPosition;
+    		log.error(errorMsg + " " + detailMsg);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    	}
+    	
+    	// 사번 채번
     	LocalDate now = LocalDate.now();
     	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPlOYEE_NUMBER_PREFIX);
     	if (employeeNumberPrefix.isEmpty()) {
@@ -66,7 +91,7 @@ public class AuthService {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
     		String detailMsg = "team : " + request.getTeam() + ",approverId : " + request.getApproverId() + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}
 
     	String currentYear = String.valueOf(now.getYear());
@@ -181,11 +206,15 @@ public class AuthService {
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
         
-        // 4. JWT 발급
+        // 4. 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
+        //    (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
+        teamService.refreshApproverIds(employee);
+        
+        // 5. JWT 발급
         Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
-        // 5. 팀 프로젝트 매니저면 FCM Token 구독 처리
+        // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리
         if (teamService.isTeamManager(employee.getEmployeeId())) {
         	String fcmToken = request.getFcmToken();
         	if (fcmToken != null && !fcmToken.isBlank()) {
@@ -236,5 +265,13 @@ public class AuthService {
         	log.error("메일 발송 오류 from: " + message.getFrom() + ", to: " + message.getTo() + ", subject: " + message.getSubject(), e);
         	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
         }
+    }
+    
+    @Transactional
+    public void logout(Long employeeId, String fcmToken) {
+        if (fcmToken != null && !fcmToken.isBlank()) {
+            notificationService.logoutToken(fcmToken, employeeId);
+        }
+        // fcmToken 없으면 서버 측 정리 불필요 — 클라가 토큰 폐기 (200 반환)
     }
 }

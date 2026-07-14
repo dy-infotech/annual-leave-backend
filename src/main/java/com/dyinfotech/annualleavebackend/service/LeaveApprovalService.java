@@ -3,7 +3,6 @@ package com.dyinfotech.annualleavebackend.service;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -74,18 +73,23 @@ public class LeaveApprovalService {
         	approver = employees.get(0);
         }
         
-        // 관리자가 요청자의 승인자인지 확인
+        // 관리자가 요청자의 승인자인지 확인 (로그인 시 업데이트되므로 문제되지 않으나 방어코드로 유지한다)
         boolean isApprover = false;
-        Set<Long> expectedApproverIds = teamService.resolveApproverIds(employee);
-        for (Long expectedApproverId : expectedApproverIds) {
-        	if (expectedApproverId.equals(approverId)) {
-        		isApprover = true;
-        		break;
-        	}
-        }
+    	StringBuilder approverString = new StringBuilder();
+    	for (Long id : teamService.refreshApproverIds(employee)) {
+    		if (id.equals(approverId)) {
+    			isApprover = true;
+    			break;
+    		}
+    		approverString.append(id).append(",");
+    	}
         if (!isApprover) {
+        	if (!approverString.isEmpty()) {
+        		approverString.setLength(approverString.length() - 1);
+        	}
+        	
         	String errorMsg = "승인할 수 없는 관리자입니다.";
-            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",expectedApproverId : " + expectedApproverIds;
+            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",expectedApproverId : [" + approverString + "]";
     		log.error(errorMsg + " " + detailMsg);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }

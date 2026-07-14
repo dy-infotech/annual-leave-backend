@@ -3,19 +3,26 @@ package com.dyinfotech.annualleavebackend.dto;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 
 public class LeaveRequestListDto {
 
     @Getter
+    @NoArgsConstructor
     public static class LeaveRequestListRequest {
 
         private Long employeeId;       // employee PK (null일 경우, 전직원)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
         private LocalDate startDate;   // 조회 시작일 (null일 경우 전체 기간)
+        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
         private LocalDate endDate;     // 조회 종료일 (null일 경우 전체 기간)
         private LeaveRequestStatus status;    // null일 경우 전체 상태
 
@@ -24,6 +31,10 @@ public class LeaveRequestListDto {
             this.startDate = startDate;
             this.endDate = endDate;
             this.status = status;
+        }
+        
+        public void setEmployeeId(Long employeeId) {
+        	this.employeeId = employeeId;
         }
     }
 
