@@ -53,7 +53,7 @@ public class AuthService {
     @Value("${spring.mail.username}")
     private String mailFrom;
     
-    @Transactional
+    @Transactional(readOnly = true)
     public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
     	return RegisterCommonDto.RegisterCommonResponse.builder()
     													.department(Arrays.asList(DepartmentType.values()).stream().map(DepartmentType::getName).toList())
@@ -90,7 +90,7 @@ public class AuthService {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
     		String detailMsg = "team : " + request.getTeam() + ",approverId : " + request.getApproverId() + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
+			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}
 
     	String currentYear = String.valueOf(now.getYear());
