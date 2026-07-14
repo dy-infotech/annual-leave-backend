@@ -107,7 +107,7 @@ public class AuthService {
         		log.error(errorMsg + " " + detailMsg);
     			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     		}
-    	} else if (!ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
+    	} else if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
     		String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
     		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + requesterPosition.getName();
     		log.error(errorMsg + " " + detailMsg);
