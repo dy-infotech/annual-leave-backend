@@ -41,7 +41,7 @@ public class TeamService {
 		// 신규 팀인 경우
 		if (targetTeamList.isEmpty()) {
 			// 대표이사만 생성 가능
-			if (approverPosition.equals(PositionType.CEO)) {
+			if (PositionType.CEO.equals(approverPosition)) {
 				return new AbstractMap.SimpleEntry<>(ManageType.IS_NEW_TEAM.getAppliedCode(manageType), "");
 			} else {
 				return new AbstractMap.SimpleEntry<>(manageType, teamList.stream().map(Team::getTeam).toList().toString());
