@@ -30,7 +30,7 @@ public class TeamService {
 		return teamRepository.findAllByTeam(team);
 	}
 	/**
-	 * 관리자가 해당 팀을 관리하는지 정보 탐색해서 전달
+	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
 	 * @param targetTeam 탐색할 팀 정보
 	 * @param approverId 팀의 관리자
 	 * @return Entry<Integer, String>(ManageType, approverTeamList)
