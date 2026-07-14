@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -18,6 +19,7 @@ import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
+import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
@@ -122,6 +124,20 @@ public class LeaveRequestService {
         if ((long)Math.ceil(useDays.doubleValue()) > weekdays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수(" + useDays + "일)가 신청 기간 내 평일 수(" + weekdays + "일)를 초과했습니다.");
         }
+    }
+    
+    public List<SpecialDayDto.SpecialDayResponse> getHolidays(String year) {
+    	List<Holiday> holidays = holidayRepository.findAllByYear(year);
+    	List<SpecialDayDto.SpecialDayResponse> specialDayResponses = new ArrayList<>();
+    	for (Holiday holiday : holidays) {
+    		specialDayResponses.add(SpecialDayDto.SpecialDayResponse.builder()
+							    	    		.name(year)
+							    	    		.date(LocalDate.of(Integer.parseInt(holiday.getYear()), 
+							    	    							Integer.parseInt(holiday.getMonth()), 
+							    	    							Integer.parseInt(holiday.getDay())))
+							    	    		.build());
+    	}
+    	return specialDayResponses;
     }
 
     private long countWeekdays(LocalDate startDate, LocalDate endDate) {

@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
+import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
 import com.dyinfotech.annualleavebackend.service.LeaveRequestService;
 
 import jakarta.validation.Valid;
@@ -28,6 +30,16 @@ import lombok.RequiredArgsConstructor;
 public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
+    
+    @GetMapping("/current-year-special-days")
+    public List<SpecialDayDto.SpecialDayResponse> test1() {
+    	return leaveRequestService.getHolidays(String.valueOf(LocalDate.now().getYear()));
+    }
+    
+    @GetMapping("/next-year-special-days")
+    public List<SpecialDayDto.SpecialDayResponse> test2() {
+    	return leaveRequestService.getHolidays(String.valueOf(LocalDate.now().getYear() + 1));
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
