@@ -89,7 +89,7 @@ public class AuthService {
     	
     	// 팀 정보와 관리자 매칭
     	Entry<Integer, String> teamData = teamService.getTeamManagerData(requesterPosition, request.getTeam(), employeeId);
-    	if (!ManageType.IS_TEAM_MANAGER.hasCode(teamData.getKey())) {
+    	if (teamData.getKey() == 0) {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
     		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg + " " + detailMsg);
