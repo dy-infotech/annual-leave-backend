@@ -192,7 +192,7 @@ public class AuthService {
         		break;
         	}
         }
-        if (!hasApproverId) {
+        if (!hasApproverId && !approverIds.isEmpty()) {
         	employee.changeApprover(approverIds.iterator().next());
         }
         
