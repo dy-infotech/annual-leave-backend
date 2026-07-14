@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,8 +27,8 @@ public class AdminAuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<RegisterDto.RegisterResponse> signUp(@Valid @RequestBody RegisterDto.RegisterRequest request) {
-        return ResponseEntity.ok(authService.registerEmployee(request));
+    public ResponseEntity<RegisterDto.RegisterResponse> signUp(@AuthenticationPrincipal Long employeeId, @Valid @RequestBody RegisterDto.RegisterRequest request) {
+        return ResponseEntity.ok(authService.registerEmployee(employeeId, request));
     }
 
 }

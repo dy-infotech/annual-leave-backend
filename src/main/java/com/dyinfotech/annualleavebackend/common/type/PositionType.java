@@ -1,5 +1,8 @@
 package com.dyinfotech.annualleavebackend.common.type;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import lombok.Getter;
 
 @Getter
@@ -19,7 +22,18 @@ public enum PositionType {
 	
 	private String name;
 	
+	private static final Map<String, PositionType> nameToEnumMap = new HashMap<>();
+	static {
+		for (PositionType type : PositionType.values()) {
+			nameToEnumMap.put(type.name, type);
+		}
+	}
+	
 	private PositionType(String name) {
 		this.name = name;
+	}
+	
+	public static PositionType getType(String name) {
+		return nameToEnumMap.get(name);
 	}
 }

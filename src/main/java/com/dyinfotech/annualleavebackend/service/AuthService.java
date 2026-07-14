@@ -63,8 +63,19 @@ public class AuthService {
     }
     
     @Transactional
-    public RegisterDto.RegisterResponse registerEmployee(RegisterDto.RegisterRequest request) {
-		// 사번 채번
+    public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
+    	// 현재 요청자 직급과 신청받은 직급을 비교
+    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	PositionType requesterPosition = PositionType.getType(requester.getPosition());
+    	PositionType targetPosition = PositionType.getType(request.getPosition());
+    	if (requesterPosition == null || targetPosition == null || requesterPosition.ordinal() <= targetPosition.ordinal()) {
+    		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
+    		String detailMsg = "requesterId : " + employeeId + "requesterPosition : " + requesterPosition + ", targetPosition: " + targetPosition;
+    		log.error(errorMsg + " " + detailMsg);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    	}
+    	
+    	// 사번 채번
     	LocalDate now = LocalDate.now();
     	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPlOYEE_NUMBER_PREFIX);
     	if (employeeNumberPrefix.isEmpty()) {
