@@ -2,11 +2,14 @@ INSERT INTO employee (employee_number, name, department, team, position, hire_da
 VALUES
     ('A2025016', '최민지', 'SI사업팀', '스마트팩토리구축사업', '사원', '2025-08-04', YEAR(SYSDATE()), 15.0),
     ('A2025015', '이서우', 'SI사업팀', '스마트팩토리구축사업', '사원', '2025-08-06', YEAR(SYSDATE()), 15.0),
-    ('A2020001', '이호영', 'SI사업팀', '스마트팩토리구축사업', '이사', '2020-03-15', YEAR(SYSDATE()), 15.0)
+    ('A2020001', '이호영', 'SI사업팀', '스마트팩토리구축사업', '이사', '2020-03-15', YEAR(SYSDATE()), 15.0),
+    ('A2011001', '우동영', 'SI사업팀', '스마트팩토리구축사업', '대표이사', '2011-01-01', YEAR(SYSDATE()), 22.0)
     ;
 
 INSERT INTO team (team, project_manager_id, parent_team)
 SELECT '스마트팩토리구축사업', employee_id, '대표이사' FROM employee WHERE name = '이호영';
+INSERT INTO team (team, project_manager_id, parent_team)
+SELECT '대표이사', employee_id, '대표이사' FROM employee WHERE name = '우동영';
 
 INSERT INTO basis_data (year, seq, type, data, remark)
 VALUES
