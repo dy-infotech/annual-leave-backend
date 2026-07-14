@@ -6,7 +6,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.UUID; // 추가됨
+import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -181,11 +182,25 @@ public class AuthService {
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
         
-        // 4. JWT 발급
+        // 4. 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
+        //    (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
+        boolean hasApproverId = false;
+        Set<Long> approverIds = teamService.resolveApproverIds(employee);
+        for (Long approverId: approverIds) {
+        	if (approverId.equals(employee.getApproverId())) {
+        		hasApproverId = true;
+        		break;
+        	}
+        }
+        if (!hasApproverId) {
+        	employee.changeApprover(approverIds.iterator().next());
+        }
+        
+        // 5. JWT 발급
         Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
-        // 5. 팀 프로젝트 매니저면 FCM Token 구독 처리
+        // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리
         if (teamService.isTeamManager(employee.getEmployeeId())) {
         	String fcmToken = request.getFcmToken();
         	if (fcmToken != null && !fcmToken.isBlank()) {

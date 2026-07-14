@@ -80,6 +80,7 @@ public class LeaveRequestService {
 
         leaveRequestRepository.save(leaveRequest);
         
+        // 푸시 알림 전송 대상 탐색 및 방어코드 유지
         boolean hasApproverId = false;
         Set<Long> resolvedApproverIds = teamService.resolveApproverIds(employee);
         for (Long resolvedApproverId : resolvedApproverIds) {
@@ -88,6 +89,7 @@ public class LeaveRequestService {
         		break;
         	}
         }
+        // 로그인시 처리하도록 수정되어 발생하지 않을 상황이지만 방어코드로 유지한다
         if (!hasApproverId && !resolvedApproverIds.isEmpty()) {
         	employee.changeApprover(resolvedApproverIds.iterator().next());
         }

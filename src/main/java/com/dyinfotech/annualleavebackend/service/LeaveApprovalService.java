@@ -74,7 +74,7 @@ public class LeaveApprovalService {
         	approver = employees.get(0);
         }
         
-        // 관리자가 요청자의 승인자인지 확인
+        // 관리자가 요청자의 승인자인지 확인 (로그인 시 업데이트되므로 문제되지 않으나 방어코드로 유지한다)
         boolean isApprover = false;
         Set<Long> expectedApproverIds = teamService.resolveApproverIds(employee);
         for (Long expectedApproverId : expectedApproverIds) {
