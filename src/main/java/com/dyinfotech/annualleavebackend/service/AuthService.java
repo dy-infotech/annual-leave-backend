@@ -146,8 +146,8 @@ public class AuthService {
     	
     	employeeRepository.save(employee);
     	
-    	// 팀의 관리자로 등록되어야 한다면
-    	if (makeAdminAccount) {
+    	// 신규 팀이 만들어져야 한다면
+    	if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
     		teamService.saveTeam(Team.builder()
 									.team(request.getTeam())
 									.projectManagerId(employee.getEmployeeId())
