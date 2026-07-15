@@ -34,8 +34,10 @@ public class EmployeeDto {
         private String email;
         private LocalDate hireDate;
         private String role;
+        private Float currTotalLeaveDays;   // 이번 연도 총 연차 일수
+        private Float remainingLeaveDays;   // 남은 연차 일수
 
-        public static EmployResponse from(Employee employee, Role role) {
+        public static EmployResponse from(Employee employee, Role role, Float remainingLeaveDays) {
             return EmployResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
@@ -44,6 +46,8 @@ public class EmployeeDto {
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
                     .role(role.name())
+                    .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
+                    .remainingLeaveDays(remainingLeaveDays)
                     .build();
         }
     }

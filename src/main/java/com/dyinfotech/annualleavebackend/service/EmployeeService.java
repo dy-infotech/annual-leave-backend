@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -27,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class EmployeeService {
 
+    private final CommonService commonService;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmployeeLeaveService employeeLeaveService;
@@ -40,7 +42,10 @@ public class EmployeeService {
                 	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
-        return EmployeeDto.EmployResponse.from(employee, employeeLeaveService.resolveRole(employeeId));
+        Role role = employeeLeaveService.resolveRole(employeeId);
+        Float remainingDays = commonService.getRemainingDays(employee);
+
+        return EmployeeDto.EmployResponse.from(employee,role, remainingDays);
     }
     
     @Transactional
