@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.repository;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.domain.Holiday;
@@ -30,10 +31,7 @@ public interface HolidayRepository extends HolidayJpaRepository {
         }
     }
     default void replaceMonthlyHolidays(int startYear, int startMonth, List<Holiday> newHolidays) {
-    	LocalDate startDate = LocalDate.of(startYear, startMonth, 1);
-    	LocalDate endDate = LocalDate.of(startYear, startMonth, 1)
-    								.plusMonths(1L)
-    								.minusDays(1L);
-    	replaceMonthlyHolidays(startDate, endDate, newHolidays);
+    	YearMonth yearMonth = YearMonth.of(startYear, startMonth);
+    	replaceMonthlyHolidays(yearMonth.atDay(1), yearMonth.atEndOfMonth(), newHolidays);
     }
 }
