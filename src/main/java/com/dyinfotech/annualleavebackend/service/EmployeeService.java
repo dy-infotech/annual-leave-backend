@@ -4,12 +4,15 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -26,7 +29,8 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmployeeLeaveService employeeLeaveService;
-
+    
+    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
     public EmployeeDto.EmployResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
@@ -39,6 +43,7 @@ public class EmployeeService {
     }
 
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
     public void changePassword(Long employeeId, EmployeeDto.PasswordChangeRequest request) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
@@ -59,23 +64,26 @@ public class EmployeeService {
         employee.changePassword(encodedNewPassword);
     }
     
-    public Optional<Employee> findByPrefixEmployeeNumber(String prefix) {
+    public Optional<Employee> findByPrefixEmployeeNumber(String prefix) {	// 신규 사번 등록 실패도 있으므로 캐싱 미처리
     	return employeeRepository.findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(prefix);
     }
     
-    public List<Employee> getEmployeeList(Collection<Long> employeeIds) {
+    public List<Employee> getEmployeeList(Collection<Long> employeeIds) {	// 요청자와 관리자의 쌍이 캐시 히트 효율이 낮으므로 캐싱 미처리
     	return employeeRepository.findAllByEmployeeIdIn(employeeIds);
     }
     
+    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'num-' + #a0")
     public Optional<Employee> getEmployee(String employeeNumber) {
     	return employeeRepository.findByEmployeeNumber(employeeNumber);
     }
     
+    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'num-email-' + #a0 + '-' + #a1")
     public Optional<Employee> getEmployee(String employeeNumber, String email) {
     	return employeeRepository.findByEmployeeNumberAndEmail(employeeNumber, email);
     }
     
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
     public void saveEmployee(Employee employee) {
     	employeeRepository.save(employee);
     }

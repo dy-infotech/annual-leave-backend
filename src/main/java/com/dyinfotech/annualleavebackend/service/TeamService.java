@@ -29,7 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class TeamService {
 	private final TeamRepository teamRepository;
 	
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#team")
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a0")
 	public List<Team> findAllByTeam(String team) {
 		return teamRepository.findAllByTeam(team);
 	}
@@ -39,7 +39,7 @@ public class TeamService {
 	 * @param approverId 팀의 관리자
 	 * @return Entry<Integer, String>(ManageType, approverTeamList)
 	 */
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'pm-' + #approverId")
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'pm-' + #a2")	// key : pm-#{approverId}
 	public Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
 		int manageType = 0;
 		StringBuilder teams = new StringBuilder();

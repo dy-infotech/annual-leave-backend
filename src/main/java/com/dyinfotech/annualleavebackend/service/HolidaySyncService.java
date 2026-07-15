@@ -86,11 +86,8 @@ public class HolidaySyncService {
     
     @Transactional
     public void deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {
-        String yearStr = String.valueOf(year);
-        String monthStr = String.format("%02d", month);
         holidayRepository.replaceMonthlyHolidays(year, month, holidays);
-        
-        log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", yearStr, monthStr);
+        log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", year, String.format("%02d", month));
     }
     
     private enum ResultCode {
