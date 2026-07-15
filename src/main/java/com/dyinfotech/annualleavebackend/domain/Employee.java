@@ -46,9 +46,6 @@ public class Employee {
 
     @Column(name = "email", length = 100)
     private String email;
-
-//    @Column(name = "login_id", unique = true, length = 50)
-//    private String loginId;
     
     @Column(name = "curr_year", nullable = false, length = 4)
     private String currYear;
