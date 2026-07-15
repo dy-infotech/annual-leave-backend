@@ -1,0 +1,6 @@
+blank_issues_enabled: true
+
+contact_links:
+  - name: 질문/논의
+    url: https://github.com/dy-infotech/annual-leave-backend/discussions
+    about: 이슈는 실제 작업 항목 추적용입니다. 질문이나 아이디어 논의는 Discussions를 이용해 주세요.
