@@ -29,8 +29,9 @@ public class EmployeeDto {
 
         private String employeeNumber;
         private String name;
-        private String position;
         private String department;
+        private String position;
+        private String email;
         private LocalDate hireDate;
         private String role;
 
@@ -38,8 +39,9 @@ public class EmployeeDto {
             return EmployResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
-                    .position(employee.getPosition())
                     .department(employee.getDepartment())
+                    .position(employee.getPosition())
+                    .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
                     .role(role.name())
                     .build();
