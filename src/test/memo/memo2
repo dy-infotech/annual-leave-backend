@@ -1,0 +1,103 @@
+package com.dyinfotech.annualleavebackend.service;
+
+import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.dto.SignInDto;
+import com.dyinfotech.annualleavebackend.dto.SignUpDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+ 
+import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
+import org.springframework.mail.SimpleMailMessage; // 추가됨
+import org.springframework.mail.javamail.JavaMailSender; // 추가됨
+
+import java.util.UUID; // 추가됨
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+S
+    private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
+    private final JavaMailSender mailSender; // 이메일 발송 객체 추가
+
+    @Transactional
+    public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
+        // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
+        Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
+
+        // 2. 이미 가입된 사원인지 확인 (loginId가 이미 채워져 있으면 가입 완료 상태)
+        if (employee.getLoginId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 사원입니다.");
+        }
+
+        // 3. 비밀번호 암호화 후 저장 (loginId = employeeNo)
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        // Dirty Checking(변경 감지)
+        // 명시적으로 save()를 호출하지 않아도, @Transactional 범위 안에서 조회한 Entity의 필드를 변경하면 트랜잭션이 끝날 때 자동으로 Update
+        employee.completeSignUp(request.getEmployeeNo(), encodedPassword);
+
+        return SignUpDto.SignUpResponse.builder()
+                .employeeId(employee.getEmployeeId())
+                .name(employee.getName())
+                .loginId(employee.getLoginId())
+                .build();
+    }
+
+    public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
+        // 1. loginId(=사번)로 직원 조회
+        Employee employee = employeeRepository.findByLoginId(request.getEmployeeNo())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
+
+        // 2. 비밀번호 일치 여부 확인
+        if (!passwordEncoder.matches(request.getPassword(), employee.getPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+        }
+
+        // 3. JWT 발급
+        String token = jwtProvider.generateToken(employee.getEmployeeId(), employee.getRole().name());
+
+        return SignInDto.SignInResponse.builder()
+                .token(token)
+                .employeeId(employee.getEmployeeId())
+                .name(employee.getName())
+                .role(employee.getRole().name())
+                .build();
+    }
+    
+    
+    // 💡 컨트롤러의 forgotPassword 요청을 처리하는 실제 서비스 메서드
+    @Transactional
+    public void forgotPassword(ForgotPasswordDto.Request request) {
+        // 1. 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생)
+        Employee employee = employeeRepository.findByEmployeeNoAndEmail(request.getEmployeeNo(), request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록된 정보가 일치하지 않습니다."));
+
+        // 2. 임시 비밀번호 생성 (영어 대소문자 + 숫자 조합 10자리)
+        String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
+
+        // 3. 비밀번호 암호화 후 업데이트 (completeSignUp 메서드를 재사용하거나 updatePassword를 사용합니다)
+        String encodedPassword = passwordEncoder.encode(temporaryPassword);
+        employee.completeSignUp(encodedPassword); // 👈 회원가입 때 쓰신 변수변경 메서드를 재사용하여 안전하게 교체합니다.
+
+        // 4. 임시 비밀번호 이메일 전송
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(employee.getEmail());
+            message.setSubject("[DY인포텍] 연차관리 시스템 임시 비밀번호 발급");
+            message.setText("안녕하세요. DY인포텍 연차관리 시스템입니다.\n\n" +
+                    "요청하신 임시 비밀번호는 다음과 같습니다.\n" +
+                    "임시 비밀번호: " + temporaryPassword + "\n\n" +
+                    "로그인 후 반드시 비밀번호를 변경해 주세요.");
+            
+}

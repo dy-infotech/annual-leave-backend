@@ -2,17 +2,21 @@ package com.dyinfotech.annualleavebackend;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
-import io.github.cdimascio.dotenv.Dotenv;
-
+@EnableScheduling
 @SpringBootApplication
-public class AnnualLeaveBackendApplication {
+public class AnnualLeaveBackendApplication extends SpringBootServletInitializer {
 
+	@Override
+    protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
+        return application.sources(AnnualLeaveBackendApplication.class);
+    }
+	
     public static void main(String[] args) {
-    	// .env file load
-    	Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-    	dotenv.entries().forEach(entry -> System.setProperty(entry.getKey(), entry.getValue()));
-        
+    	java.security.Security.setProperty("jdk.tls.disabledAlgorithms", "");
     	SpringApplication.run(AnnualLeaveBackendApplication.class, args);
     }
 

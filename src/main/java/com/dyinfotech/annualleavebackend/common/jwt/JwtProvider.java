@@ -1,17 +1,20 @@
 package com.dyinfotech.annualleavebackend.common.jwt;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
+import javax.crypto.SecretKey;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class JwtProvider {
 
@@ -57,11 +60,10 @@ public class JwtProvider {
         try {
             parseClaims(token);
             return true;
-        } catch (ExpiredJwtException e) {
-            // 만료된 토큰
-            return false;
-        } catch (SignatureException | IllegalArgumentException e) {
-            // 위변조되었거나 형식이 잘못된 토큰
+        } catch (JwtException | IllegalArgumentException e) {
+            // 위변조되었거나(Signature) 만료되었거나(Expired) 규격 오류거나(Malformed) 미지원이거나(Unsupported) => JwtException
+        	// 형식이 잘못된(IllegalArgument) 토큰
+        	log.warn("유효하지 않은 JWT 토큰 요청 차단: {}", e.getMessage());
             return false;
         }
     }

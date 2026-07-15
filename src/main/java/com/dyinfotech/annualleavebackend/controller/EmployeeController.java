@@ -19,6 +19,12 @@ public class EmployeeController {
     public EmployeeDto.EmployResponse getMyInfo(@AuthenticationPrincipal Long employeeId) {
         return employeeService.getMyInfo(employeeId);
     }
+    
+    @PatchMapping("/me/modify-email")
+    public ResponseEntity<Void> getMyInfo(@AuthenticationPrincipal Long employeeId, @Valid @RequestBody String email) {
+        employeeService.changeEmail(employeeId, email);
+        return ResponseEntity.ok().build();
+    }
 
     @PatchMapping("/me/password")
     public ResponseEntity<Void> changePassword(@AuthenticationPrincipal Long employeeId, @Valid @RequestBody EmployeeDto.PasswordChangeRequest request) {

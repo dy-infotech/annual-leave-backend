@@ -1,18 +1,24 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '4.0.7'
+    id 'org.springframework.boot' version '4.0.7' 
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'war'
 }
 
 group = 'com.dyinfotech'
 version = '0.0.1-SNAPSHOT'
 description = 'annual-leave-backend'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
+
+//java {
+//    toolchain {
+//    	// Cafe24 maximum jdk version is 17
+//        languageVersion = JavaLanguageVersion.of(17)
+//    }
+//}
+
+// make JDK 21 and 25 compatible with JDK 17.
+compileJava.options.release = 17
 
 repositories {
     mavenCentral()
@@ -23,8 +29,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    // Jackson Databind (ObjectMapper)
+    implementation 'org.springframework.boot:spring-boot-starter-json'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
-    implementation 'io.github.cdimascio:dotenv-java:3.2.0'
+    
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
@@ -39,10 +49,25 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    
+    // included Tomcat to external Tomcat(Cafe24)
+    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
+    
+    // Firebase Admin SDK
+    implementation 'com.google.firebase:firebase-admin:9.4.0'
+    
+    // Caffeine Cache
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+}
 
-    implementation 'me.paulschwarz:spring-dotenv:4.0.0'
+tasks.withType(JavaCompile) {
+    options.compilerArgs.add("-parameters")
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+bootWar {
+    archiveFileName = 'ROOT.war'
 }

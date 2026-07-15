@@ -1,0 +1,97 @@
+package com.dyinfotech.annualleavebackend.service;
+
+import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.dto.SignInDto;
+import com.dyinfotech.annualleavebackend.dto.SignUpDto;
+import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final EmployeeRepository employeeRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtProvider jwtProvider;
+    private final JavaMailSender mailSender; // 이메일 발송 객체
+
+    @Transactional
+    public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
+        Employee employee = employeeRepository.findByEmployeeNo(request.getEmployeeNo())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록되지 않은 사번입니다."));
+
+        if (employee.getLoginId() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 가입된 사원입니다.");
+        }
+
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+        employee.completeSignUp(request.getEmployeeNo(), encodedPassword);
+
+        return SignUpDto.SignUpResponse.builder()
+                .employeeId(employee.getEmployeeId())
+                .name(employee.getName())
+                .loginId(employee.getLoginId())
+                .build();
+    }
+
+    public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
+        Employee employee = employeeRepository.findByLoginId(request.getEmployeeNo())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다."));
+
+        if (!passwordEncoder.matches(request.getPassword(), employee.getPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+        }
+
+        String token = jwtProvider.generateToken(employee.getEmployeeId(), employee.getRole().name());
+
+        return SignInDto.SignInResponse.builder()
+                .token(token)
+                .employeeId(employee.getEmployeeId())
+                .name(employee.getName())
+                .role(employee.getRole().name())
+                .build();
+    }
+    
+    // 💡 비밀번호 찾기 (임시 비밀번호 발급 및 이메일 전송)
+    @Transactional
+    public void forgotPassword(ForgotPasswordDto.Request request) {
+        // 1. 사원번호와 이메일로 일치하는 회원 조회
+        Employee employee = employeeRepository.findByEmployeeNoAndEmail(request.getEmployeeNo(), request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "등록된 정보가 일치하지 않습니다."));
+
+        // 2. 임시 비밀번호 생성 (10자리)
+        String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
+
+        // 3. 비밀번호 암호화 후 업데이트 (변경 감지 적용)
+        String encodedPassword = passwordEncoder.encode(temporaryPassword);
+        employee.updatePassword(encodedPassword); // ⚠️ completeSignUp 대신 전용 메서드 사용 추천
+
+        // 4. 임시 비밀번호 이메일 전송
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setTo(employee.getEmail());
+            message.setSubject("[DY인포텍] 연차관리 시스템 임시 비밀번호 발급");
+            message.setText("안녕하세요. DY인포텍 연차관리 시스템입니다.\n\n" +
+                    "요청하신 임시 비밀번호는 다음과 같습니다.\n" +
+                    "임시 비밀번호: " + temporaryPassword + "\n\n" +
+                    "로그인 후 반드시 비밀번호를 변경해 주세요.");
+            
+            mailSender.send(message); // 👈 이메일 발송 실행
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.");
+        }
+    }
+}

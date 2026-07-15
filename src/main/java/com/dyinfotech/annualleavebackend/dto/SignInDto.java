@@ -12,10 +12,15 @@ public class SignInDto {
     public static class SignInRequest {
 
         @NotBlank(message = "사번을 입력해 주세요.")
-        private String employeeNo;
+        private String employeeNumber;
 
         @NotBlank(message = "비밀번호를 입력해 주세요.")
         private String password;
+        
+        //@NotBlank(message = "FCM 토큰을 입력해주세요.")
+        private String fcmToken;
+        
+        private String deviceOs;
     }
 
     @Getter

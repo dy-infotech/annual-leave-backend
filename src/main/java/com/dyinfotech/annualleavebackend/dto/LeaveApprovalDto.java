@@ -13,15 +13,15 @@ public class LeaveApprovalDto {
     public static class LeaveApprovalResponse {
         private Long requestId;
         private String status;
-        private String approverName;
-        private LocalDateTime processedAt;
+        private String managerName;
+        private LocalDateTime managedAt;
 
         public static LeaveApprovalResponse from(LeaveRequest leaveRequest) {
             return LeaveApprovalResponse.builder()
                     .requestId(leaveRequest.getRequestId())
                     .status(leaveRequest.getStatus().name())
-                    .approverName(leaveRequest.getApprover().getName())
-                    .processedAt(leaveRequest.getProcessedAt())
+                    .managerName(leaveRequest.getManager().getName())
+                    .managedAt(leaveRequest.getManagedAt())
                     .build();
         }
     }

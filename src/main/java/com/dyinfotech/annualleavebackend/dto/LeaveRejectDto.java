@@ -21,17 +21,17 @@ public class LeaveRejectDto {
     public static class LeaveRejectResponse {
         private Long requestId;
         private String status;
-        private String approverName;
+        private String managerName;
         private String rejectReason;
-        private LocalDateTime processedAt;
+        private LocalDateTime managedAt;
 
         public static LeaveRejectResponse from(LeaveRequest leaveRequest) {
             return LeaveRejectResponse.builder()
                     .requestId(leaveRequest.getRequestId())
                     .status(leaveRequest.getStatus().name())
-                    .approverName(leaveRequest.getApprover().getName())
+                    .managerName(leaveRequest.getManager().getName())
                     .rejectReason(leaveRequest.getRejectReason())
-                    .processedAt(leaveRequest.getProcessedAt())
+                    .managedAt(leaveRequest.getManagedAt())
                     .build();
         }
     }

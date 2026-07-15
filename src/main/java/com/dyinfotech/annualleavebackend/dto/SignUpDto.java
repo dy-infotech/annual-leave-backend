@@ -12,7 +12,7 @@ public class SignUpDto {
     public static class SignUpRequest {
 
         @NotBlank(message = "사번을 입력해 주세요.")
-        private String employeeNo;
+        private String employeeNumber;
 
         @NotBlank(message = "비밀번호를 입력해 주세요.")
         private String password;

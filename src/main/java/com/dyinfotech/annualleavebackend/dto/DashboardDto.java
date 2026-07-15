@@ -3,8 +3,6 @@ package com.dyinfotech.annualleavebackend.dto;
 import lombok.Builder;
 import lombok.Getter;
 
-import java.math.BigDecimal;
-
 @Getter
 public class DashboardDto {
 
@@ -22,9 +20,9 @@ public class DashboardDto {
     @Getter
     @Builder
     public static class MyLeaveInfoResponse {
-        private BigDecimal totalLeaveDays;      // 총 배정
-        private BigDecimal usedLeaveDays;       // 사용
-        private BigDecimal remainingLeaveDays;  // 잔여
+        private Float totalLeaveDays;      // 총 배정
+        private Float usedLeaveDays;       // 사용
+        private Float remainingLeaveDays;  // 잔여
     }
 
     @Getter

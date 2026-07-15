@@ -1,20 +1,28 @@
 package com.dyinfotech.annualleavebackend.controller;
 
-import com.dyinfotech.annualleavebackend.domain.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
-import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
-import com.dyinfotech.annualleavebackend.service.LeaveApprovalService;
-import com.dyinfotech.annualleavebackend.service.LeaveRequestService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
-import java.util.List;
+import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
+import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
+import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
+import com.dyinfotech.annualleavebackend.service.LeaveRequestService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/leave-requests")
@@ -22,6 +30,16 @@ import java.util.List;
 public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
+    
+    @GetMapping("/current-year-special-days")
+    public List<SpecialDayDto.SpecialDayResponse> getCurrentYearSpecialDays() {
+    	return leaveRequestService.getHolidays(LocalDate.now().getYear());
+    }
+    
+    @GetMapping("/next-year-special-days")
+    public List<SpecialDayDto.SpecialDayResponse> getNextYearSpecialDays() {
+    	return leaveRequestService.getHolidays(LocalDate.now().getYear() + 1);
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -31,12 +49,8 @@ public class LeaveRequestController {
 
     @GetMapping("/all")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
-            @RequestParam(required = false) Long employeeId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) LeaveRequestStatus status
+    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
     ) {
-        LeaveRequestListDto.LeaveRequestListRequest condition = new LeaveRequestListDto.LeaveRequestListRequest(employeeId, startDate, endDate, status);
         return leaveRequestService.searchLeaveRequests(condition);
     }
 
@@ -44,11 +58,9 @@ public class LeaveRequestController {
     @GetMapping("/my")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
             @AuthenticationPrincipal Long employeeId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) LeaveRequestStatus status
+    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
     ) {
-        LeaveRequestListDto.LeaveRequestListRequest condition = new LeaveRequestListDto.LeaveRequestListRequest(employeeId, startDate, endDate, status);
+    	condition.setEmployeeId(employeeId);
         return leaveRequestService.searchLeaveRequests(condition);
     }
 
