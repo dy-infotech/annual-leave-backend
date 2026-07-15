@@ -1,6 +1,8 @@
 package com.dyinfotech.annualleavebackend.repository;
 
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.Year;
 import java.time.YearMonth;
 import java.util.List;
 
@@ -9,17 +11,19 @@ import com.dyinfotech.annualleavebackend.domain.Holiday;
 public interface HolidayRepository extends HolidayJpaRepository {
 	// 특정 연도의 전체 휴일 조회 (필요 시 활용)
     default List<Holiday> findAllByYear(int year) {
+    	Month[] months = Month.values();
         return findByHolidayDateBetween(
-            LocalDate.of(year, 1, 1), 
-            LocalDate.of(year, 12, 31)
+        	Year.of(year).atMonth(months[0]).atDay(1),
+        	Year.of(year).atMonth(months[months.length - 1]).atEndOfMonth()
         );
     }
 
     // 두 개 년도 데이터 조회 (올해, 내년)
     default List<Holiday> findByYearRange(int startYear, int endYear) {
+    	Month[] months = Month.values();
         return findByHolidayDateBetween(
-            LocalDate.of(startYear, 1, 1), 
-            LocalDate.of(endYear, 12, 31)
+        	Year.of(startYear).atMonth(months[0]).atDay(1),
+        	Year.of(endYear).atMonth(months[months.length - 1]).atEndOfMonth()
         );
     }
 
