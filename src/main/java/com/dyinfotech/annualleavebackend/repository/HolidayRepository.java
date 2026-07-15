@@ -24,14 +24,17 @@ public interface HolidayRepository extends HolidayJpaRepository {
     }
 
     // 매월 재갱신시 데이터 삭제 후 저장 (API 갱신용)
+    default void replaceMonthlyHolidays(int startYear, int startMonth, List<Holiday> newHolidays) {
+    	YearMonth yearMonth = YearMonth.of(startYear, startMonth);
+    	replaceMonthlyHolidays(yearMonth, newHolidays);
+    }
+    default void replaceMonthlyHolidays(YearMonth yearMonth, List<Holiday> newHolidays) {
+    	replaceMonthlyHolidays(yearMonth.atDay(1), yearMonth.atEndOfMonth(), newHolidays);
+    }
     default void replaceMonthlyHolidays(LocalDate start, LocalDate end, List<Holiday> newHolidays) {
         deleteByHolidayDateBetween(start, end);
         if (!newHolidays.isEmpty()) {        	
         	saveAll(newHolidays);
         }
-    }
-    default void replaceMonthlyHolidays(int startYear, int startMonth, List<Holiday> newHolidays) {
-    	YearMonth yearMonth = YearMonth.of(startYear, startMonth);
-    	replaceMonthlyHolidays(yearMonth.atDay(1), yearMonth.atEndOfMonth(), newHolidays);
     }
 }
