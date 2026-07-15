@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
+import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
@@ -26,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class TeamService {
 	private final TeamRepository teamRepository;
 	
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#team")
 	public List<Team> findAllByTeam(String team) {
 		return teamRepository.findAllByTeam(team);
 	}
@@ -35,6 +39,7 @@ public class TeamService {
 	 * @param approverId 팀의 관리자
 	 * @return Entry<Integer, String>(ManageType, approverTeamList)
 	 */
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'pm-' + #approverId")
 	public Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
 		int manageType = 0;
 		StringBuilder teams = new StringBuilder();
@@ -131,11 +136,13 @@ public class TeamService {
         return resolvedApproverIds;
 	}
 	
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'all-names'")
 	public Collection<String> findAllTeamName() {
 		return teamRepository.findAll().stream().map(Team::getTeam).toList();
 	}
 	
 	@Transactional
+	@CacheEvict(value = CacheConfig.CACHE_TEAMS, allEntries = true)
 	public void saveTeam(Team team) {
 		teamRepository.save(team);
 	}
