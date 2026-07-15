@@ -31,9 +31,9 @@ public interface HolidayRepository extends HolidayJpaRepository {
     }
     default void replaceMonthlyHolidays(int startYear, int startMonth, List<Holiday> newHolidays) {
     	LocalDate startDate = LocalDate.of(startYear, startMonth, 1);
-    	LocalDate endDate = LocalDate.of(startYear, startMonth, 1);
-    	endDate.plusMonths(1L);
-    	endDate.minusDays(1L);
+    	LocalDate endDate = LocalDate.of(startYear, startMonth, 1)
+    								.plusMonths(1L)
+    								.minusDays(1L);
     	replaceMonthlyHolidays(startDate, endDate, newHolidays);
     }
 }
