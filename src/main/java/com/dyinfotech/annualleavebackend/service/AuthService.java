@@ -58,10 +58,11 @@ public class AuthService {
     
     @Transactional(readOnly = true)
 //	public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
-    public RegisterCommonDto.RegisterCommonResponse getCommonData() {
+    public RegisterCommonDto.RegisterCommonResponse getCommonData(Long employeeId) {
+    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	return RegisterCommonDto.RegisterCommonResponse.builder()
     													.department(Arrays.asList(DepartmentType.values()).stream().map(DepartmentType::getName).toList())
-    													.team(teamService.findAllTeamName())
+    													.team(teamService.getSelfAndDescendants(requester.getTeam()))
     													.position(Arrays.asList(PositionType.values()).stream().map(PositionType::getName).toList())
     													.build();
     }

@@ -6,12 +6,16 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
+import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -38,6 +42,12 @@ public class LeaveRequestService {
     private final TeamService teamService;
 
     @Transactional
+    @Caching(evict = {
+    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
+    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
+    	})
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
         LeaveType leaveType = LeaveType.fromName(request.getLeaveType());
         // XXX: 클라에서 받은 정보의 LeaveType을 검증한다.
@@ -194,6 +204,12 @@ public class LeaveRequestService {
     }
 
     @Transactional
+    @Caching(evict = {
+    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
+    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
+    	})
     public void cancel(Long employeeId, Long requestId) {
     	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)

@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -43,7 +44,12 @@ public class EmployeeService {
     }
 
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
+    @Caching(evict = {
+    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
+    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
+    	})
     public void changePassword(Long employeeId, EmployeeDto.PasswordChangeRequest request) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
@@ -72,13 +78,11 @@ public class EmployeeService {
     	return employeeRepository.findAllByEmployeeIdIn(employeeIds);
     }
     
-    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'num-' + #a0")
-    public Optional<Employee> getEmployee(String employeeNumber) {
+    public Optional<Employee> getEmployee(String employeeNumber) {			// signIn, signUp에 쓰이는 데이터라서 쓰기 작업으로 오염될 것이므로 캐싱 미처리
     	return employeeRepository.findByEmployeeNumber(employeeNumber);
     }
     
-    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'num-email-' + #a0 + '-' + #a1")
-    public Optional<Employee> getEmployee(String employeeNumber, String email) {
+    public Optional<Employee> getEmployee(String employeeNumber, String email) {	// forgotPassword에 쓰이는 데이터라서 쓰기 작업으로 오염될 것이므로 캐싱 미처리
     	return employeeRepository.findByEmployeeNumberAndEmail(employeeNumber, email);
     }
     

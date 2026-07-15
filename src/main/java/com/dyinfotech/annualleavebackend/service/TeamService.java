@@ -1,8 +1,10 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -33,16 +35,108 @@ public class TeamService {
 	public List<Team> findAllByTeam(String team) {
 		return teamRepository.findAllByTeam(team);
 	}
+	
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'total'")
+	public List<Team> findAll() {
+		return teamRepository.findAll();
+	}
+	
+	/**
+	 * 기준 팀부터 시작하여 자기 자신과 모든 하위 팀 목록을 재귀적으로 수집합니다 (DFS).
+	 *
+	 * @param currentTeam      현재 탐색 중인 팀 이름
+	 * @param parentToChildren 부모 팀별 자식 팀 목록 Map
+	 * @param result           수집된 팀 이름 List
+	 * @param visited          순환 참조 방지용 방문 기록 Set
+	 */
+    private void traverseDown(String currentTeam, 
+                              Map<String, List<Team>> parentToChildren, 
+                              List<String> result, 
+                              Set<String> visited) {
+        // 이미 방문한 팀이라면 중복 추가 방지 및 순환 참조 탈출
+        if (!visited.add(currentTeam)) {
+            return;
+        }
+
+        // 진입하자마자 자기 자신(부모)을 리스트에 바로 추가. 이후 자식들이 추가되는 구조로 바뀜
+        result.add(currentTeam);
+
+        // 내 밑에 달린 직속 자식 팀들을 획득
+        List<Team> children = parentToChildren.getOrDefault(currentTeam, Collections.emptyList());
+
+        // 자식 팀들을 하나씩 순회하며 아래로 깊게 파고 들어감 (DFS)
+        for (Team child : children) {
+            traverseDown(child.getTeam(), parentToChildren, result, visited);
+        }
+    }
+	/**
+     * targetTeam부터 시작하여 자기 자신과 모든 하위(자식/후손) 팀 목록을 전부 반환합니다.
+     * @param targetTeam 시작 기준 팀 (본인)
+     * @return 자기 자신 + 모든 하위 팀명이 담긴 리스트
+     */
+    public List<String> getSelfAndDescendants(String targetTeam) {
+        // 1. 팀 테이블 전체 로드
+        List<Team> allTeams = findAll();
+
+        // 2. 부모 팀 이름을 Key로 하고, 직속 자식 팀 리스트를 Value로 갖는 Map 구성
+        Map<String, List<Team>> parentToChildren = new HashMap<>();
+        boolean exists = false;
+
+        for (Team team : allTeams) {
+            // 시작 대상 팀(targetTeam)이 실존하는지 체크
+            if (!exists && team.getTeam().equals(targetTeam)) {
+                exists = true;
+            }
+
+            // 부모 팀 이름을 Key로 하는 자식 리스트 Map 구성
+            parentToChildren.computeIfAbsent(team.getParentTeam(), k -> new ArrayList<>())
+                			.add(team);
+        }
+
+        // 시작 팀이 테이블에 실존하는지 검증
+        List<String> result = new ArrayList<>();
+        if (!exists) {
+            return result; // 존재하지 않는 팀이면 빈 리스트 반환
+        }
+
+        // 3. 재귀 DFS 탐색 시작 (자기 자신부터 아래로)
+        traverseDown(targetTeam, parentToChildren, result, new HashSet<>());
+
+        return result;
+    }
+    /**
+     * targetTeam부터 최상위 루트 팀까지 역추적하여 모든 조상(본인 포함) 팀 목록을 반환합니다.
+     */
+    private List<String> getAllAncestors(String targetTeam) {
+        List<String> ancestors = new ArrayList<>();
+        String currentTeamName = targetTeam;
+        Set<String> visited = new HashSet<>(); // 순환 참조(Infinite Loop) 발생 방지용 안전장치
+
+        while (currentTeamName != null && !currentTeamName.isEmpty() && !currentTeamName.equals("NONE")) {
+            if (!visited.add(currentTeamName)) {
+                break;
+            }
+            ancestors.add(currentTeamName);
+
+            // 상위 팀 정보 조회
+            List<Team> teamOpt = findAllByTeam(currentTeamName);
+            if (teamOpt.isEmpty()) {
+                break;
+            }
+            currentTeamName = teamOpt.get(0).getParentTeam();
+        }
+        return ancestors;
+    }
+	
 	/**
 	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
 	 * @param targetTeam 탐색할 팀 정보
 	 * @param approverId 팀의 관리자
 	 * @return Entry<Integer, String>(ManageType, approverTeamList)
 	 */
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'pm-' + #a2")	// key : pm-#{approverId}
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
 	public Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
 		int manageType = 0;
-		StringBuilder teams = new StringBuilder();
 		
 		List<Team> teamList = teamRepository.findAllByProjectManagerId(approverId);
 		List<Team> targetTeamList = findAllByTeam(targetTeam);
@@ -55,31 +149,16 @@ public class TeamService {
 				return new AbstractMap.SimpleEntry<>(manageType, teamList.stream().map(Team::getTeam).toList().toString());
 			}
 		}
-		// 기존 팀인 경우
-		for (Team team : teamList) {
-			if (team.getTeam().equals(targetTeam)) {
-				manageType = ManageType.IS_TEAM_MANAGER.getAppliedCode(manageType);
-				break;
-			}
-			teams.append(team.getTeam()).append(",");
-		}
-		int length = teams.length();
-		if (length > 0) {
-			teams.setLength(length - 1);
-		}
 		
-		if (!ManageType.IS_TEAM_MANAGER.hasCode(manageType)) {
-			// 상위 팀의 관리자인지 확인 (targetTeamList가 isEmpty인 경우는 early return 처리되었으므로 분기문 처리 안 함)
-			String parentTeam = targetTeamList.get(0).getParentTeam();
-			for (Team team : teamList) {
-				if (team.getTeam().equals(parentTeam)) {
-					manageType = ManageType.IS_TEAM_MANAGER.getAppliedCode(manageType);
-					break;
-				}
-			}
-		}
-		
-		return new AbstractMap.SimpleEntry<>(manageType, teams.toString());
+		// 기존 팀인 경우 (트리 탐색 적용)
+	    List<String> managedTeamNames = teamList.stream().map(Team::getTeam).toList();	// 내가 PM인 팀 목록
+	    List<String> ancestors = getAllAncestors(targetTeam); 							// targetTeam의 모든 상위 계보
+	    
+	    if (ancestors.stream().anyMatch(managedTeamNames::contains)) {					// targetTeam과 상위 팀들 내에 내가 PM인 팀이 있는가
+	        manageType = ManageType.IS_TEAM_MANAGER.getAppliedCode(manageType);			// 상위 팀의 PM도 하위 팀의 관리자로 인정
+	    }
+	    
+	    return new AbstractMap.SimpleEntry<>(manageType, String.join(",", managedTeamNames));
 	}
 	
 	public boolean isTeamManager(Long employeeId) {
@@ -136,10 +215,10 @@ public class TeamService {
         return resolvedApproverIds;
 	}
 	
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'all-names'")
-	public Collection<String> findAllTeamName() {
-		return teamRepository.findAll().stream().map(Team::getTeam).toList();
-	}
+//	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'all-names'")
+//	public Collection<String> findAllTeamName() {
+//		return teamRepository.findAll().stream().map(Team::getTeam).toList();
+//	}
 	
 	@Transactional
 	@CacheEvict(value = CacheConfig.CACHE_TEAMS, allEntries = true)

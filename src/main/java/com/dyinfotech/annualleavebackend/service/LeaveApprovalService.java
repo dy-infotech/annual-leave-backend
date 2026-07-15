@@ -4,12 +4,15 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
@@ -97,6 +100,12 @@ public class LeaveApprovalService {
     }
 
     @Transactional
+    @Caching(evict = {
+    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
+    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
+    	})
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
     	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
     	LeaveRequest leaveRequest = response.getKey();
@@ -113,6 +122,12 @@ public class LeaveApprovalService {
     }
 
     @Transactional
+    @Caching(evict = {
+    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
+    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
+    	})
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
     	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
     	LeaveRequest leaveRequest = response.getKey();
