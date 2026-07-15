@@ -10,20 +10,19 @@ import com.dyinfotech.annualleavebackend.domain.Holiday;
 
 public interface HolidayRepository extends HolidayJpaRepository {
 	// 특정 연도의 전체 휴일 조회 (필요 시 활용)
-    default List<Holiday> findAllByYear(int year) {
-    	Month[] months = Month.values();
+    default List<Holiday> findAllByYear(int startYear) {
+    	Year year = Year.of(startYear);
         return findByHolidayDateBetween(
-        	Year.of(year).atMonth(months[0]).atDay(1),
-        	Year.of(year).atMonth(months[months.length - 1]).atEndOfMonth()
+        	year.atDay(1),
+        	year.atMonth(Month.DECEMBER).atEndOfMonth()
         );
     }
 
     // 두 개 년도 데이터 조회 (올해, 내년)
     default List<Holiday> findByYearRange(int startYear, int endYear) {
-    	Month[] months = Month.values();
         return findByHolidayDateBetween(
-        	Year.of(startYear).atMonth(months[0]).atDay(1),
-        	Year.of(endYear).atMonth(months[months.length - 1]).atEndOfMonth()
+        	Year.of(startYear).atDay(1),
+        	Year.of(endYear).atMonth(Month.DECEMBER).atEndOfMonth()
         );
     }
 
