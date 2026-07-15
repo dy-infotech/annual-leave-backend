@@ -46,7 +46,12 @@ public class BasisData {
     // Composite id defined as a static inner class so BasisData is self-contained.
     @Getter
     public static class BasisDataId implements java.io.Serializable {
-        private String year;
+        /**
+		 * default serialVersionUID for Serializable
+		 */
+        private static final long serialVersionUID = -4265061405661642440L;
+        
+		private String year;
         private Long seq;
 
         public BasisDataId() {

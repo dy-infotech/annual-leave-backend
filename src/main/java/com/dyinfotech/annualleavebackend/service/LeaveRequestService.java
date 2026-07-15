@@ -2,7 +2,6 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -20,7 +19,6 @@ import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
-import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -126,8 +124,8 @@ public class LeaveRequestService {
         }
     }
     
-    public List<SpecialDayDto.SpecialDayResponse> getHolidays(String year) {    	
-//    	List<Holiday> holidays = holidayRepository.findAllByYear(year);
+    public List<SpecialDayDto.SpecialDayResponse> getHolidays(int year) {    	
+//    	List<Holiday> holidays = holidayRepository.findAllByYear(String.valueOf(year));
 //    	
 //    	List<SpecialDayDto.SpecialDayResponse> specialDayResponses = new ArrayList<>();
 //    	for (Holiday holiday : holidays) {
@@ -142,29 +140,18 @@ public class LeaveRequestService {
         return holidaySyncService.findAllByYear(year).stream()
         						.map(holiday -> SpecialDayDto.SpecialDayResponse.builder()
 				        														.name(holiday.getName())
-				        														.date(LocalDate.of(Integer.parseInt(holiday.getYear()),
-																				                    Integer.parseInt(holiday.getMonth()),
-																				                    Integer.parseInt(holiday.getDay())))
+				        														.date(holiday.getHolidayDate())
 				        														.build())
         						.toList();
     }
 
     private long countWeekdays(LocalDate startDate, LocalDate endDate) {
-    	// 1. 조회할 연도 목록 추출 (보통 1개 연도이거나 해를 넘기면 2개 연도)
-    	Set<String> years = new HashSet<>();
-    	years.add(String.valueOf(startDate.getYear()));
-    	years.add(String.valueOf(endDate.getYear()));
-    	
-    	// 2. 해당 연도들의 공휴일 전체 조회
-        List<Holiday> holidays = holidaySyncService.findAllByYearIn(years);
+    	// 해당 연도 사이의 공휴일 전체 조회
+        List<Holiday> holidays = holidaySyncService.findByYearRange(startDate.getYear(), endDate.getYear());
         
-        // 3. LocalDate의 Set으로 변환
+        // LocalDate의 Set으로 변환
         Set<LocalDate> holidayDates = holidays.stream()
-								                .map(h -> LocalDate.of(
-								                        Integer.parseInt(h.getYear()), 
-								                        Integer.parseInt(h.getMonth()), 
-								                        Integer.parseInt(h.getDay())
-								                ))
+								                .map(Holiday::getHolidayDate)
 								                .collect(Collectors.toSet());
     	
         long weekdays = 0;

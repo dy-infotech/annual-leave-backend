@@ -1,8 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -50,13 +50,13 @@ public class HolidaySyncService {
     }
     
     @Transactional(readOnly = true)
-    public List<Holiday> findAllByYear(String year) {
+    public List<Holiday> findAllByYear(int year) {
     	return holidayRepository.findAllByYear(year);
     }
     
     @Transactional(readOnly = true)
-    public List<Holiday> findAllByYearIn(Collection<String> years) {
-    	return holidayRepository.findAllByYearIn(years);
+    public List<Holiday> findByYearRange(int startYear, int endYear) {
+    	return holidayRepository.findByYearRange(startYear, endYear);
     }
     
     public List<Holiday> fetchHolidaysFromApi(int year, int month) {
@@ -88,11 +88,7 @@ public class HolidaySyncService {
     public void deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {
         String yearStr = String.valueOf(year);
         String monthStr = String.format("%02d", month);
-
-        holidayRepository.deleteByYearAndMonth(yearStr, monthStr);
-        if (!holidays.isEmpty()) {
-            holidayRepository.saveAll(holidays);
-        }
+        holidayRepository.replaceMonthlyHolidays(year, month, holidays);
         
         log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", yearStr, monthStr);
     }
@@ -163,9 +159,7 @@ public class HolidaySyncService {
         String dateName = item.path("dateName").asText("공휴일");
 
         return Holiday.builder()
-                .year(year)
-                .month(month)
-                .day(day)
+        		.holidayDate(LocalDate.of(Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day)))
                 .name(dateName)
                 .build();
     }

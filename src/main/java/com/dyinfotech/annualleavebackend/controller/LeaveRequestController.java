@@ -33,12 +33,12 @@ public class LeaveRequestController {
     
     @GetMapping("/current-year-special-days")
     public List<SpecialDayDto.SpecialDayResponse> getCurrentYearSpecialDays() {
-    	return leaveRequestService.getHolidays(String.valueOf(LocalDate.now().getYear()));
+    	return leaveRequestService.getHolidays(LocalDate.now().getYear());
     }
     
     @GetMapping("/next-year-special-days")
     public List<SpecialDayDto.SpecialDayResponse> getNextYearSpecialDays() {
-    	return leaveRequestService.getHolidays(String.valueOf(LocalDate.now().getYear() + 1));
+    	return leaveRequestService.getHolidays(LocalDate.now().getYear() + 1);
     }
 
     @PostMapping

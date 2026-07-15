@@ -71,7 +71,12 @@ public class LeaveAdjustment {
     // Composite id defined as a static inner class so LeaveAdjustment is self-contained.
     @Getter
     public static class LeaveAdjustmentId implements java.io.Serializable {
-        private Long employeeId;
+        /**
+		 * default serialVersionUID for Serializable
+		 */
+		private static final long serialVersionUID = 893589495980515486L;
+		
+		private Long employeeId;
         private String year;
         private LocalDateTime createdAt;
 
