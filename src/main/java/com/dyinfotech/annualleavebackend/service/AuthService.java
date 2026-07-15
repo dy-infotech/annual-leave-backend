@@ -275,6 +275,7 @@ public class AuthService {
                 .employeeId(employee.getEmployeeId())
                 .name(employee.getName())
                 .role(role.name())
+				.email(employee.getEmail())
                 .build();
     }
     
