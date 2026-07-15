@@ -26,8 +26,8 @@ public class Employee {
     @Column(name = "password")
     private String password;
     
-    @Column(name = "access_count")
-    private Integer access_count;
+    @Column(name = "access_count", nullable = false)
+    private Integer access_count = 0;
     
     @Column(name = "accessed_at")
     private LocalDateTime accessedAt;
