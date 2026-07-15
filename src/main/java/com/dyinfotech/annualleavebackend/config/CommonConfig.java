@@ -6,9 +6,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.web.client.RestClient;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.netty.channel.ChannelOption;
+import reactor.netty.http.client.HttpClient;
 
 @Configuration
 public class CommonConfig {
@@ -18,26 +22,22 @@ public class CommonConfig {
         return new ObjectMapper();
     }
     
-    // 타임아웃이 적용된 ClientHttpRequestFactory
-    private SimpleClientHttpRequestFactory createRequestFactory(int connectTimeoutSeconds, int readTimeoutSeconds) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout((int) Duration.ofSeconds(connectTimeoutSeconds).toMillis());
-        factory.setReadTimeout((int) Duration.ofSeconds(readTimeoutSeconds).toMillis());
-        return factory;
+    @Bean
+    WebClient.Builder webClientBuilder() {
+    	return WebClient.builder();
     }
     
+    // 기본 타임아웃(10초)이 적용된 전역 WebClient 등록
     @Bean
-    RestClient.Builder restClientBuilder() {
-    	return RestClient.builder();
-    }
-    
-    // 기본 타임아웃(5초)이 적용된 전역 RestClient 등록
-    @Bean
-    @Primary // 나중에 다른 RestClient 빈이 생겨도 기본 주입되도록 보장
-    RestClient restClient(RestClient.Builder builder) {
-        // 스프링이 주입해주는 내장 builder를 사용해 깔끔하게 결합
+    @Primary
+    WebClient webClient(WebClient.Builder builder) {
+        // Reactor Netty의 HttpClient 설정
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)	// 연결 타임아웃 10초
+                .responseTimeout(Duration.ofSeconds(10));				// 응답 타임아웃 10초
+
         return builder
-                .requestFactory(createRequestFactory(5, 5))
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .build();
     }
 }
