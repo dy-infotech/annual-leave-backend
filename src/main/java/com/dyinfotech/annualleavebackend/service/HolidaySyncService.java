@@ -104,6 +104,7 @@ public class HolidaySyncService {
     	Mono.fromRunnable(() -> {
     		lock.lock();
         	try {
+        		// TODO: SELECT DELETE INSERT 반복된다 gap lock 확인 필요
     	        holidayRepository.replaceMonthlyHolidays(year, month, holidays);
     	        log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", year, String.format("%02d", month));
         	} finally {
