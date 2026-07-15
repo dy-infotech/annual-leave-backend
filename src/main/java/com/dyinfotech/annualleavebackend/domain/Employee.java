@@ -130,6 +130,10 @@ public class Employee {
     	this.accessedAt = LocalDateTime.now();
     }
     
+    public void changeEmail(String email) {
+    	this.email = email;
+    }
+    
     public void setCurrYear(String year) {
         this.currYear = year;
     }

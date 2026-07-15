@@ -42,12 +42,27 @@ public class EmployeeService {
 
         return EmployeeDto.EmployResponse.from(employee, employeeLeaveService.resolveRole(employeeId));
     }
-
+    
     @Transactional
     @Caching(evict = {
     	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
     	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
     	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
+    	})
+    public void changeEmail(Long employeeId, String email) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> {
+                	String errorMsg = "존재하지 않는 직원입니다.";
+                	log.error(errorMsg + " " + "employeeId: " + employeeId);
+                	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
+        employee.changeEmail(email);
+    }
+
+    @Transactional
+    @Caching(evict = {
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
     	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     	})
     public void changePassword(Long employeeId, EmployeeDto.PasswordChangeRequest request) {
