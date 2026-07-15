@@ -15,7 +15,7 @@ import com.dyinfotech.annualleavebackend.domain.Holiday;
 
 public interface HolidayRepository extends HolidayJpaRepository {
 	// 특정 연도의 전체 휴일 조회 (필요 시 활용)
-	@Cacheable(value = CacheConfig.CACHE_HOLIDAYS, key = "#startYear")
+	@Cacheable(value = CacheConfig.CACHE_HOLIDAYS, key = "#a0")
     default List<Holiday> findAllByYear(int startYear) {
     	Year year = Year.of(startYear);
         return findByHolidayDateBetween(
@@ -25,7 +25,7 @@ public interface HolidayRepository extends HolidayJpaRepository {
     }
 
     // 두 개 년도 데이터 조회 (올해, 내년)
-	@Cacheable(value = CacheConfig.CACHE_HOLIDAYS, key = "#startYear + '-' + #endYear")
+	@Cacheable(value = CacheConfig.CACHE_HOLIDAYS, key = "#a0 + '-' + #a1")
     default List<Holiday> findByYearRange(int startYear, int endYear) {
         return findByHolidayDateBetween(
         	Year.of(startYear).atDay(1),

@@ -15,7 +15,6 @@ import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
-import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,7 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class LeaveApprovalService {
 	private final LeaveRequestRepository leaveRequestRepository;
-    private final EmployeeRepository employeeRepository;
+    private final EmployeeService employeeService;
     private final TeamService teamService;
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests() {
@@ -42,7 +41,7 @@ public class LeaveApprovalService {
         
         // 요청자와 관리자 정보 추출
         Long employeeId = leaveRequest.getEmployee().getEmployeeId();
-        List<Employee> employees = employeeRepository.findAllByEmployeeIdIn(List.of(employeeId, approverId));
+        List<Employee> employees = employeeService.getEmployeeList(List.of(employeeId, approverId));
         if (employees.size() < 2) {
         	String errorMsg = null;
         	String detailMsg = null;

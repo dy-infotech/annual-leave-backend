@@ -49,6 +49,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
+    private final EmployeeService employeeService;
     private final TeamService teamService;
     
     private final JavaMailSender mailSender; // 이메일 발송 객체 추가
@@ -116,7 +117,7 @@ public class AuthService {
 
     	String currentYear = String.valueOf(now.getYear());
     	String prefix = employeeNumberPrefix.get().getData().replace("#{YEAR}", currentYear);
-    	Optional<Employee> lastPrefixEmployee = employeeRepository.findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(prefix);
+    	Optional<Employee> lastPrefixEmployee = employeeService.findByPrefixEmployeeNumber(prefix);
     	
     	// 사번 설정
     	String formatString = "%03d";
@@ -144,7 +145,7 @@ public class AuthService {
 				.approverId(employeeId)
 				.build();
     	
-    	employeeRepository.save(employee);
+    	employeeService.saveEmployee(employee);
     	
     	// 신규 팀이 만들어져야 한다면
     	if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
@@ -174,7 +175,7 @@ public class AuthService {
     @Transactional
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
         // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
-        Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
+        Employee employee = employeeService.getEmployee(request.getEmployeeNumber())
                 .orElseThrow(() -> {
                 	String errorMsg = "등록되지 않은 사번입니다.";
                 	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
@@ -230,7 +231,7 @@ public class AuthService {
     @Transactional
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
         // 1. employeeNumber(=사번)로 직원 조회
-        Employee employee = employeeRepository.findByEmployeeNumber(request.getEmployeeNumber())
+        Employee employee = employeeService.getEmployee(request.getEmployeeNumber())
                 .orElseThrow(() -> {
                 	log.error("사번이 존재하지 않습니다. employeeNumber: " + request.getEmployeeNumber());
                 	return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
@@ -279,7 +280,7 @@ public class AuthService {
     @Transactional
     public void forgotPassword(ForgotPasswordDto.Request request) {
         // 1. 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생시키고, 성공 케이스인 것처럼 전달해서 공격 방지)
-        Employee employee = employeeRepository.findByEmployeeNumberAndEmail(request.getEmployeeNumber(), request.getEmail())
+        Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.OK));
 
         // 2. 임시 비밀번호 생성 (소문자 16진수 + 하이픈 10자리)

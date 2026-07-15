@@ -1,5 +1,9 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -53,5 +57,26 @@ public class EmployeeService {
 
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
         employee.changePassword(encodedNewPassword);
+    }
+    
+    public Optional<Employee> findByPrefixEmployeeNumber(String prefix) {
+    	return employeeRepository.findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(prefix);
+    }
+    
+    public List<Employee> getEmployeeList(Collection<Long> employeeIds) {
+    	return employeeRepository.findAllByEmployeeIdIn(employeeIds);
+    }
+    
+    public Optional<Employee> getEmployee(String employeeNumber) {
+    	return employeeRepository.findByEmployeeNumber(employeeNumber);
+    }
+    
+    public Optional<Employee> getEmployee(String employeeNumber, String email) {
+    	return employeeRepository.findByEmployeeNumberAndEmail(employeeNumber, email);
+    }
+    
+    @Transactional
+    public void saveEmployee(Employee employee) {
+    	employeeRepository.save(employee);
     }
 }

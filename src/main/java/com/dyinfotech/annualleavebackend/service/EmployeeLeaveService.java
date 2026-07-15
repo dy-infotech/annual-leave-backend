@@ -29,9 +29,10 @@ import lombok.extern.slf4j.Slf4j;
 public class EmployeeLeaveService {
 
     private final BasisDataFactory basisDataFactory;
-    private final TeamRepository teamRepository;
-    private final EmployeeRepository employeeRepository;
     private final LeaveAdjustmentRepository leaveAdjustmentRepository;
+    private final TeamRepository teamRepository;
+    // XXX: EmployeeService가 EmployeeLeaveService를 참조하고 있다. 상호 참조 이슈를 방지하기 위해 EmployeeRepository를 사용하도록 허용한다
+    private final EmployeeRepository employeeRepository;
     
     /**
      * 전직원 새해 연차 롤오버 및 재계산

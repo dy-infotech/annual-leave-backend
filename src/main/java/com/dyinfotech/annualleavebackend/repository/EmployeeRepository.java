@@ -21,5 +21,5 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     
     List<Employee> findAllByFireDateIsNull();
     
-    Optional<Employee> findByEmployeeNumberAndEmail(String employeeNo, String email);
+    Optional<Employee> findByEmployeeNumberAndEmail(String employeeNumber, String email);
 }
