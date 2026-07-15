@@ -4,6 +4,8 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
@@ -31,6 +33,8 @@ public class LeaveApprovalService {
 	private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeService employeeService;
     private final TeamService teamService;
+    
+    private final CacheManager cacheManager;
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests() {
         return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(LeaveRequestStatus.PENDING)
@@ -100,12 +104,7 @@ public class LeaveApprovalService {
     }
 
     @Transactional
-    @Caching(evict = {
-    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
-    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    	})
+    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
     	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
     	LeaveRequest leaveRequest = response.getKey();
@@ -117,17 +116,17 @@ public class LeaveApprovalService {
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         }
-
+        
+        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
+        if (employeeCache != null) {
+        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
+        }
+        
         return LeaveApprovalDto.LeaveApprovalResponse.from(leaveRequest);
     }
 
     @Transactional
-    @Caching(evict = {
-    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
-    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    	})
+    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
     	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
     	LeaveRequest leaveRequest = response.getKey();
@@ -138,6 +137,11 @@ public class LeaveApprovalService {
             leaveRequest.reject(approver, request.getRejectReason());
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        }
+        
+        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
+        if (employeeCache != null) {
+        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
         }
 
         return LeaveRejectDto.LeaveRejectResponse.from(leaveRequest);
