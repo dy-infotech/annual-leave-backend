@@ -53,8 +53,11 @@ app:
 logging:
   level:
     root: info
+    org.springframework.boot.autoconfigure: info  # Condition Evaluation Report log  disable
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: info
+
+    com.dyinfotech.annualleavebackend: warn       # @Slf4j log level
 
   file:
    name: logs/local-app.log
