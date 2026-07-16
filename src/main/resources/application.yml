@@ -15,8 +15,8 @@ spring:
    show-sql: false         # ⚠️ 파일 로그에도 기록하기 위해 false로 두고 아래 logging에서 제어합니다.
    properties:
     hibernate:
-     format_sql: true      # SQL 쿼리를 한 줄이 아니라 개행/들여쓰기로 예쁘게 포맷팅
-     highlight_sql: true   # 콘솔창에서 SQL 키워드에 색상을 입혀 가독성 향상
+     format_sql: false     # 운영시 포맷팅 불필요. 용량 차지 저하.
+     highlight_sql: false  # sql 키워드 색상은 콘솔상 필요조건. 파일에선 불필요한 낭비.
 
   mail:
     host: smtp.cafe24.com
@@ -54,16 +54,16 @@ logging:
   level:
     root: info
     org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: trace
+    org.hibernate.orm.jdbc.bind: info
 
   file:
    name: logs/local-app.log
 
-  # 🔄 파일 로테이션 설정 (서버 용량 방어를 위해 무조건 넣는 것을 추천합니다)
+  # 파일 로테이션 설정 (서버 용량 방어)
   logback:
     rollingpolicy:
-      file-name-pattern: "logs/local-app.%d{yyyy-MM-dd}.%i.log"
+      file-name-pattern: "logs/local-app.%d{yyyy-MM-dd}.%i.log.gz"
       max-file-size: 1MB
-      max-history: 90
+      max-history: 30
       total-size-cap: 35MB
       clean-history-on-start: true
