@@ -35,6 +35,11 @@ eclipse {
     }
 }
 
+jar {
+	// disable creating *-plain.jar
+    enabled = false
+}
+
 repositories {
     mavenCentral()
 }
