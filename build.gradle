@@ -59,10 +59,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     // Jackson Databind (ObjectMapper)
-    implementation 'org.springframework.boot:spring-boot-starter-json'
-    //implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
+    // if you use spring boot 3.0.12, start-web includes it
+    //implementation 'org.springframework.boot:spring-boot-starter-json'
+    //developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
     // because of spring boot 4.x.x to 3.0.12
-    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
+    developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
     
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -85,7 +86,7 @@ dependencies {
     providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     
     // Firebase Admin SDK
-    implementation('com.google.firebase:firebase-admin:9.4.0') {
+    implementation('com.google.firebase:firebase-admin:9.10.0') {
 	    // don't need Firestore(NoSQL DB) feature
 	    exclude group: 'com.google.cloud', module: 'google-cloud-firestore'
     	exclude group: 'com.google.api.grpc', module: 'proto-google-cloud-firestore-v1'
@@ -97,10 +98,19 @@ dependencies {
 	    // TODO: need to re-examine if really don't use it when subscribing to and pushing a topic
 	    exclude group: 'io.grpc'
 	    exclude group: 'com.google.api.grpc'
+	    
+	    // don't need mock-server
+	    exclude group: 'org.mock-server', module: 'mockserver-junit-rule-no-dependencies'
+	    
+	    // don't need netty (WebFlux also do)
+	    exclude group: 'io.netty'
 	}
     
     // Caffeine Cache
     implementation 'com.github.ben-manes.caffeine:caffeine'
+    
+    // sql log parameter setting (for Spring Boot 3.x)
+	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.1'
 }
 
 tasks.withType(JavaCompile) {
