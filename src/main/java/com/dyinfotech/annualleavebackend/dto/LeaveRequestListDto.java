@@ -40,6 +40,7 @@ public class LeaveRequestListDto {
     public static class LeaveRequestListResponse {
         private Long requestId;
         private String employeeName;
+        private String employeeNumber;
         private String position;
         private String department;
         private LocalDateTime requestedAt;   // 휴가 신청일
@@ -53,6 +54,7 @@ public class LeaveRequestListDto {
             return LeaveRequestListResponse.builder()
                     .requestId(leaveRequest.getRequestId())
                     .employeeName(leaveRequest.getEmployee().getName())
+                    .employeeNumber(leaveRequest.getEmployee().getEmployeeNumber())
                     .position(leaveRequest.getEmployee().getPosition())
                     .department(leaveRequest.getEmployee().getDepartment())
                     .requestedAt(leaveRequest.getCreatedAt())
