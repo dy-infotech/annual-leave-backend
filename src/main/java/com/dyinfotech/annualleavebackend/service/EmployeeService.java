@@ -34,7 +34,7 @@ public class EmployeeService {
     private final EmployeeLeaveService employeeLeaveService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
-    public EmployeeDto.EmployResponse getMyInfo(Long employeeId) {
+    public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
                 	String errorMsg = "존재하지 않는 직원입니다.";
@@ -42,10 +42,17 @@ public class EmployeeService {
                 	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
+        Employee approver = employeeRepository.findById(employee.getApproverId())
+                .orElseThrow(() -> {
+                    String errorMsg = "존재하지 않는 직원(결재자)입니다.";
+                    log.error(errorMsg + " " + "employeeId: " + employeeId + ", approverId: " + employee.getApproverId());
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
+
         Role role = employeeLeaveService.resolveRole(employeeId);
         Float remainingDays = commonService.getRemainingDays(employee);
 
-        return EmployeeDto.EmployResponse.from(employee,role, remainingDays);
+        return EmployeeDto.EmployeeResponse.from(employee, approver, role, remainingDays);
     }
     
     @Transactional

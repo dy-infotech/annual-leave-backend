@@ -25,7 +25,7 @@ public class EmployeeDto {
 
     @Getter
     @Builder
-    public static class EmployResponse {
+    public static class EmployeeResponse {
 
         private String employeeNumber;
         private String name;
@@ -36,9 +36,12 @@ public class EmployeeDto {
         private String role;
         private Float currTotalLeaveDays;   // 이번 연도 총 연차 일수
         private Float remainingLeaveDays;   // 남은 연차 일수
+        private String approverName;
+        private String approverPosition;
+        private String approverDepartment;
 
-        public static EmployResponse from(Employee employee, Role role, Float remainingLeaveDays) {
-            return EmployResponse.builder()
+        public static EmployeeResponse from(Employee employee, Employee approver, Role role, Float remainingLeaveDays) {
+            return EmployeeResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .department(employee.getDepartment())
@@ -48,6 +51,9 @@ public class EmployeeDto {
                     .role(role.name())
                     .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
                     .remainingLeaveDays(remainingLeaveDays)
+                    .approverName(approver.getName())
+                    .approverPosition(approver.getPosition())
+                    .approverDepartment(approver.getDepartment())
                     .build();
         }
     }
