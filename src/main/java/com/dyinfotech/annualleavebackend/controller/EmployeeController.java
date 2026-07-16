@@ -16,7 +16,7 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping("/me")
-    public EmployeeDto.EmployResponse getMyInfo(@AuthenticationPrincipal Long employeeId) {
+    public EmployeeDto.EmployeeResponse getMyInfo(@AuthenticationPrincipal Long employeeId) {
         return employeeService.getMyInfo(employeeId);
     }
     
