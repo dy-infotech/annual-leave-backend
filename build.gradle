@@ -44,7 +44,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    // WebClient (alternative RestClient because of spring boot 4.x.x to 3.0.12)
+    // WebClient (alternative RestClient for using async communication)
     implementation('org.springframework.boot:spring-boot-starter-webflux') {
     	// don't need netty starter engine (high performance but heavy library)
         exclude group: 'org.springframework.boot', module: 'spring-boot-starter-reactor-netty'
