@@ -42,7 +42,7 @@ public class CommonConfig {
 														                .build();
         
         // Netty 대신 JdkClientHttpConnector를 사용하도록 WebClient 빌드
-        return WebClient.builder()
+        return builder
                 .clientConnector(new JdkClientHttpConnector(httpClient))
                 .build();
     }
