@@ -1,43 +1,19 @@
 plugins {
-    //id 'org.springframework.boot' version '4.0.7' 
-    //id 'io.spring.dependency-management' version '1.1.7'
-    id 'org.springframework.boot' version '3.0.12' 
-    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.springframework.boot' version '4.1.0' 
+    id 'io.spring.dependency-management' version '1.1.7'
     id 'java'
-    id 'war'
-    id 'eclipse'
 }
 
 group = 'com.dyinfotech'
 version = '0.0.1-SNAPSHOT'
 description = 'annual-leave-backend'
 
-war {
-	// don't generate *-plain.war
-    enabled = false
-}
-
 java {
     toolchain {
-    	// Cafe24 maximum jdk version is 17
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(25)
     }
-}
-
-java {
-	sourceCompatibility = '17'
-	targetCompatibility = '17'
-}
-compileJava.options.release = 17
-
-eclipse {
-    jdt {
-        file {
-            withProperties { properties ->
-                properties['org.eclipse.jdt.core.compiler.codegen.MethodParameters'] = 'generate'
-            }
-        }
-    }
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 repositories {
@@ -48,9 +24,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
-    //implementation 'org.springframework.boot:spring-boot-starter-webmvc'
-    // webmvc -> web (because of spring boot 4.x.x to 3.0.12)
-    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     // WebClient (alternative RestClient because of spring boot 4.x.x to 3.0.12)
     implementation('org.springframework.boot:spring-boot-starter-webflux') {
     	// don't need netty starter engine (high performance but heavy library)
@@ -59,21 +33,16 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     // Jackson Databind (ObjectMapper)
-    // if you use spring boot 3.0.12, start-web includes it
-    //implementation 'org.springframework.boot:spring-boot-starter-json'
-    //developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
-    // because of spring boot 4.x.x to 3.0.12
-    developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.1.0'
+    implementation 'org.springframework.boot:spring-boot-starter-json'
+    developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
     
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
-    //testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
-    //testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
-    //testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
-    //testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
-    // all of test (because of spring boot 4.x.x to 3.0.12)
-    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
@@ -81,9 +50,6 @@ dependencies {
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
-    
-    // included Tomcat to external Tomcat(Cafe24)
-    providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     
     // Firebase Admin SDK
     implementation('com.google.firebase:firebase-admin:9.10.0') {
@@ -109,19 +75,20 @@ dependencies {
     // Caffeine Cache
     implementation 'com.github.ben-manes.caffeine:caffeine'
     
-    // sql log parameter setting (for Spring Boot 3.x)
-	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.9.1'
+    // sql log parameter setting
+	implementation 'com.github.gavlyukovskiy:p6spy-spring-boot-starter:2.0.1'
 }
 
 tasks.withType(JavaCompile) {
-    options.release = 17
+    options.release = 25
     options.compilerArgs.add("-parameters")
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'file.encoding', 'UTF-8'
 }
 
-bootWar {
-    archiveFileName = 'ROOT.war'
+bootJar {
+    archiveFileName = 'annual-leave-backend.jar'
 }

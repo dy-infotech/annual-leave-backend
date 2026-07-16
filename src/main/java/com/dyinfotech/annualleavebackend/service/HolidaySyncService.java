@@ -18,13 +18,13 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.repository.HolidayRepository;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 @Slf4j
 @Service
@@ -135,9 +135,9 @@ public class HolidaySyncService {
         JsonNode root = objectMapper.readTree(jsonResponse);
         JsonNode responseNode = root.path("response");
         JsonNode headerNode = responseNode.path("header");
-        String resultCode = headerNode.path("resultCode").asText(ResultCode.FAIL.getCode());
+        String resultCode = headerNode.path("resultCode").asString(ResultCode.FAIL.getCode());
         if (!ResultCode.SUCCESS.getCode().equals(resultCode)) {
-        	String errorMsg = "[공공데이터] 공휴일 데이터 파싱 오류 resultCode: " + resultCode + ", resultMsg: " + headerNode.path("resultMsg").asText();
+        	String errorMsg = "[공공데이터] 공휴일 데이터 파싱 오류 resultCode: " + resultCode + ", resultMsg: " + headerNode.path("resultMsg").asString();
         	log.error(errorMsg);
         	throw new RuntimeException(errorMsg);
         }
@@ -165,20 +165,20 @@ public class HolidaySyncService {
     }
 
     private Holiday convertToEntity(JsonNode item) {
-        String isHoliday = item.path("isHoliday").asText("N");
+        String isHoliday = item.path("isHoliday").asString("N");
         if (!"Y".equals(isHoliday)) {
             return null; 
         }
 
         // 공공데이터 날짜 추출 (예: "20150901")
-        String locdateStr = item.path("locdate").asText(); 
+        String locdateStr = item.path("locdate").asString(); 
         if (locdateStr.length() != 8) return null;
 
         // substring으로 분할하여 빌더로 조립
         String year = locdateStr.substring(0, 4);  // "2015"
         String month = locdateStr.substring(4, 6); // "09"
         String day = locdateStr.substring(6, 8);   // "01"
-        String dateName = item.path("dateName").asText("공휴일");
+        String dateName = item.path("dateName").asString("공휴일");
 
         return Holiday.builder()
         		.holidayDate(LocalDate.of(Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day)))
