@@ -11,6 +11,7 @@ import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 
 @Slf4j
 @Component
@@ -38,26 +39,21 @@ public class HolidayInitializer implements ApplicationRunner {
             return null;
         });
 	}
-	
 	private void setSpecialDays(int year) {
         log.info("=== [시스템 초기화] {}년 공휴일 데이터 존재 여부 검사 ===", year);
 		// DB에 해당 년도 공휴일 데이터가 아예 비어있는지 체크
-        if (holidaySyncService.findAllByYear(year).isEmpty()) {
+        if (!holidaySyncService.existsByYear(year)) {
             log.info("=== [시스템 초기화] DB가 비어 있습니다. 공휴일 초기 동기화를 시작합니다. ===");
-            
-            for (int month = 1; month <= 12; month++) {
-                try {
-                    // API 호출 후 DB 저장
-                    holidaySyncService.deleteAndSaveHolidays(
-                        year, 
-                        month, 
-                        holidaySyncService.fetchHolidaysFromApi(year, month)
-                    );
-                } catch (Exception e) {
-                    log.error("[시스템 초기화] {}년 {}월 공휴일 동기화 실패: {}", year, month, e.getMessage());
-                }
-            }
+        	Flux.range(1, 12) 
+    	        .flatMap(m -> holidaySyncService.fetchHolidaysFromApi(year, m) // 여러 달을 병렬로 요청
+    	        								.flatMap(holidays -> holidaySyncService.deleteAndSaveHolidays(year, m, holidays))
+    	        )
+    	        .then()
+    	        .block();
             log.info("=== [시스템 초기화] {}년 1~12월 공휴일 캐싱 완료 ===", year);
+            
+            // 캐시 저장
+            holidaySyncService.findAllByYear(year);
         } else {
             log.info("=== [시스템 초기화] 이미 DB에 데이터가 존재하므로 스킵합니다. ===");
         }

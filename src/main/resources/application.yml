@@ -53,11 +53,11 @@ app:
 logging:
   level:
     root: info
-    org.springframework.boot.autoconfigure: info  # Condition Evaluation Report log  disable
-    org.hibernate.SQL: debug
-    org.hibernate.orm.jdbc.bind: info
+    org.springframework.boot.autoconfigure: error  # Condition Evaluation Report log  disable
+    org.hibernate.SQL: info                        # disable sql log (use p6spy)
+    org.hibernate.orm.jdbc.bind: info              # disable sql parameter log (use p6spy)
 
-    com.dyinfotech.annualleavebackend: info       # @Slf4j log level
+    com.dyinfotech.annualleavebackend: debug       # @Slf4j log level
 
   file:
    name: logs/local-app.log
@@ -70,3 +70,10 @@ logging:
       max-history: 30
       total-size-cap: 35MB
       clean-history-on-start: true
+
+# p6spy
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: true
+      multiline: false

@@ -11,6 +11,7 @@ import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 
 @Slf4j
 @Component
@@ -51,17 +52,18 @@ public class YearlyScheduler {
         
         // 올해와 내년치 데이터 처리
     	for (int year = 0; year <= 1; ++year) {
-    		for (int month = 1; month <= 12; month++) {
-    			// 루프 내부에서 잡아줘야 1월 API가 터져도 2월, 3월... 12월까지 정상 동작
-        		try {
-        			holidaySyncService.deleteAndSaveHolidays(currentYear + year, month, holidaySyncService.fetchHolidaysFromApi(currentYear + year, month));
-        			log.info("[연간 스케줄러] {}년 {}월 공휴일 동기화 완료", currentYear + year, month);
-        		} catch (Exception e) {
-        			log.error("[연간 스케줄러] {}년 {}월 공휴일 동기화 실패 (다음 월로 건너뜁니다): {}", currentYear + year, month, e.getMessage());
-        		}
-        	}
+			setSpecialDays(currentYear + year);
         }
         
         log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 완료 ===", currentYear);
+    }
+    
+    private void setSpecialDays(int year) {
+    	Flux.range(1, 12) 
+	        .flatMap(m -> holidaySyncService.fetchHolidaysFromApi(year, m) // 여러 달을 병렬로 요청
+	        								.flatMap(holidays -> holidaySyncService.deleteAndSaveHolidays(year, m, holidays))
+	        )
+	        .then()
+	        .block();
     }
 }
