@@ -94,6 +94,7 @@ dependencies {
 	    exclude group: 'com.google.cloud', module: 'google-cloud-storage'
 	    
 	    // don't need communication specifications and duplicate transfer libraries (gRPCs)
+	    // TODO: need to re-examine if really don't use it when subscribing to and pushing a topic
 	    exclude group: 'io.grpc'
 	    exclude group: 'com.google.api.grpc'
 	}
