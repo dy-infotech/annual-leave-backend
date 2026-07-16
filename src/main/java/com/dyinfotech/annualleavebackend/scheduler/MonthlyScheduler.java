@@ -11,6 +11,7 @@ import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 
 @Slf4j
 @Component
@@ -27,19 +28,19 @@ public class MonthlyScheduler {
         log.info("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 캐싱 시작 ===", now.getYear(), now.getMonthValue());
         try {
         	holidaySyncService.fetchHolidaysFromApi(now.getYear(), now.getMonthValue())
-					        	.doOnNext(holidays -> {
+					        	.flatMap(holidays -> 
 					        		holidaySyncService.deleteAndSaveHolidays(
 					        				now.getYear(), 
 					        				now.getMonthValue(), 
 					                        holidays
-					               );
-					        	})
+					               )
+					        	)
+					        	.then()
 					        	.block();
             log.info("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 캐싱 완료 ===", now.getYear(), now.getMonthValue());
         } catch (Exception e) {
             log.error("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 중 예외 발생 (스케줄러는 계속 진행) ===", now.getYear(), now.getMonthValue(), e);
         }
-        
 
         log.info("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 시작 ===", now.getYear(), now.getMonthValue());
         try {
