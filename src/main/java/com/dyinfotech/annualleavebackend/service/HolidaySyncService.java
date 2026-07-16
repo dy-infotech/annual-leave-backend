@@ -85,6 +85,8 @@ public class HolidaySyncService {
         		.uri(uri)
         		.retrieve()
         		.bodyToMono(String.class)
+        		// XXX: With JDK HttpClient, readTimeout is only available at the HttpRequest level
+        		.timeout(Duration.ofSeconds(10L))
         		.map(response -> {
         			try {
         				return parseHolidays(response);
