@@ -31,5 +31,6 @@ public class SignInDto {
         private Long employeeId;
         private String name;
         private String role;
+        private String email;
     }
 }

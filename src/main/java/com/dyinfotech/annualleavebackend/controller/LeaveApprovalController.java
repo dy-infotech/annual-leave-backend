@@ -24,12 +24,12 @@ public class LeaveApprovalController {
     }
 
     @PostMapping("/{requestId}/approve")
-    public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(@PathVariable Long requestId, @AuthenticationPrincipal Long approverId) {
+    public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(@PathVariable("requestId") Long requestId, @AuthenticationPrincipal Long approverId) {
         return leaveApprovalService.approveLeaveRequest(requestId, approverId);
     }
 
     @PostMapping("/{requestId}/reject")
-    public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(@PathVariable Long requestId, @AuthenticationPrincipal Long approverId, @Valid @RequestBody LeaveRejectDto.LeaveRejectRequest request) {
+    public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(@PathVariable("requestId") Long requestId, @AuthenticationPrincipal Long approverId, @Valid @RequestBody LeaveRejectDto.LeaveRejectRequest request) {
         return leaveApprovalService.rejectLeaveRequest(requestId, approverId, request);
     }
 }
