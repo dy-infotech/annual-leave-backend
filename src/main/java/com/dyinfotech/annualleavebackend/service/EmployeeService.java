@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -27,12 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class EmployeeService {
 
+    private final CommonService commonService;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmployeeLeaveService employeeLeaveService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
-    public EmployeeDto.EmployResponse getMyInfo(Long employeeId) {
+    public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
                 	String errorMsg = "존재하지 않는 직원입니다.";
@@ -40,7 +42,17 @@ public class EmployeeService {
                 	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
-        return EmployeeDto.EmployResponse.from(employee, employeeLeaveService.resolveRole(employeeId));
+        Employee approver = employeeRepository.findById(employee.getApproverId())
+                .orElseThrow(() -> {
+                    String errorMsg = "존재하지 않는 직원(결재자)입니다.";
+                    log.error(errorMsg + " " + "employeeId: " + employeeId + ", approverId: " + employee.getApproverId());
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
+
+        Role role = employeeLeaveService.resolveRole(employeeId);
+        Float remainingDays = commonService.getRemainingDays(employee);
+
+        return EmployeeDto.EmployeeResponse.from(employee, approver, role, remainingDays);
     }
     
     @Transactional

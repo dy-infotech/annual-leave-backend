@@ -65,7 +65,7 @@ public class LeaveRequestController {
     }
 
     @DeleteMapping("/{requestId}")
-    public ResponseEntity<Void> cancelLeaveRequest(@AuthenticationPrincipal Long employeeId, @PathVariable Long requestId) {
+    public ResponseEntity<Void> cancelLeaveRequest(@AuthenticationPrincipal Long employeeId, @PathVariable("requestId") Long requestId) {
         leaveRequestService.cancel(employeeId, requestId);
         return ResponseEntity.noContent().build();
     }

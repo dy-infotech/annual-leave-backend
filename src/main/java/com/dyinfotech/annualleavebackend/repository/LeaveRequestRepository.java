@@ -14,7 +14,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
     // 승인된 요청의 사용일수 합계 (잔여 연차 계산용)
     @Query("SELECT COALESCE(SUM(lr.useDays), 0) FROM LeaveRequest lr " +
-            "WHERE lr.employee.employeeId = :employeeId AND lr.status = 'APPROVED'")
+            "WHERE lr.employee.employeeId = :employeeId AND lr.status IN ('APPROVED', 'PENDING')")
     Float sumApprovedUseDays(@Param("employeeId") Long employeeId);
 
     // 특정 상태의 내 요청 개수
