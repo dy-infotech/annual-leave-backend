@@ -99,7 +99,6 @@ public class HolidaySyncService {
         		});
     }
     
-    @Transactional
     public Mono<Void> deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {
     	return Mono.fromRunnable(() -> {
     		lock.lock();
