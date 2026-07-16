@@ -89,7 +89,7 @@ public class HolidaySyncService {
         			try {
         				return parseHolidays(response);
         			} catch (Exception e) {
-            			return null;
+        				throw reactor.core.Exceptions.propagate(e);
         			}
         		})
         		.retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(1)))
@@ -100,11 +100,10 @@ public class HolidaySyncService {
     }
     
     @Transactional
-    public void deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {
-    	Mono.fromRunnable(() -> {
+    public Mono<Void> deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {
+    	return Mono.fromRunnable(() -> {
     		lock.lock();
         	try {
-        		// TODO: SELECT DELETE INSERT 반복된다 gap lock 확인 필요
     	        holidayRepository.replaceMonthlyHolidays(year, month, holidays);
     	        log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", year, String.format("%02d", month));
         	} finally {
@@ -112,7 +111,7 @@ public class HolidaySyncService {
         	}
     	})
         .subscribeOn(Schedulers.boundedElastic()) //	 블로킹 전용 스레드 사용
-        .subscribe();
+        .then();
     }
     
     private enum ResultCode {

@@ -46,7 +46,8 @@ public class HolidayInitializer implements ApplicationRunner {
             log.info("=== [시스템 초기화] DB가 비어 있습니다. 공휴일 초기 동기화를 시작합니다. ===");
         	Flux.range(1, 12) 
     	        .flatMap(m -> holidaySyncService.fetchHolidaysFromApi(year, m) // 여러 달을 병렬로 요청
-    	        .doOnNext(holidays -> holidaySyncService.deleteAndSaveHolidays(year, m, holidays)))
+    	        								.flatMap(holidays -> holidaySyncService.deleteAndSaveHolidays(year, m, holidays))
+    	        )
     	        .then()
     	        .block();
             log.info("=== [시스템 초기화] {}년 1~12월 공휴일 캐싱 완료 ===", year);
