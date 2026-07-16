@@ -2,6 +2,7 @@ plugins {
     id 'org.springframework.boot' version '4.1.0' 
     id 'io.spring.dependency-management' version '1.1.7'
     id 'java'
+    id 'eclipse-wtp'
 }
 
 group = 'com.dyinfotech'
@@ -9,11 +10,29 @@ version = '0.0.1-SNAPSHOT'
 description = 'annual-leave-backend'
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+	// disable toolchain because of avoiding error
+	// Class org.gradle.jvm.toolchain.JvmVendorSpec does not have member field 'org.gradle.jvm.toolchain.JvmVendorSpec IBM_SEMERU'
+    //toolchain {
+    //    languageVersion = JavaLanguageVersion.of(21)
+    //}
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+eclipse {
+    wtp {
+        facet {
+            facet name: 'java', version: '21'
+        }
     }
-    sourceCompatibility = JavaVersion.VERSION_25
-    targetCompatibility = JavaVersion.VERSION_25
+    
+    jdt {
+        file {
+            withProperties { properties ->
+                properties.setProperty('org.eclipse.jdt.core.compiler.codegen.methodParameters', 'generate')
+            }
+        }
+    }
 }
 
 repositories {
@@ -80,7 +99,7 @@ dependencies {
 }
 
 tasks.withType(JavaCompile) {
-    options.release = 25
+    options.release = 21
     options.compilerArgs.add("-parameters")
 }
 
