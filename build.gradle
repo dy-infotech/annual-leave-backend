@@ -12,6 +12,10 @@ group = 'com.dyinfotech'
 version = '0.0.1-SNAPSHOT'
 description = 'annual-leave-backend'
 
+war {
+	// don't generate *-plain.war
+    enabled = false
+}
 
 java {
     toolchain {
@@ -48,7 +52,10 @@ dependencies {
     // webmvc -> web (because of spring boot 4.x.x to 3.0.12)
     implementation 'org.springframework.boot:spring-boot-starter-web'
     // WebClient (alternative RestClient because of spring boot 4.x.x to 3.0.12)
-    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation('org.springframework.boot:spring-boot-starter-webflux') {
+    	// don't need netty starter engine (high performance but heavy library)
+        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-reactor-netty'
+    }
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     // Jackson Databind (ObjectMapper)
@@ -78,7 +85,18 @@ dependencies {
     providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat'
     
     // Firebase Admin SDK
-    implementation 'com.google.firebase:firebase-admin:9.4.0'
+    implementation('com.google.firebase:firebase-admin:9.4.0') {
+	    // don't need Firestore(NoSQL DB) feature
+	    exclude group: 'com.google.cloud', module: 'google-cloud-firestore'
+    	exclude group: 'com.google.api.grpc', module: 'proto-google-cloud-firestore-v1'
+	    
+	    // don't need Cloud Storage(File Upload) feature
+	    exclude group: 'com.google.cloud', module: 'google-cloud-storage'
+	    
+	    // don't need communication specifications and duplicate transfer libraries (gRPCs)
+	    exclude group: 'io.grpc'
+	    exclude group: 'com.google.api.grpc'
+	}
     
     // Caffeine Cache
     implementation 'com.github.ben-manes.caffeine:caffeine'

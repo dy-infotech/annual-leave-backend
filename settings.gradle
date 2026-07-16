@@ -1,1 +1,5 @@
+plugins {
+	// if don't have jdk, it will solve that
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
 rootProject.name = 'annual-leave-backend'
