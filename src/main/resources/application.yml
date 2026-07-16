@@ -57,7 +57,7 @@ logging:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: info
 
-    com.dyinfotech.annualleavebackend: info       # @Slf4j log level
+    com.dyinfotech.annualleavebackend: debug       # @Slf4j log level
 
   file:
    name: logs/local-app.log
