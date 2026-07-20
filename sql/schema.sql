@@ -53,7 +53,7 @@ CREATE TABLE leave_request (
 
 CREATE TABLE team (
                                seq                BIGINT		AUTO_INCREMENT PRIMARY KEY,
-                               team               VARCHAR(30)	NOT NULL UNIQUE COMMENT '팀',
+                               team               VARCHAR(30)	NOT NULL COMMENT '팀',
                                project_manager_id BIGINT		NOT NULL COMMENT '프로젝트 담당자',
                                parent_team        VARCHAR(30)	NOT NULL COMMENT '상위 팀',
 
