@@ -1,11 +1,15 @@
 package com.dyinfotech.annualleavebackend.common.exception;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -17,8 +21,26 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
- 
-    // 1) 기존 코드가 던지는 ResponseStatusException → status/reason 그대로 통일 포맷으로
+	// Controller에 등록된 위치지만 메소드가 맞지 않을 때 -> 404 Not Found
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	public ResponseEntity<Map<String, Object>> handleMethodNotSupported(
+	        HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
+	    
+	    // StackTrace를 전부 찍지 않고 한 줄짜리 경고 로그만 남기기
+	    log.warn("지원하지 않는 메서드 요청: [{}] {}", request.getMethod(), request.getRequestURI());
+
+	    HttpStatus status = HttpStatus.NOT_FOUND;
+	    Map<String, Object> response = new LinkedHashMap<>();
+	    response.put("timestamp", LocalDateTime.now().toString());
+	    response.put("status", status.value()); // 404
+	    response.put("error", "NOT_FOUND");
+	    response.put("message", "요청하신 페이지를 찾을 수 없습니다.");
+	    response.put("path", request.getRequestURI());
+	    
+	    return ResponseEntity.status(status).body(response);
+	}
+	
+    // 기존 코드가 던지는 ResponseStatusException → status/reason 그대로 통일 포맷으로
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException e, HttpServletRequest req) {
         HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
@@ -27,7 +49,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(status, e.getReason(), req.getRequestURI()));
     }
  
-    // 2) @Valid 검증 실패 → 첫 번째 필드 에러 메시지로 400
+    // @Valid 검증 실패 → 첫 번째 필드 에러 메시지로 400
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException e, HttpServletRequest req) {
         FieldError fe = e.getBindingResult().getFieldError();
@@ -36,7 +58,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, msg, req.getRequestURI()));
     }
  
-    // 3) 잘못된 바디/타입(잘못된 날짜 문자열 등) → 400 (내부 메시지 숨김)
+    // 잘못된 바디/타입(잘못된 날짜 문자열 등) → 400 (내부 메시지 숨김)
     @ExceptionHandler({ HttpMessageNotReadableException.class, DateTimeParseException.class })
     public ResponseEntity<ErrorResponse> handleBadInput(Exception e, HttpServletRequest req) {
         log.warn("잘못된 요청: {}", e.getMessage());
@@ -44,7 +66,7 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다.", req.getRequestURI()));
     }
  
-    // 4) 그 외 미처리 예외 → 500, 상세는 로그로만, 응답은 일반 메시지
+    // 그 외 미처리 예외 → 500, 상세는 로그로만, 응답은 일반 메시지
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest req) {
         log.error("처리되지 않은 예외 발생 [{}]", req.getRequestURI(), e);
