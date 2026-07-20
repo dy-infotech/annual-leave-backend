@@ -27,7 +27,7 @@ public class GlobalExceptionHandler {
 	        HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
 	    
 	    // StackTrace를 전부 찍지 않고 한 줄짜리 경고 로그만 남기기
-	    log.warn("지원하지 않는 메서드 요청: [{}] {}", request.getMethod(), request.getRequestURI());
+	    log.warn("지원하지 않는 메서드 요청: [{}] {}, ip:{}", request.getMethod(), request.getRequestURI(), getClientIp(request));
 
 	    HttpStatus status = HttpStatus.NOT_FOUND;
 	    Map<String, Object> response = new LinkedHashMap<>();
@@ -61,7 +61,7 @@ public class GlobalExceptionHandler {
     // 잘못된 바디/타입(잘못된 날짜 문자열 등) → 400 (내부 메시지 숨김)
     @ExceptionHandler({ HttpMessageNotReadableException.class, DateTimeParseException.class })
     public ResponseEntity<ErrorResponse> handleBadInput(Exception e, HttpServletRequest req) {
-        log.warn("잘못된 요청: {}", e.getMessage());
+        log.warn("잘못된 요청: {}, ip: {}", e.getMessage(), getClientIp(req));
         return ResponseEntity.badRequest()
                 .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다.", req.getRequestURI()));
     }
@@ -69,8 +69,26 @@ public class GlobalExceptionHandler {
     // 그 외 미처리 예외 → 500, 상세는 로그로만, 응답은 일반 메시지
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest req) {
-        log.error("처리되지 않은 예외 발생 [{}]", req.getRequestURI(), e);
+        log.error("처리되지 않은 예외 발생. ip: {} [{}]", getClientIp(req), req.getRequestURI(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.", req.getRequestURI()));
+    }
+    
+    private String getClientIp(HttpServletRequest request) {
+        String ip = request.getHeader("X-Forwarded-For");
+        
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("X-Real-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        
+        // X-Forwarded-For 헤더는 여러 프록시를 거치면 IP가 콤마(,)로 연결되므로, 첫 번째 IP가 원본 클라이언트야.
+        if (ip != null && ip.contains(",")) {
+            ip = ip.split(",")[0].trim();
+        }
+        
+        return ip;
     }
 }
