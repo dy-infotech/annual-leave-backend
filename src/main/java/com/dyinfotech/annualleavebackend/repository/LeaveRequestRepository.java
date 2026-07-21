@@ -28,6 +28,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status);
 
 	// 휴가 결재 승인 또는 반려 처리
+    // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException울 GlobalExceptionHandler에서 처리하는 건
+    //		별도 세부 정보를 담을 수 없고 로그 처리도 확실하지 않을 것 같다. 일단 개별 쿼리문으로 대응한다.
 	@Modifying(clearAutomatically = true) // 쿼리 실행 후 영속성 컨텍스트 자동 클리어
     @Query("UPDATE LeaveRequest lr " +
            "SET lr.status = :targetStatus, lr.manager.employeeId = :approverId, lr.managedAt = :now, lr.rejectReason = :rejectReason " +
