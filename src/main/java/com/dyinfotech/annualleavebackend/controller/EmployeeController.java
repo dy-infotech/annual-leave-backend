@@ -23,11 +23,6 @@ public class EmployeeController {
         return employeeService.getMyInfo(employeeId);
     }
     
-    @GetMapping("/all")
-    public List<EmployeeDto.EmployeeResponse> getAllEmployees(@RequestParam(name = "searchParam", required = false) String searchParam) {
-        return employeeService.getAllEmployees(searchParam);
-    }
-    
     @PatchMapping("/me/modify-email")
     public ResponseEntity<Void> getMyInfo(@AuthenticationPrincipal Long employeeId, @Valid @RequestBody String email) {
         employeeService.changeEmail(employeeId, email);
