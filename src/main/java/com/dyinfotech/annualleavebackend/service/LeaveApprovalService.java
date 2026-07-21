@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.LocalDateTime;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
@@ -101,48 +102,112 @@ public class LeaveApprovalService {
         
         return new AbstractMap.SimpleEntry<>(leaveRequest, approver);
     }
-
+    
+//    private ConcurrentMap<Long, ReentrantLock> map = new ConcurrentHashMap<>();
     @Transactional
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
-    	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
-    	LeaveRequest leaveRequest = response.getKey();
-    	Employee approver = response.getValue();
+    	
+//    	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
+//    	LeaveRequest leaveRequest = response.getKey();
+//    	Employee approver = response.getValue();
+//        
+//        // 소속 확인 후 승인
+//        try {
+//            leaveRequest.approve(approver);
+//        } catch (IllegalStateException e) {
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+//        }
+//        
+//        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
+//        if (employeeCache != null) {
+//        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
+//        }
+//        
+//        return LeaveApprovalDto.LeaveApprovalResponse.from(leaveRequest);
+    	// 소속 확인 및 기본 검증
+        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
+        LeaveRequest leaveRequest = response.getKey();
         
-        // 소속 확인 후 승인
-        try {
-            leaveRequest.approve(approver);
-        } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+    	LocalDateTime now = LocalDateTime.now();
+        long updatedCount = leaveRequestRepository.updateLeaveRequest(
+                requestId,
+                approverId,
+                null, // 승인이므로 rejectReason은 null
+                LeaveRequestStatus.PENDING.name(),  // Enum 사용 시 .name() 또는 Enum 객체 전달
+                LeaveRequestStatus.APPROVED.name(),
+                now
+        );
+
+        // 업데이트된 행이 0개면 PENDING 상태가 아니라는 의미이므로 예외 발생
+        if (updatedCount == 0) {
+            log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, leaveRequest.getStatus());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
-        
+
+        // 캐시 비우기
         Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
         if (employeeCache != null) {
-        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
+            employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
         }
-        
-        return LeaveApprovalDto.LeaveApprovalResponse.from(leaveRequest);
+
+        // 영속성 컨텍스트가 초기화되었으므로 최신 데이터 재조회 후 응답 생성
+        LeaveRequest updatedRequest = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
+
+        return LeaveApprovalDto.LeaveApprovalResponse.from(updatedRequest);
     }
 
     @Transactional
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
-    	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
-    	LeaveRequest leaveRequest = response.getKey();
-    	Employee approver = response.getValue();
-    	
-    	// 소속 확인 후 반려
-        try {
-            leaveRequest.reject(approver, request.getRejectReason());
-        } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
-        }
+//    	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
+//    	LeaveRequest leaveRequest = response.getKey();
+//    	Employee approver = response.getValue();
+//    	
+//    	// 소속 확인 후 반려
+//        try {
+//            leaveRequest.reject(approver, request.getRejectReason());
+//        } catch (IllegalStateException e) {
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+//        }
+//        
+//        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
+//        if (employeeCache != null) {
+//        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
+//        }
+//
+//        return LeaveRejectDto.LeaveRejectResponse.from(leaveRequest);
+    	// 소속 확인 및 기본 검증
+        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
+        LeaveRequest leaveRequest = response.getKey();
         
-        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
-        if (employeeCache != null) {
-        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
+    	LocalDateTime now = LocalDateTime.now();
+        long updatedCount = leaveRequestRepository.updateLeaveRequest(
+                requestId,
+                approverId,
+                request.getRejectReason(),
+                LeaveRequestStatus.PENDING.name(),
+                LeaveRequestStatus.REJECTED.name(),
+                now
+        );
+
+        // 업데이트된 행이 0개면 PENDING 상태가 아니라는 의미이므로 예외 발생
+        if (updatedCount == 0) {
+            log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, leaveRequest.getStatus());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
 
-        return LeaveRejectDto.LeaveRejectResponse.from(leaveRequest);
+        // 캐시 비우기
+        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
+        if (employeeCache != null) {
+            employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
+        }
+
+        // 영속성 컨텍스트가 초기화되었으므로 최신 데이터 재조회 후 응답 생성
+        LeaveRequest updatedRequest = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
+
+        return LeaveRejectDto.LeaveRejectResponse.from(updatedRequest);
     }
 }
