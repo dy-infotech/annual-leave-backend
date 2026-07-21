@@ -2,6 +2,8 @@ package com.dyinfotech.annualleavebackend.repository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
+import java.time.Year;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,17 +15,45 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
-
+	
+	// 올해의 연도는 Year.now()를 파라미터로 넘긴다.
+	private static LocalDate getStartOfYear(Year year) {
+		return year.atDay(1);
+	}
+	// 올해의 연도는 Year.now()를 파라미터로 넘긴다.
+    private static LocalDate getEndOfYear(Year year) {
+        return year.atMonth(Month.DECEMBER).atEndOfMonth();
+    }
+    
     // 승인된 요청의 사용일수 합계 (잔여 연차 계산용)
     @Query("SELECT COALESCE(SUM(lr.useDays), 0) FROM LeaveRequest lr " +
-            "WHERE lr.employee.employeeId = :employeeId AND lr.status IN ('APPROVED', 'PENDING')")
-    Float sumApprovedUseDays(@Param("employeeId") Long employeeId);
-
+            "WHERE lr.employee.employeeId = :employeeId AND lr.status IN :status " + 
+            "AND lr.startDate BETWEEN :startRange AND :endRange")
+    Float sumApprovedUseDays(@Param("employeeId") Long employeeId, @Param("status") List<LeaveRequestStatus> status, @Param("startRange") LocalDate startRange, @Param("endRange") LocalDate endRange);
+    default Float sumApprovedUseDays(Long employeeId, Year year) {
+    	return sumApprovedUseDays(employeeId, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
+    }
+    default Float sumApprovedUseDays(Long employeeId) {
+    	return sumApprovedUseDays(employeeId, Year.now());
+    }
+    
     // 특정 상태의 내 요청 개수
-    long countByEmployee_EmployeeIdAndStatus(Long employeeId, LeaveRequestStatus status);
+    long countByEmployee_EmployeeIdAndStatusAndStartDateBetween(Long employeeId, LeaveRequestStatus status, LocalDate startRange, LocalDate endRange);
+    default long countByEmployee_EmployeeIdAndStatus(Long employeeId, LeaveRequestStatus status, Year year) {
+    	return countByEmployee_EmployeeIdAndStatusAndStartDateBetween(employeeId, status, getStartOfYear(year), getEndOfYear(year));
+    }
+    default long countByEmployee_EmployeeIdAndStatus(Long employeeId, LeaveRequestStatus status) {
+    	return countByEmployee_EmployeeIdAndStatus(employeeId, status, Year.now());
+    }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    long countByStatus(LeaveRequestStatus status);
+    long countByStatusAndStartDateBetween(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange);
+    default long countByStatus(LeaveRequestStatus status, Year year) {
+    	return countByStatusAndStartDateBetween(status, getStartOfYear(year), getEndOfYear(year));
+    }
+    default long countByStatus(LeaveRequestStatus status) {
+    	return countByStatus(status, Year.now());
+    }
 
     List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status);
 
