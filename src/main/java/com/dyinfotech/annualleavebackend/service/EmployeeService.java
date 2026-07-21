@@ -109,9 +109,18 @@ public class EmployeeService {
     	return employeeRepository.findByEmployeeNumber(employeeNumber);
     }
     
+    // 계정 찾기 
+    
+    public Optional<Employee> getEmployeeNumberByNameAndEmail(String name, String email) {
+        return employeeRepository.findEmployeeNumberByNameAndEmail(name, email);
+    }
+    
     public Optional<Employee> getEmployee(String employeeNumber, String email) {	// forgotPassword에 쓰이는 데이터라서 쓰기 작업으로 오염될 것이므로 캐싱 미처리
     	return employeeRepository.findByEmployeeNumberAndEmail(employeeNumber, email);
     }
+    
+    
+    
     
     @Transactional
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
