@@ -134,8 +134,8 @@ public class LeaveApprovalService {
                 requestId,
                 approverId,
                 null, // 승인이므로 rejectReason은 null
-                LeaveRequestStatus.PENDING.name(),  // Enum 사용 시 .name() 또는 Enum 객체 전달
-                LeaveRequestStatus.APPROVED.name(),
+                LeaveRequestStatus.PENDING,
+                LeaveRequestStatus.APPROVED,
                 now
         );
 
@@ -187,8 +187,8 @@ public class LeaveApprovalService {
                 requestId,
                 approverId,
                 request.getRejectReason(),
-                LeaveRequestStatus.PENDING.name(),
-                LeaveRequestStatus.REJECTED.name(),
+                LeaveRequestStatus.PENDING,
+                LeaveRequestStatus.REJECTED,
                 now
         );
 

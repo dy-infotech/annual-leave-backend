@@ -35,7 +35,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
            "SET lr.status = :targetStatus, lr.manager.employeeId = :approverId, lr.managedAt = :now, lr.rejectReason = :rejectReason " +
            "WHERE (lr.requestId = :requestId) " + 
            "AND (lr.status = :sourceStatus) ")
-    long updateLeaveRequest(@Param("requestId") Long requestId, @Param("approverId") Long approverId, @Param("rejectReason") String rejectReason, @Param("sourceStatus") String sourceStatus, @Param("targetStatus") String targetStatus, @Param("now") LocalDateTime now);
+    long updateLeaveRequest(@Param("requestId") Long requestId, @Param("approverId") Long approverId, @Param("rejectReason") String rejectReason, @Param("sourceStatus") LeaveRequestStatus sourceStatus, @Param("targetStatus") LeaveRequestStatus targetStatus, @Param("now") LocalDateTime now);
 
     // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
     @Query("SELECT lr FROM LeaveRequest lr " +
