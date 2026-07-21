@@ -146,4 +146,11 @@ public class Employee {
     public void setPrevYearLeaveDays(Float leaveDays) {
         this.prevTotalLeaveDays = leaveDays;
     }
+    
+    public boolean isRegisted() {
+    	boolean isRegisted = true;
+    	
+        if(this.password == null || this.password == "") return isRegisted = false;
+        else return isRegisted;
+    }
 }

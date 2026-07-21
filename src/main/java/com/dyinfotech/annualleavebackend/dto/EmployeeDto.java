@@ -40,6 +40,7 @@ public class EmployeeDto {
         private String approverName;
         private String approverPosition;
         private String approverDepartment;
+        private Boolean isRegisted;
 
         public static EmployeeResponse from(Employee employee, Employee approver, Role role, Float remainingLeaveDays) {
             return EmployeeResponse.builder()
@@ -56,6 +57,7 @@ public class EmployeeDto {
                     .approverName(approver.getName())
                     .approverPosition(approver.getPosition())
                     .approverDepartment(approver.getDepartment())
+                    .isRegisted(employee.isRegisted())
                     .build();
         }
     }

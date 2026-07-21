@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
+import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,29 @@ public class EmployeeService {
 
         return EmployeeDto.EmployeeResponse.from(employee, approver, role, remainingDays);
     }
+    
+    public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
+    	List<EmployeeResponse> responses = new ArrayList<>();
+    	List<Employee> employees = new ArrayList<>();
+    	
+	    if (searchParam == null || searchParam.isEmpty()) {
+	        employees = employeeRepository.findAllEmployees();
+	    } else {
+	    	employees = employeeRepository.findAllEmployeesWithSearch(searchParam);
+	    }       
+        
+        for (Employee employee : employees) {
+            Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
+            Float remainingLeaveDays = commonService.getRemainingDays(employee);
+            
+            // XXX: approver 데이터 필요 없어서 뺐음.
+            EmployeeResponse response = EmployeeResponse.from(employee, employee, role, remainingLeaveDays);
+            responses.add(response);
+        }
+
+        return responses;
+    }
+
     
     @Transactional
     @Caching(evict = {
