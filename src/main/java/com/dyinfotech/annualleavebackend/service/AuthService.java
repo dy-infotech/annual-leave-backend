@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.SimpleMailMessage; // 추가됨
 import org.springframework.mail.javamail.JavaMailSender; // 추가됨
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -219,8 +220,14 @@ public class AuthService {
         	}
         }
         
+        // BCrypt 암호화 방식일 경우 패스워드가 양식에 맞는지 체크하고 평문일 경우 암호화 처리 (데이터 마이그레이션시 평문 패스워드 방어 코드)
+        String currentPassword = employee.getPassword();
+        if (passwordEncoder instanceof BCryptPasswordEncoder && !currentPassword.matches("^\\$2[aby]\\$\\d{2}\\$.{53}$")) {
+        	employee.changePassword(passwordEncoder.encode(currentPassword));
+        }
+        
         // 비밀번호 일치 여부 확인
-        if (!passwordEncoder.matches(password, employee.getPassword())) {
+        if (!passwordEncoder.matches(password, currentPassword)) {
         	employee.increaseAccessCount();
         	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccess_count());
             throw new ResponseStatusException(
