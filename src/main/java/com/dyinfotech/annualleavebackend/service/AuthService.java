@@ -222,7 +222,10 @@ public class AuthService {
         
         // BCrypt 암호화 방식일 경우 패스워드가 양식에 맞는지 체크하고 평문일 경우 암호화 처리 (데이터 마이그레이션시 평문 패스워드 방어 코드)
         String currentPassword = employee.getPassword();
-        if (passwordEncoder instanceof BCryptPasswordEncoder && !currentPassword.matches("^\\$2[aby]\\$\\d{2}\\$.{53}$")) {
+        if (passwordEncoder instanceof BCryptPasswordEncoder 
+        		&& currentPassword != null
+                && !currentPassword.isBlank()
+                && !currentPassword.matches("^\\$2[aby]\\$\\d{2}\\$.{53}$")) {
         	employee.changePassword(passwordEncoder.encode(currentPassword));
         }
         
