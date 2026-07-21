@@ -17,7 +17,7 @@ public enum PositionType {
 	,DIRECTOR					("이사")
 	,MANAGING_DIRECTOR			("상무")
 	,SENIOR_MANAGING_DIRECTOR	("전무")
-	,CEO						("대표이사")
+	,CEO						("사장")
 	;
 	
 	private String name;
