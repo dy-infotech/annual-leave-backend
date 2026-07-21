@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.exception.GlobalExceptionHandler;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
@@ -279,6 +280,19 @@ public class AuthService {
                 .build();
     }
     
+    
+
+    @Transactional(readOnly = true)
+    public ForgotPasswordDto.FindIdResponse findId(ForgotPasswordDto.FindIdRequest request) {
+        // 성함과 이메일로 회원 조회
+        Employee employee = employeeService.getEmployeeNumberByNameAndEmail(request.getName(), request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "일치하는 회원 정보가 없습니다."));
+
+        // 조회된 사원번호를 DTO에 담아 반환
+        return new ForgotPasswordDto.FindIdResponse(employee.getEmployeeNumber());
+    }
+ 
+ 
     @Transactional
     public void forgotPassword(ForgotPasswordDto.Request request) {
         // 1. 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생시키고, 성공 케이스인 것처럼 전달해서 공격 방지)
