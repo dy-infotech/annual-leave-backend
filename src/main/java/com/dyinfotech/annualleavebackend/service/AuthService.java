@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -222,21 +223,32 @@ public class AuthService {
         	}
         }
         
-        // 데이터 마이그레이션 대응:
-        // BCrypt 형식이 아닌(기존 평문 저장) 비밀번호는 최초 처리 시 BCrypt로 암호화한다.
         String currentPassword = employee.getPassword();
-        if (StringUtils.hasText(currentPassword) && passwordEncoder instanceof BCryptPasswordEncoder && !BCRYPT_PATTERN.matcher(currentPassword).matches()) {
-        	employee.changePassword(passwordEncoder.encode(currentPassword));
+
+        // 현재 DB에 저장된 비밀번호가 BCrypt 형식인지 확인
+        boolean isBcrypt = StringUtils.hasText(currentPassword) 
+			        		&& passwordEncoder instanceof BCryptPasswordEncoder 
+			        		&& BCRYPT_PATTERN.matcher(currentPassword).matches();
+        
+        // 비밀번호 일치 여부 검증 (BCrypt와 평문 분기)
+        boolean isPasswordValid;
+        if (isBcrypt) {
+        	isPasswordValid = passwordEncoder.matches(password, currentPassword);
+        } else {
+        	// 평문 데이터 마이그레이션 대상: 단순 문자열 비교
+        	isPasswordValid = Objects.equals(password, currentPassword);
         }
         
-        // 비밀번호 일치 여부 확인
-        if (!passwordEncoder.matches(password, currentPassword)) {
+        // 비밀번호가 틀린 경우 실패 처리
+        if (!isPasswordValid) {
         	employee.increaseAccessCount();
-        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccess_count());
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
-        } else {
-        	employee.initAccessCount();
+        	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccess_count());
+        	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+        }
+        
+        // 로그인 성공 && 기존이 평문이었던 경우: BCrypt로 암호화하여 DB 업데이트 (마이그레이션)
+        if (!isBcrypt && passwordEncoder instanceof BCryptPasswordEncoder) {
+        	employee.changePassword(passwordEncoder.encode(password));
         }
     }
     
