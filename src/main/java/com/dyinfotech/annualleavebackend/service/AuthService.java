@@ -7,6 +7,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -16,9 +17,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.dyinfotech.annualleavebackend.common.exception.GlobalExceptionHandler;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
@@ -205,6 +206,7 @@ public class AuthService {
                 .build();
     }
 
+    private static final Pattern BCRYPT_PATTERN = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
     private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     public void validateLogin(Employee employee, String password) throws ResponseStatusException {
         // 로그인 실패 최대 횟수 제한
@@ -220,12 +222,10 @@ public class AuthService {
         	}
         }
         
-        // BCrypt 암호화 방식일 경우 패스워드가 양식에 맞는지 체크하고 평문일 경우 암호화 처리 (데이터 마이그레이션시 평문 패스워드 방어 코드)
+        // 데이터 마이그레이션 대응:
+        // BCrypt 형식이 아닌(기존 평문 저장) 비밀번호는 최초 처리 시 BCrypt로 암호화한다.
         String currentPassword = employee.getPassword();
-        if (passwordEncoder instanceof BCryptPasswordEncoder 
-        		&& currentPassword != null
-                && !currentPassword.isBlank()
-                && !currentPassword.matches("^\\$2[aby]\\$\\d{2}\\$.{53}$")) {
+        if (StringUtils.hasText(currentPassword) && passwordEncoder instanceof BCryptPasswordEncoder && !BCRYPT_PATTERN.matcher(currentPassword).matches()) {
         	employee.changePassword(passwordEncoder.encode(currentPassword));
         }
         
