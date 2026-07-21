@@ -107,24 +107,6 @@ public class LeaveApprovalService {
     @Transactional
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
-    	
-//    	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
-//    	LeaveRequest leaveRequest = response.getKey();
-//    	Employee approver = response.getValue();
-//        
-//        // 소속 확인 후 승인
-//        try {
-//            leaveRequest.approve(approver);
-//        } catch (IllegalStateException e) {
-//            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
-//        }
-//        
-//        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
-//        if (employeeCache != null) {
-//        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
-//        }
-//        
-//        return LeaveApprovalDto.LeaveApprovalResponse.from(leaveRequest);
     	// 소속 확인 및 기본 검증
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
@@ -161,23 +143,6 @@ public class LeaveApprovalService {
     @Transactional
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
-//    	Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
-//    	LeaveRequest leaveRequest = response.getKey();
-//    	Employee approver = response.getValue();
-//    	
-//    	// 소속 확인 후 반려
-//        try {
-//            leaveRequest.reject(approver, request.getRejectReason());
-//        } catch (IllegalStateException e) {
-//            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
-//        }
-//        
-//        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
-//        if (employeeCache != null) {
-//        	employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
-//        }
-//
-//        return LeaveRejectDto.LeaveRejectResponse.from(leaveRequest);
     	// 소속 확인 및 기본 검증
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();

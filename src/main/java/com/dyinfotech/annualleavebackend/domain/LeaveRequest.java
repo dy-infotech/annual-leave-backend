@@ -87,6 +87,7 @@ public class LeaveRequest {
         this.createdAt = LocalDateTime.now();
     }
 
+    @Deprecated
     public void approve(Employee manager) {
         if (this.status != LeaveRequestStatus.PENDING) {
         	String errorMsg = "대기 상태인 요청만 승인할 수 있습니다.";
@@ -100,6 +101,7 @@ public class LeaveRequest {
         this.managedAt = LocalDateTime.now();
     }
 
+    @Deprecated
     public void reject(Employee manager, String rejectReason) {
         if (this.status != LeaveRequestStatus.PENDING) {
         	String errorMsg = "대기 상태인 요청만 반려할 수 있습니다.";
