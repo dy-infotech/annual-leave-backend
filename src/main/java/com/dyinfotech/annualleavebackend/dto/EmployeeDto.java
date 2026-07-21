@@ -36,6 +36,7 @@ public class EmployeeDto {
         private String role;
         private Float currTotalLeaveDays;   // 이번 연도 총 연차 일수
         private Float remainingLeaveDays;   // 남은 연차 일수
+        private String approverNumber;
         private String approverName;
         private String approverPosition;
         private String approverDepartment;
@@ -51,6 +52,7 @@ public class EmployeeDto {
                     .role(role.name())
                     .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
                     .remainingLeaveDays(remainingLeaveDays)
+                    .approverNumber(approver.getEmployeeNumber())
                     .approverName(approver.getName())
                     .approverPosition(approver.getPosition())
                     .approverDepartment(approver.getDepartment())
