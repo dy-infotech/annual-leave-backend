@@ -4,7 +4,8 @@ import lombok.Getter;
 
 @Getter
 public enum DepartmentType {
-	SI_BUSINESS		("SI사업팀")
+	CEO				("대표이사")
+	,SI_BUSINESS	("SI사업팀")
 	;
 	
 	private String name;
