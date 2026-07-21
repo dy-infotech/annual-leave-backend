@@ -148,9 +148,6 @@ public class Employee {
     }
     
     public boolean isRegisted() {
-    	boolean isRegisted = true;
-    	
-        if(this.password == null || this.password == "") return isRegisted = false;
-        else return isRegisted;
+    	return this.password != null && !this.password.isBlank();
     }
 }

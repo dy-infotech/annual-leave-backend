@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -38,7 +39,6 @@ import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
-import io.jsonwebtoken.lang.Arrays;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -340,7 +340,7 @@ public class AuthService {
         try {
             mailSender.send(message);
         } catch (Exception e) {
-        	log.error("메일 발송 오류 from: " + message.getFrom() + ", to: " + message.getTo() + ", subject: " + message.getSubject(), e);
+        	log.error("메일 발송 오류 from: {}, to: {}, subject: {}", message.getFrom(), Arrays.toString(message.getTo()), message.getSubject(), e);
         	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
         }
     }

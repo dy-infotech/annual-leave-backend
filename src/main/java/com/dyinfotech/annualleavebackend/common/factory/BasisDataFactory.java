@@ -131,7 +131,9 @@ public class BasisDataFactory {
 		}
 		
 		String v = b.getData();
-		if (v == null) return null;
+		if (v == null) {
+	        throw new IllegalArgumentException("BasisData content is null for seq: " + b.getSeq());
+	    }
 		v = v.trim().toLowerCase();
 		if (v.equals("true") || v.equals("1") || v.equals("yes") || v.equals("y")) return true;
 		if (v.equals("false") || v.equals("0") || v.equals("no") || v.equals("n")) return false;
