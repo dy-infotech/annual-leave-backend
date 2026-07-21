@@ -58,6 +58,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     // Jackson Databind (ObjectMapper)
     implementation 'org.springframework.boot:spring-boot-starter-json'
+    // email validation
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    // phone validation
+    //implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.28'
     developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
     
     compileOnly 'org.projectlombok:lombok'
