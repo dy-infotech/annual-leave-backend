@@ -21,23 +21,16 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-	// Controller에 등록된 위치지만 메소드가 맞지 않을 때 -> 404 Not Found
+	// Controller에 등록된 위치지만 메소드가 맞지 않을 때
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-	public ResponseEntity<Map<String, Object>> handleMethodNotSupported(
+	public ResponseEntity<ErrorResponse> handleMethodNotSupported(
 	        HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
 	    
 	    // StackTrace를 전부 찍지 않고 한 줄짜리 경고 로그만 남기기
 	    log.warn("지원하지 않는 메서드 요청: [{}] {}, ip:{}", request.getMethod(), request.getRequestURI(), getClientIp(request));
 
-	    HttpStatus status = HttpStatus.NOT_FOUND;
-	    Map<String, Object> response = new LinkedHashMap<>();
-	    response.put("timestamp", LocalDateTime.now().toString());
-	    response.put("status", status.value()); // 404
-	    response.put("error", "NOT_FOUND");
-	    response.put("message", "요청하신 페이지를 찾을 수 없습니다.");
-	    response.put("path", request.getRequestURI());
-	    
-	    return ResponseEntity.status(status).body(response);
+	    HttpStatus status = HttpStatus.METHOD_NOT_ALLOWED;
+	    return ResponseEntity.status(status).body(ErrorResponse.of(status, "지원하지 않는 HTTP 메서드입니다.", request.getRequestURI()));
 	}
 	
     // 기존 코드가 던지는 ResponseStatusException → status/reason 그대로 통일 포맷으로
@@ -75,20 +68,7 @@ public class GlobalExceptionHandler {
     }
     
     private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        
-        // X-Forwarded-For 헤더는 여러 프록시를 거치면 IP가 콤마(,)로 연결되므로, 첫 번째 IP가 원본 클라이언트야.
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        
-        return ip;
+        // server.forward-headers-strategy 설정이 되어 있다면 getRemoteAddr()만 쓰면 됩니다.
+        return request.getRemoteAddr();
     }
 }

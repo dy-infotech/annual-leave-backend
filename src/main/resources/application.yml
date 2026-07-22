@@ -19,8 +19,8 @@ spring:
      highlight_sql: false  # sql 키워드 색상은 콘솔상 필요조건. 파일에선 불필요한 낭비.
 
   mail:
-    host: smtp.cafe24.com
-    port: 587
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
@@ -35,10 +35,12 @@ spring:
            required: true 
            ssl:
              protocols: TLSv1 TLSv1.1 TLSv1.2 TLSv1.3          
-
+server:
+  forward-headers-strategy: framework # 프록시 헤더(X-Forwarded-For 등)를 Spring이 내부적으로 검증하여 getRemoteAddr()에 자동으로 반영
+    
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 3600000   # 1시간
+  expiration: ${JWT_TIMEOUT:3600000}   # 1시간
 
 openapi:
   service-key: ${SERVICE_KEY}
