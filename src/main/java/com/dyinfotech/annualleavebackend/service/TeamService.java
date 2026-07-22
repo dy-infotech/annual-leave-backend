@@ -168,7 +168,7 @@ public class TeamService {
 	 */
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
 	public Map.Entry<Integer, String> getTeamManagerData(String targetTeam, Employee approver) {
-		return getTeamManagerData(PositionType.getType(approver.getPosition()), approver.getTeam(), approver.getEmployeeId(), approver.getTeams());
+		return getTeamManagerData(PositionType.getType(approver.getPosition()), targetTeam, approver.getEmployeeId(), approver.getTeams());
 	}
 //	/**
 //	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
