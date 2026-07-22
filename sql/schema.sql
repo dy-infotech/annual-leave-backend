@@ -24,6 +24,8 @@ CREATE TABLE employee (
                           created_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP,
                           approver_id          	BIGINT			NOT NULL COMMENT '승인한 관리자 번호',
                           updated_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                          
+                          CONSTRAINT fk_employee_approver FOREIGN KEY (approver_id) REFERENCES employee(employee_id) ON DELETE RESTRICT
 ) COMMENT '인사정보 + 로그인 계정 + 배정 연차';
 
 
