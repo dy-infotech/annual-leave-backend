@@ -188,7 +188,7 @@ public class TeamService {
 
 
 	private Set<Long> resolveApproverIds(Employee employee) {
-		List<Team> myTeam = employee.getTeams();
+		List<Team> myTeam = findAllByTeam(employee.getTeam());
 		if (myTeam.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}
