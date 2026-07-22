@@ -32,22 +32,17 @@ public class AuthController {
     public ResponseEntity<SignInDto.SignInResponse> signIn(@Valid @RequestBody SignInDto.SignInRequest request) {
         return ResponseEntity.ok(authService.signIn(request));
     }
-    
-    // 💡 주소가 다르게 매핑되어 있다면 아래와 같이 플러터 요청 주소와 일치시킵니다.    
+      
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordDto.Request request) {
-        authService.forgotPassword(request); // 서비스 메서드명도 맞추면 알아보기 쉽습니다.
-        return ResponseEntity.ok().build();   // 성공 시 200 OK 반환 (앱의 response.statusCode != 200 조건 만족)
-    } 
+        authService.forgotPassword(request);
+        return ResponseEntity.ok().build();
+    }
     
-    // 💡 주소가 다르게 매핑되어 있다면 아래와 같이 플러터 요청 주소와 일치시킵니다.    
     @PostMapping("/find-id")
-    public ResponseEntity<ForgotPasswordDto.FindIdResponse> findId(@Valid @RequestBody ForgotPasswordDto.FindIdRequest request) {
-        // 1. 서비스 메서드를 호출하여 찾은 아이디 결과(DTO)를 받아옵니다.
-        ForgotPasswordDto.FindIdResponse response = authService.findId(request);
-        
-        // 2. 결과 데이터를 body에 담아서 200 OK로 반환합니다.
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Void> findId(@Valid @RequestBody ForgotPasswordDto.FindIdRequest request) {
+        authService.findId(request);
+        return ResponseEntity.ok().build();
     }
 
     

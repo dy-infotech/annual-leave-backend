@@ -15,15 +15,11 @@ public class ForgotPasswordDto {
         private String email;
     }
 
-    /**
-     * 💡 아이디 찾기 결과 응답 (Response)
-     * 서버에서 찾은 사원번호(employeeNumber)를 플러터로 돌려줄 때 사용합니다.
-     */
-    @Getter
-    @AllArgsConstructor
-    public static class FindIdResponse {
-        private String employeeNumber;
-    }
+//    @Getter
+//    @AllArgsConstructor
+//    public static class FindIdResponse {
+//        private String employeeNumber;
+//    }
       
     @Getter
     @NoArgsConstructor

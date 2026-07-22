@@ -304,45 +304,62 @@ public class AuthService {
                 .build();
     }
     
-    
+    private void sendMail(String to, String subject, String text) throws Exception {
+    	SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(mailFrom);
+        message.setTo(to);
+        message.setSubject(subject);
+        message.setText(text);
+        
+        mailSender.send(message);
+    }
 
     @Transactional(readOnly = true)
-    public ForgotPasswordDto.FindIdResponse findId(ForgotPasswordDto.FindIdRequest request) {
+    public void findId(ForgotPasswordDto.FindIdRequest request) {
         // 성함과 이메일로 회원 조회
         Employee employee = employeeService.getEmployeeNumberByNameAndEmail(request.getName(), request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "일치하는 회원 정보가 없습니다."));
 
-        // 조회된 사원번호를 DTO에 담아 반환
-        return new ForgotPasswordDto.FindIdResponse(employee.getEmployeeNumber());
+        // 사번 이메일 전송
+        String to = employee.getEmail();
+        String subject = "[(주)디와이정보기술] 휴가관리 시스템 사번 조회";
+    	String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n" +
+                "요청하신 사번은 " + employee.getEmployeeNumber() +"입니다.";
+        try {
+        	sendMail(to, subject, text);
+        } catch (Exception e) {
+        	log.error("사번 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
+        	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
+        }
+        
+        return;
     }
  
  
     @Transactional
     public void forgotPassword(ForgotPasswordDto.Request request) {
-        // 1. 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생시키고, 성공 케이스인 것처럼 전달해서 공격 방지)
+        // 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생시키고, 성공 케이스인 것처럼 전달해서 공격 방지)
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), request.getEmail())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.OK));
 
-        // 2. 임시 비밀번호 생성 (소문자 16진수 + 하이픈 10자리)
+        // 임시 비밀번호 생성 (소문자 16진수 + 하이픈 10자리)
         String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
 
-        // 3. 비밀번호 암호화 후 업데이트
+        // 비밀번호 암호화 후 업데이트
         String encodedPassword = passwordEncoder.encode(temporaryPassword);
         employee.changePassword(encodedPassword);
 
-        // 4. 임시 비밀번호 이메일 전송
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(mailFrom);
-        message.setTo(employee.getEmail());
-        message.setSubject("[(주)디와이정보기술] 연차관리 시스템 임시 비밀번호 발급");
-        message.setText("안녕하세요. (주)디와이정보기술 연차관리 시스템입니다.\n\n" +
-	                    "요청하신 임시 비밀번호는 다음과 같습니다.\n" +
-	                    "임시 비밀번호: " + temporaryPassword + "\n\n" +
-	                    "로그인 후 반드시 비밀번호를 변경해 주세요.");
+        // 임시 비밀번호 이메일 전송
+        String to = employee.getEmail();
+        String subject = "[(주)디와이정보기술] 휴가관리 시스템 임시 비밀번호 발급";
+    	String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n" +
+                "요청하신 임시 비밀번호는 다음과 같습니다.\n" +
+                "임시 비밀번호: " + temporaryPassword + "\n\n" +
+                "로그인 후 반드시 비밀번호를 변경해 주세요.";
         try {
-            mailSender.send(message);
+        	sendMail(to, subject, text);
         } catch (Exception e) {
-        	log.error("메일 발송 오류 from: {}, to: {}, subject: {}", message.getFrom(), Arrays.toString(message.getTo()), message.getSubject(), e);
+        	log.error("패스워드 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
         	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
         }
     }
