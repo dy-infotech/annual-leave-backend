@@ -2,6 +2,8 @@ package com.dyinfotech.annualleavebackend.domain;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -40,6 +42,9 @@ public class Employee {
     
     @Column(name = "team", nullable = false, length = 30)
     private String team;
+    
+    @OneToMany(mappedBy = "projectManager")
+    private List<Team> teams = new ArrayList<>();
 
     @Column(name = "position", length = 50)
     private String position;

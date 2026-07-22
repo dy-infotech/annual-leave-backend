@@ -73,13 +73,13 @@ public class AuthService {
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
-    	// 현재 요청자 직급과 신청받은 직급을 비교
-    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-    	PositionType requesterPosition = PositionType.getType(requester.getPosition());
+    	// 현재 승인자 직급과 신청받은 직급을 비교
+    	Employee approver = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	PositionType approverrPosition = PositionType.getType(approver.getPosition());
     	PositionType targetPosition = PositionType.getType(request.getPosition());
-    	if (requesterPosition == null || targetPosition == null || requesterPosition.ordinal() <= targetPosition.ordinal()) {
+    	if (approverrPosition == null || targetPosition == null || approverrPosition.ordinal() <= targetPosition.ordinal()) {
     		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
-    		String detailMsg = "requesterId : " + employeeId + "requesterPosition : " + requesterPosition + ", targetPosition: " + targetPosition;
+    		String detailMsg = "approverId : " + employeeId + "approverrPosition : " + approverrPosition + ", targetPosition: " + targetPosition;
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
     	}
@@ -94,7 +94,7 @@ public class AuthService {
 		}
     	
     	// 팀 정보와 관리자 매칭
-    	Entry<Integer, String> teamData = teamService.getTeamManagerData(requesterPosition, request.getTeam(), employeeId);
+    	Entry<Integer, String> teamData = teamService.getTeamManagerData(request.getTeam(), approver);
     	if (teamData.getKey() == 0) {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
     		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverTeam=[" + teamData.getValue() + "]";
@@ -105,17 +105,17 @@ public class AuthService {
     	// 팀의 관리자로 등록되는 건지 확인
     	boolean makeAdminAccount = false;
     	if (Role.ADMIN.equals(request.getRole())) {
-    		if (PositionType.CEO.equals(requesterPosition)) {
+    		if (PositionType.CEO.equals(approverrPosition)) {
     			makeAdminAccount = true;
     		} else {
         		String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";
-        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + requesterPosition.getName();
+        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + approverrPosition.getName();
         		log.error(errorMsg + " " + detailMsg);
     			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     		}
     	} else if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
     		String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
-    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + requesterPosition.getName();
+    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + approverrPosition.getName();
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}
@@ -156,16 +156,16 @@ public class AuthService {
     	if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
     		teamService.saveTeam(Team.builder()
 									.team(request.getTeam())
-									.projectManagerId(employee.getEmployeeId())
+									.projectManager(employee)
 									// XXX: 대표이사만 등록 가능하므로 대표이사 팀을 넣으면 될 것 같다. 차후에 문제가 생기면 getParentTeam으로 수정.
-									.parentTeam(requester.getTeam())
+									.parentTeam(approver.getTeam())
 									.build());
     	}
     	// 신규 팀은 아니지만 관리자로 등록되어야 한다면
     	else if (makeAdminAccount) {
     		teamService.saveTeam(Team.builder()
 									.team(request.getTeam())
-									.projectManagerId(employee.getEmployeeId())
+									.projectManager(employee)
 									// XXX: getTeamManagerData 호출될 때 해당 팀이 존재하는 걸 확인했으므로 get(0)으로 처리한다.
 									.parentTeam(teamService.findAllByTeam(request.getTeam()).get(0).getParentTeam())
 									.build());

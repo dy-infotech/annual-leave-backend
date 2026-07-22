@@ -129,18 +129,19 @@ public class TeamService {
 	
 	/**
 	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
+	 * @param approverPosition 관리자 포지션
 	 * @param targetTeam 탐색할 팀 정보
 	 * @param approverId 팀의 관리자
+	 * @param approverTeamList 관리자의 승인 가능 팀 리스트 
 	 * @return Entry<Integer, String>(ManageType, approverTeamList)
 	 */
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
-	public Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
+	private Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId, List<Team> approverTeamList) {
 		int manageType = 0;
 		
 		List<Team> teamList = teamRepository.findAllByProjectManagerId(approverId);
-		List<Team> targetTeamList = findAllByTeam(targetTeam);
 		// 신규 팀인 경우
-		if (targetTeamList.isEmpty()) {
+		if (approverTeamList.isEmpty()) {
 			// 대표이사만 생성 가능
 			if (PositionType.CEO.equals(approverPosition)) {
 				return new AbstractMap.SimpleEntry<>(ManageType.IS_NEW_TEAM.getAppliedCode(manageType), "");
@@ -159,6 +160,27 @@ public class TeamService {
 	    
 	    return new AbstractMap.SimpleEntry<>(manageType, String.join(",", managedTeamNames));
 	}
+	/**
+	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
+	 * @param targetTeam 탐색할 팀 정보
+	 * @param approver 팀의 관리자
+	 * @return Entry<Integer, String>(ManageType, approverTeamList)
+	 */
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
+	public Map.Entry<Integer, String> getTeamManagerData(String targetTeam, Employee approver) {
+		return getTeamManagerData(PositionType.getType(approver.getPosition()), approver.getTeam(), approver.getEmployeeId(), approver.getTeams());
+	}
+//	/**
+//	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
+//	 * @param approverPosition 관리자 포지션
+//	 * @param targetTeam 탐색할 팀 정보
+//	 * @param approverId 팀의 관리자
+//	 * @return Entry<Integer, String>(ManageType, approverTeamList)
+//	 */
+//	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
+//	public Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
+//		return getTeamManagerData(approverPosition, targetTeam, approverId, findAllByTeam(targetTeam));
+//	}
 	
 	public boolean isTeamManager(Long employeeId) {
 		return teamRepository.existsByProjectManagerId(employeeId);
@@ -166,7 +188,7 @@ public class TeamService {
 
 
 	private Set<Long> resolveApproverIds(Employee employee) {
-		List<Team> myTeam = findAllByTeam(employee.getTeam());
+		List<Team> myTeam = employee.getTeams();
 		if (myTeam.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}

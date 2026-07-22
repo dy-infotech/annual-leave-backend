@@ -2,9 +2,12 @@ package com.dyinfotech.annualleavebackend.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -24,16 +27,21 @@ public class Team {
     @Column(name = "team", length = 30)
     private String team;
 
-    @Column(name = "project_manager_id")
-    private Long projectManagerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_manager_id", nullable = false)
+    private Employee projectManager;
     
     @Column(name = "parent_team", length = 30)
     private String parentTeam;
 
     @Builder
-    public Team(String team, Long projectManagerId, String parentTeam) {
+    public Team(String team, Employee projectManager, String parentTeam) {
         this.team = team;
-        this.projectManagerId = projectManagerId;
+        this.projectManager = projectManager;
         this.parentTeam = parentTeam;
+    }
+    
+    public Long getProjectManagerId() {
+    	return projectManager != null ? projectManager.getEmployeeId() : null;
     }
 }
