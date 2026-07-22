@@ -22,7 +22,7 @@ CREATE TABLE employee (
                           prev_total_leave_days	FLOAT  			NULL DEFAULT 0 COMMENT '작년 부여된 총 연차일수',
 
                           created_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                          approver_id          	BIGINT			NULL COMMENT '승인한 관리자 번호',
+                          approver_id          	BIGINT			NOT NULL COMMENT '승인한 관리자 번호',
                           updated_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) COMMENT '인사정보 + 로그인 계정 + 배정 연차';
 

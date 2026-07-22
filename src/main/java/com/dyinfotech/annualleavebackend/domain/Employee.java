@@ -73,7 +73,7 @@ public class Employee {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
-    @Column(name = "approver_id")
+    @Column(name = "approver_id", nullable = false)
     private Long approverId;
 
     @Column(name = "updated_at", nullable = false)
