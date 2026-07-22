@@ -22,11 +22,9 @@ public class P6SpyCustomFormatter implements MessageFormattingStrategy {
 		String maskedSql = maskSql(sql);
 		
 		// customLogMessageFormat과 동일한 한 줄 로그 포맷 생성
-		// now = spy.properties의 dateformat 기준 현재시간
 		// connectionId = 커넥션 ID
 		// elapsed = 실행시간(ms)
-		return String.format("%s [P6Spy] Connection: %d | Time: %dms | %s", 
-				now, connectionId, elapsed, maskedSql);
+		return String.format("Connection: %d | Time: %dms | %s", connectionId, elapsed, maskedSql);
 	}
 	
 	private String maskSql(String sql) {
