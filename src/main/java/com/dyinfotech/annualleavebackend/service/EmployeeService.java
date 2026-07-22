@@ -127,7 +127,7 @@ public class EmployeeService {
     }
     
     public List<Employee> getEmployeeList(Collection<Long> employeeIds) {	// 요청자와 관리자의 쌍이 캐시 히트 효율이 낮으므로 캐싱 미처리
-    	return employeeRepository.findAllByEmployeeIdIn(employeeIds);
+    	return employeeRepository.findAllByEmployeeIdInOrderByEmployeeIdAsc(employeeIds);
     }
     
     public Optional<Employee> getEmployee(String employeeNumber) {			// signIn, signUp에 쓰이는 데이터라서 쓰기 작업으로 오염될 것이므로 캐싱 미처리

@@ -8,7 +8,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 
 public interface TeamRepository extends JpaRepository<Team, Long> {
     boolean existsByProjectManagerId(Long projectManagerId);
-    List<Team> findAllByTeam(String team);
+    List<Team> findAllByTeamOrderBySeqAsc(String team);
 	
 	// XXX: Employee의 List<Team> teamData 를 대체한다
 	List<Team> findAllByProjectManagerId(Long projectManagerId);

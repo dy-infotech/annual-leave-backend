@@ -21,7 +21,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     
     Optional<Employee> findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(String prefix);
     
-    List<Employee> findAllByEmployeeIdIn(Collection<Long> employeeIds);
+    List<Employee> findAllByEmployeeIdInOrderByEmployeeIdAsc(Collection<Long> employeeIds);
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     List<Employee> findAllByFireDateIsNull();

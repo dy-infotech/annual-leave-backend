@@ -32,7 +32,7 @@ public class TeamService {
 	
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a0")
 	public List<Team> findAllByTeam(String team) {
-		return teamRepository.findAllByTeam(team);
+		return teamRepository.findAllByTeamOrderBySeqAsc(team);
 	}
 	
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'total'")
