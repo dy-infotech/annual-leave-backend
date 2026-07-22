@@ -1,16 +1,21 @@
 package com.dyinfotech.annualleavebackend.service;
 
-import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.common.type.Role;
-import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.dto.DashboardDto;
-import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
-import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.dto.DashboardDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -36,7 +41,7 @@ public class DashboardService {
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
 
         // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.resolveRole(employeeId) == Role.ADMIN ? getAllEmployeeRequestSummary() : null;
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.resolveRole(employeeId) == Role.ADMIN ? getAllEmployeeRequestSummary(employee) : null;
 
         return DashboardDto.builder()
                 .myLeaveInfoResponse(myLeaveInfo)
@@ -67,10 +72,11 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary() {
-        long pending = leaveRequestRepository.countByStatus(LeaveRequestStatus.PENDING);
-        long approved = leaveRequestRepository.countByStatus(LeaveRequestStatus.APPROVED);
-        long rejected = leaveRequestRepository.countByStatus(LeaveRequestStatus.REJECTED);
+    private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
+    	List<Team> teams = employee.getTeams();
+        long pending = leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING);
+        long approved = leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED);
+        long rejected = leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED);
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
                 .pendingCount(pending)

@@ -19,8 +19,8 @@ public class LeaveApprovalController {
     private final LeaveApprovalService leaveApprovalService;
 
     @GetMapping("/pending")
-    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests() {
-        return leaveApprovalService.getPendingRequests();
+    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(@AuthenticationPrincipal Long employeeId) {
+        return leaveApprovalService.getPendingRequests(employeeId);
     }
 
     @PostMapping("/{requestId}/approve")

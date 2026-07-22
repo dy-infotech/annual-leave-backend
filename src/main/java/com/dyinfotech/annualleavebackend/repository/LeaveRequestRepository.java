@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.domain.Team;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
 	
@@ -47,20 +48,25 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    long countByStatusAndStartDateBetween(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange);
-    default long countByStatus(LeaveRequestStatus status, Year year) {
-    	return countByStatusAndStartDateBetween(status, getStartOfYear(year), getEndOfYear(year));
+    long countByStatusAndStartDateBetweenAndEmployee_TeamIn(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange, List<Team> teams);
+    default long countByStatus(List<Team> teams, LeaveRequestStatus status, Year year) {
+    	return countByStatusAndStartDateBetweenAndEmployee_TeamIn(status, getStartOfYear(year), getEndOfYear(year), teams);
     }
-    default long countByStatus(LeaveRequestStatus status) {
-    	return countByStatus(status, Year.now());
+    default long countByStatus(List<Team> teams,LeaveRequestStatus status) {
+    	return countByStatus(teams, status, Year.now());
     }
 
-    List<LeaveRequest> findByStatusAndStartDateBetweenOrderByCreatedAtAsc(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange);
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status, Year year) {
-    	return findByStatusAndStartDateBetweenOrderByCreatedAtAsc(status, getStartOfYear(year), getEndOfYear(year));
+    List<LeaveRequest> findByStatusAndStartDateBetweenAndEmployee_TeamInOrderByCreatedAtAsc(
+            LeaveRequestStatus status, 
+            LocalDate startRange, 
+            LocalDate endRange, 
+            List<Team> teams
+    );
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status, Year year) {
+    	return findByStatusAndStartDateBetweenAndEmployee_TeamInOrderByCreatedAtAsc(status, getStartOfYear(year), getEndOfYear(year), teams);
     }
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status) {
-    	return findByStatusOrderByCreatedAtAsc(status, Year.now());
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status) {
+    	return findByStatusOrderByCreatedAtAsc(teams, status, Year.now());
     }
 
 	// 휴가 결재 승인 또는 반려 처리

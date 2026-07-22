@@ -36,8 +36,13 @@ public class LeaveApprovalService {
     
     private final CacheManager cacheManager;
 
-    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests() {
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(LeaveRequestStatus.PENDING)
+    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(Long employeeId) {
+    	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
+    	if (employeeList.isEmpty()) {
+    		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+    	}
+    	
+        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(employeeList.get(0).getTeams(), LeaveRequestStatus.PENDING)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();
