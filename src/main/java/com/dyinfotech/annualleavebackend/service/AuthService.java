@@ -318,7 +318,7 @@ public class AuthService {
     public void findId(ForgotPasswordDto.FindIdRequest request) {
         // 성함과 이메일로 회원 조회
         Employee employee = employeeService.getEmployeeNumberByNameAndEmail(request.getName(), request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "일치하는 회원 정보가 없습니다."));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.OK));
 
         // 사번 이메일 전송
         String to = employee.getEmail();
