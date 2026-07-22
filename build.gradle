@@ -1,6 +1,7 @@
 plugins {
     id 'org.springframework.boot' version '4.1.0' 
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.owasp.dependencycheck' version '12.1.0'
     id 'java'
     id 'eclipse-wtp'
 }
@@ -8,6 +9,13 @@ plugins {
 group = 'com.dyinfotech'
 version = '0.0.1-SNAPSHOT'
 description = 'annual-leave-backend'
+
+dependencyCheck {
+    format = 'HTML'
+    outputDirectory = file("$buildDir/reports/dependency-check")
+    
+    failBuildOnCVSS = 7.0
+}
 
 java {
 	// disable toolchain because of avoiding error
