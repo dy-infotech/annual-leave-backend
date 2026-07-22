@@ -74,9 +74,9 @@ public class DashboardService {
 
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
     	List<Team> teams = employee.getTeams();
-        long pending = leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING);
-        long approved = leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED);
-        long rejected = leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED);
+        long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING);
+        long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED);
+        long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED);
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
                 .pendingCount(pending)

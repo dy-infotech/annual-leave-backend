@@ -17,11 +17,13 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 
+import io.jsonwebtoken.lang.Collections;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,8 +43,12 @@ public class LeaveApprovalService {
     	if (employeeList.isEmpty()) {
     		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
     	}
+    	List<Team> teams = employeeList.get(0).getTeams();
+    	if (teams.isEmpty()) {
+    		return Collections.emptyList();
+    	}
     	
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(employeeList.get(0).getTeams(), LeaveRequestStatus.PENDING)
+        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(teams, LeaveRequestStatus.PENDING)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();

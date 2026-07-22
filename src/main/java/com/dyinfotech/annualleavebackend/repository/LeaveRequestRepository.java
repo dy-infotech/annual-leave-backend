@@ -49,9 +49,9 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    long countByStatusAndStartDateBetweenAndEmployee_TeamIn(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange, List<Team> teams);
+    long countByStatusAndStartDateBetweenAndEmployee_TeamIn(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange, List<String> teams);
     default long countByStatus(List<Team> teams, LeaveRequestStatus status, Year year) {
-    	return countByStatusAndStartDateBetweenAndEmployee_TeamIn(status, getStartOfYear(year), getEndOfYear(year), teams);
+    	return countByStatusAndStartDateBetweenAndEmployee_TeamIn(status, getStartOfYear(year), getEndOfYear(year), teams.stream().map(Team::getTeam).toList());
     }
     default long countByStatus(List<Team> teams,LeaveRequestStatus status) {
     	return countByStatus(teams, status, Year.now());
@@ -61,10 +61,10 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             LeaveRequestStatus status, 
             LocalDate startRange, 
             LocalDate endRange, 
-            List<Team> teams
+            List<String> teams
     );
     default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status, Year year) {
-    	return findByStatusAndStartDateBetweenAndEmployee_TeamInOrderByCreatedAtAsc(status, getStartOfYear(year), getEndOfYear(year), teams);
+    	return findByStatusAndStartDateBetweenAndEmployee_TeamInOrderByCreatedAtAsc(status, getStartOfYear(year), getEndOfYear(year), teams.stream().map(Team::getTeam).toList());
     }
     default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status) {
     	return findByStatusOrderByCreatedAtAsc(teams, status, Year.now());
