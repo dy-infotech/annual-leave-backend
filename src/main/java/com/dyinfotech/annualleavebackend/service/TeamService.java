@@ -174,7 +174,7 @@ public class TeamService {
 //	}
 	
 	public boolean isTeamManager(Long employeeId) {
-		return teamRepository.existsByProjectManagerId(employeeId);
+		return teamRepository.existsByProjectManager_EmployeeId(employeeId);
 	}
 
 

@@ -7,9 +7,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.dyinfotech.annualleavebackend.domain.Team;
 
 public interface TeamRepository extends JpaRepository<Team, Long> {
-    boolean existsByProjectManagerId(Long projectManagerId);
+	boolean existsByProjectManager_EmployeeId(Long projectManagerId);
     List<Team> findAllByTeamOrderBySeqAsc(String team);
 	
 	// XXX: Employee의 List<Team> teamData 를 대체한다
+    @Deprecated
 	List<Team> findAllByProjectManagerId(Long projectManagerId);
 }
