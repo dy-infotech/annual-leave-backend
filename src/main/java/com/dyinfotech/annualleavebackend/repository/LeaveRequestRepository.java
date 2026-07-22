@@ -55,7 +55,13 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     	return countByStatus(status, Year.now());
     }
 
-    List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status);
+    List<LeaveRequest> findByStatusAndStartDateBetweenOrderByCreatedAtAsc(LeaveRequestStatus status, LocalDate startRange, LocalDate endRange);
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status, Year year) {
+    	return findByStatusAndStartDateBetweenOrderByCreatedAtAsc(status, getStartOfYear(year), getEndOfYear(year));
+    }
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(LeaveRequestStatus status) {
+    	return findByStatusOrderByCreatedAtAsc(status, Year.now());
+    }
 
 	// 휴가 결재 승인 또는 반려 처리
     // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException울 GlobalExceptionHandler에서 처리하는 건
