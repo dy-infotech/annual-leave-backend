@@ -244,6 +244,8 @@ public class AuthService {
         	employee.increaseAccessCount();
         	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccess_count());
         	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+        } else {
+        	employee.initAccessCount();
         }
         
         // 로그인 성공 && 기존이 평문이었던 경우: BCrypt로 암호화하여 DB 업데이트 (마이그레이션)
