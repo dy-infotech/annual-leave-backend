@@ -119,7 +119,7 @@ public class LeaveApprovalService {
     	LocalDateTime now = LocalDateTime.now();
         long updatedCount = leaveRequestRepository.updateLeaveRequest(
                 requestId,
-                approverId,
+                response.getValue(),		// approver
                 null, // 승인이므로 rejectReason은 null
                 LeaveRequestStatus.PENDING,
                 LeaveRequestStatus.APPROVED,
@@ -155,7 +155,7 @@ public class LeaveApprovalService {
     	LocalDateTime now = LocalDateTime.now();
         long updatedCount = leaveRequestRepository.updateLeaveRequest(
                 requestId,
-                approverId,
+                response.getValue(),		// approver
                 request.getRejectReason(),
                 LeaveRequestStatus.PENDING,
                 LeaveRequestStatus.REJECTED,

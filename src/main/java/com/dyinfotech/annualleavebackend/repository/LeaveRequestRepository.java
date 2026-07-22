@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.Team;
 
@@ -70,15 +71,25 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
 
 	// 휴가 결재 승인 또는 반려 처리
-    // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException울 GlobalExceptionHandler에서 처리하는 건
+    // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException을 GlobalExceptionHandler에서 처리하는 건
     //		별도 세부 정보를 담을 수 없고 로그 처리도 확실하지 않을 것 같다. 일단 개별 쿼리문으로 대응한다.
 	@Modifying(clearAutomatically = true) // 쿼리 실행 후 영속성 컨텍스트 자동 클리어
-    @Query("UPDATE LeaveRequest lr " +
-           "SET lr.status = :targetStatus, lr.manager.employeeId = :approverId, lr.managedAt = :now, lr.rejectReason = :rejectReason " +
-           "WHERE (lr.requestId = :requestId) " + 
-           "AND (lr.status = :sourceStatus) ")
-    long updateLeaveRequest(@Param("requestId") Long requestId, @Param("approverId") Long approverId, @Param("rejectReason") String rejectReason, @Param("sourceStatus") LeaveRequestStatus sourceStatus, @Param("targetStatus") LeaveRequestStatus targetStatus, @Param("now") LocalDateTime now);
-
+	@Query("UPDATE LeaveRequest lr " +
+	       "SET lr.status = :targetStatus, " +
+	       "    lr.manager = :approver, " + // lr.manager.employeeId -> lr.manager 로 수정
+	       "    lr.managedAt = :now, " +
+	       "    lr.rejectReason = :rejectReason " +
+	       "WHERE lr.requestId = :requestId " + 
+	       "AND lr.status = :sourceStatus")
+	int updateLeaveRequest(
+	        @Param("requestId") Long requestId, 
+	        @Param("approver") Employee approver, // Long approverId -> Employee approver 로 변경
+	        @Param("rejectReason") String rejectReason, 
+	        @Param("sourceStatus") LeaveRequestStatus sourceStatus, 
+	        @Param("targetStatus") LeaveRequestStatus targetStatus, 
+	        @Param("now") LocalDateTime now
+	);
+	
     // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
     @Query("SELECT lr FROM LeaveRequest lr " +
             "WHERE (:employeeId IS NULL OR lr.employee.employeeId = :employeeId) " +
