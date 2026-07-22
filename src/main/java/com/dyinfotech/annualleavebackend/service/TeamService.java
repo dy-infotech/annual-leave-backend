@@ -127,31 +127,22 @@ public class TeamService {
         return ancestors;
     }
 	
-	/**
-	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
-	 * @param approverPosition 관리자 포지션
-	 * @param targetTeam 탐색할 팀 정보
-	 * @param approverId 팀의 관리자
-	 * @param approverTeamList 관리자의 승인 가능 팀 리스트 
-	 * @return Entry<Integer, String>(ManageType, approverTeamList)
-	 */
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
 	private Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId, List<Team> approverTeamList) {
 		int manageType = 0;
 		
-		List<Team> teamList = teamRepository.findAllByProjectManagerId(approverId);
+		List<Team> targetTeamList = findAllByTeam(targetTeam);
 		// 신규 팀인 경우
-		if (approverTeamList.isEmpty()) {
+		if (targetTeamList.isEmpty()) {
 			// 대표이사만 생성 가능
 			if (PositionType.CEO.equals(approverPosition)) {
 				return new AbstractMap.SimpleEntry<>(ManageType.IS_NEW_TEAM.getAppliedCode(manageType), "");
 			} else {
-				return new AbstractMap.SimpleEntry<>(manageType, teamList.stream().map(Team::getTeam).toList().toString());
+				return new AbstractMap.SimpleEntry<>(manageType, String.join(",", approverTeamList.stream().map(Team::getTeam).toList()));
 			}
 		}
 		
 		// 기존 팀인 경우 (트리 탐색 적용)
-	    List<String> managedTeamNames = teamList.stream().map(Team::getTeam).toList();	// 내가 PM인 팀 목록
+	    List<String> managedTeamNames = approverTeamList.stream().map(Team::getTeam).toList();	// 내가 PM인 팀 목록
 	    List<String> ancestors = getAllAncestors(targetTeam); 							// targetTeam의 모든 상위 계보
 	    
 	    if (ancestors.stream().anyMatch(managedTeamNames::contains)) {					// targetTeam과 상위 팀들 내에 내가 PM인 팀이 있는가
@@ -162,11 +153,11 @@ public class TeamService {
 	}
 	/**
 	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
-	 * @param targetTeam 탐색할 팀 정보
-	 * @param approver 팀의 관리자
-	 * @return Entry<Integer, String>(ManageType, approverTeamList)
+	 * @param targetTeam 탐색할 대상 팀 이름
+	 * @param approver 결재/등록 요청자
+	 * @return Entry<Integer, String>(ManageType, managedTeamNames)
 	 */
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
+	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a0 + '-' + #a1.employeeId")
 	public Map.Entry<Integer, String> getTeamManagerData(String targetTeam, Employee approver) {
 		return getTeamManagerData(PositionType.getType(approver.getPosition()), targetTeam, approver.getEmployeeId(), approver.getTeams());
 	}
