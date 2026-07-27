@@ -87,25 +87,29 @@ dependencies {
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
     
     // Firebase Admin SDK
+    implementation platform('com.google.cloud:libraries-bom:26.32.0')
     implementation('com.google.firebase:firebase-admin:9.10.0') {
-	    // don't need Firestore(NoSQL DB) feature
+    	// don't need Firestore(NoSQL DB) feature
 	    exclude group: 'com.google.cloud', module: 'google-cloud-firestore'
-    	exclude group: 'com.google.api.grpc', module: 'proto-google-cloud-firestore-v1'
-	    
-	    // don't need Cloud Storage(File Upload) feature
+	    exclude group: 'com.google.api.grpc', module: 'proto-google-cloud-firestore-v1'
+	
+	    // don't need Cloud Storage(File Upload) feature but need com.google.api.client.json.jackson2.JacksonFactory
 	    exclude group: 'com.google.cloud', module: 'google-cloud-storage'
-	    
-	    // don't need communication specifications and duplicate transfer libraries (gRPCs)
-	    // TODO: need to re-examine if really don't use it when subscribing to and pushing a topic
+	
+	    // don't need gRPC communication (FCM uses REST API)
 	    exclude group: 'io.grpc'
 	    exclude group: 'com.google.api.grpc'
-	    
-	    // don't need mock-server
+	    exclude group: 'com.google.protobuf', module: 'protobuf-java'
+	
+	    // don't need mock-server & legacy logger
 	    exclude group: 'org.mock-server', module: 'mockserver-junit-rule-no-dependencies'
-	    
-	    // don't need netty (WebFlux also do)
+	    exclude group: 'commons-logging', module: 'commons-logging'
+	
+	    // don't need netty
 	    exclude group: 'io.netty'
 	}
+	// com.google.api.client.json.jackson2.JacksonFactory (version control -> BOM)
+    implementation 'com.google.http-client:google-http-client-jackson2'
     
     // Caffeine Cache
     implementation 'com.github.ben-manes.caffeine:caffeine'
