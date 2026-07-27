@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 public class FcmService {
 	public static final String TEAM_TOPIC_PREFIX = "team_";
 	
+	private final FirebaseMessaging firebaseMessaging;
 	private final FcmTokenRepository fcmTokenRepository;
 	
 	/**
@@ -58,8 +59,8 @@ public class FcmService {
 	public void subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
-//			FirebaseMessaging.getInstance().subscribeToTopic(tokens, "all");
-			FirebaseMessaging.getInstance().subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
+//			firebaseMessaging.subscribeToTopic(tokens, "all");
+			firebaseMessaging.subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
 			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
 		} catch (Exception e) {
 			log.error("FCM 토픽 구독 중 오류 발생", e);
@@ -70,8 +71,8 @@ public class FcmService {
 	public void unsubscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
-//			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, "all");
-			FirebaseMessaging.getInstance().unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
+//			firebaseMessaging.unsubscribeFromTopic(tokens, "all");
+			firebaseMessaging.unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
 			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
 		} catch (Exception e) {
 			log.error("FCM 토픽 해제 중 오류 발생", e);
@@ -90,7 +91,7 @@ public class FcmService {
 					.setCondition(condition)
 					.build();
 			
-			String response = FirebaseMessaging.getInstance().send(message);
+			String response = firebaseMessaging.send(message);
 			log.info("조건부 알림 발송 성공: {}", response);
 		} catch (Exception e) {
 			log.error("조건부 알림 발송 실패", e);
