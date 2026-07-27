@@ -19,7 +19,7 @@ spring:
      highlight_sql: false  # sql 키워드 색상은 콘솔상 필요조건. 파일에선 불필요한 낭비.
 
   mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
+    host: ${MAIL_HOST:smtp.cafe24.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
