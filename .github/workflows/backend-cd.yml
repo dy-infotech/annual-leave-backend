@@ -25,29 +25,33 @@ jobs:
         chmod +x gradlew
         ./gradlew bootJar -x test
 
-    - name: 4. SSH Agent 설정
-      uses: webfactory/ssh-agent@v0.8.1
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-    - name: 5. 파일 전송 및 서비스 재시작
+    - name: 4. SSH 키 파일 생성 및 서버 배포
       env:
         SERVER_HOST: ${{ secrets.SERVER_HOST }}
         SERVER_USER: ${{ secrets.SERVER_USER }}
         SERVER_PORT: ${{ secrets.SERVER_PORT }}
       run: |
+        # 1) SSH 키 포맷 깨짐 방지를 위해 cat << EOF 방식 사용 (가장 안전한 파일 쓰기)
+        mkdir -p ~/.ssh
+        cat << 'EOF' > ~/.ssh/deploy_key
+        ${{ secrets.SSH_PRIVATE_KEY }}
+        EOF
+        chmod 600 ~/.ssh/deploy_key
+
         PORT=${SERVER_PORT:-22}
-        SSH_CMD="ssh -o StrictHostKeyChecking=no -p $PORT ${SERVER_USER}@${SERVER_HOST}"
-        SCP_CMD="scp -o StrictHostKeyChecking=no -P $PORT"
+        
+        # 공통 명령어 변수화 (명령어 가독성 및 재사용성 확보)
+        SSH_CMD="ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -p $PORT"
+        SCP_CMD="scp -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key -P $PORT"
 
-        # 1) 원격 서버 임시 폴더 생성
-        $SSH_CMD "mkdir -p /opt/annual-leave/target"
+        # 2) 원격 서버 임시 폴더 생성
+        $SSH_CMD ${SERVER_USER}@${SERVER_HOST} "mkdir -p /opt/annual-leave/target"
 
-        # 2) 빌드된 JAR 전송
+        # 3) 빌드된 JAR 파일 전송
         $SCP_CMD build/libs/*.jar ${SERVER_USER}@${SERVER_HOST}:/opt/annual-leave/target/
 
-        # 3) plain.jar 제거, app.jar 교체, 서비스 재시작 실행
-        $SSH_CMD "rm -f /opt/annual-leave/target/*plain.jar && \
+        # 4) plain.jar 제거, app.jar 교체, 서비스 재시작
+        $SSH_CMD ${SERVER_USER}@${SERVER_HOST} "rm -f /opt/annual-leave/target/*plain.jar && \
                   mv /opt/annual-leave/target/*.jar /opt/annual-leave/app.jar && \
                   rm -rf /opt/annual-leave/target && \
                   sudo systemctl restart annual-leave.service"
