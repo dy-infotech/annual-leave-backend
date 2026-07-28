@@ -41,12 +41,12 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
-                		// swagger 인증 없이 접근 가능 -> 운영 중에는 관리자 전용 경로
+                		// swagger 인증 없이 접근 가능 -> 회사 내 공인 IP만 허용
                 		.requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
-                        ).hasRole(Role.ADMIN.name())
+                        ).permitAll()
                 		// 로그아웃은 인증 필요
                 		.requestMatchers("/api/auth/logout").authenticated()
                         // 인증 없이 접근 가능한 경로
