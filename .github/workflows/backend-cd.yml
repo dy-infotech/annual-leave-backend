@@ -89,14 +89,9 @@ jobs:
             APP_JAR=$APP_DIR/app.jar
 
 
-            echo "===== 기존 파일 정리 ====="
-
-            rm -f $TARGET_DIR/*plain.jar
-
-
             echo "===== JAR 확인 ====="
 
-            JAR_FILE=$(find $TARGET_DIR -maxdepth 1 -name "*.jar" | head -n 1)
+            JAR_FILE=$(find $TARGET_DIR -maxdepth 1 -name "*.jar" ! -name "*plain.jar" | head -n 1)
 
             if [ -z "$JAR_FILE" ]; then
               echo "ERROR: JAR 파일이 없습니다."
