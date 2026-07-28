@@ -48,7 +48,7 @@ jobs:
 
       # 5. 서버 배포 디렉터리 준비
       - name: 5. 서버 배포 디렉터리 준비
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
@@ -61,7 +61,7 @@ jobs:
 
       # 6. JAR 업로드
       - name: 6. Build JAR Upload
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
