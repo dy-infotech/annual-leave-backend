@@ -2,7 +2,8 @@ name: Spring Boot Backend CI/CD
 
 on:
   push:
-    branches: [ "main" ] # main 브랜치에 push될 때 실행
+    branches: [ "main", "develop" ]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
