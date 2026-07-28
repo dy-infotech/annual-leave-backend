@@ -3,7 +3,7 @@ name: Spring Boot Backend CI/CD
 on:
   push:
     branches:
-      - develop
+      - release
   workflow_dispatch:
 
 jobs:
@@ -12,8 +12,8 @@ jobs:
 
     steps:
 
-      # 1. SSH 접속 테스트
-      - name: 1. 서버 접속 테스트
+      # 1. SSH 접속 테스트 (Fail Fast)
+      - name: 1. SSH 접속 테스트
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -21,7 +21,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            echo "SSH 접속 및 키 인증 성공!"
+            echo "===== SSH 연결 성공 ====="
             whoami
 
 
@@ -55,8 +55,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            mkdir -p /opt/annual-leave/target
-            rm -f /opt/annual-leave/target/*
+            set -e
+
+            APP_DIR=/opt/annual-leave
+            TARGET_DIR=$APP_DIR/target
+
+            echo "===== 배포 디렉터리 준비 ====="
+
+            mkdir -p "$TARGET_DIR"
+            rm -f "$TARGET_DIR"/*
+
+            echo "준비 완료"
 
 
       # 6. JAR 업로드
@@ -80,21 +89,45 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
-
           script: |
             set -e
 
             APP_DIR=/opt/annual-leave
             TARGET_DIR=$APP_DIR/target
             APP_JAR=$APP_DIR/app.jar
+            BACKUP_JAR=$APP_JAR.bak
+
+
+            # 서비스 기동 확인 함수
+            wait_for_service() {
+              for i in {1..6}
+              do
+                STATUS=$(sudo -n /usr/bin/systemctl is-active annual-leave.service || true)
+
+                echo "CHECK $i : $STATUS"
+
+                if [ "$STATUS" = "active" ]; then
+                  return 0
+                fi
+
+                sleep 5
+              done
+
+              return 1
+            }
 
 
             echo "===== JAR 확인 ====="
 
-            JAR_FILE=$(find $TARGET_DIR -maxdepth 1 -name "*.jar" ! -name "*plain.jar" | head -n 1)
+            JAR_FILE=$(find "$TARGET_DIR" \
+              -maxdepth 1 \
+              -name "*.jar" \
+              ! -name "*plain.jar" \
+              | head -n 1)
+
 
             if [ -z "$JAR_FILE" ]; then
-              echo "ERROR: JAR 파일이 없습니다."
+              echo "ERROR: 배포할 JAR 파일이 없습니다."
               exit 1
             fi
 
@@ -102,7 +135,7 @@ jobs:
             echo "===== 기존 JAR 백업 ====="
 
             if [ -f "$APP_JAR" ]; then
-              cp "$APP_JAR" "$APP_DIR/app.jar.bak"
+              cp "$APP_JAR" "$BACKUP_JAR"
             fi
 
 
@@ -111,7 +144,9 @@ jobs:
             mv "$JAR_FILE" "$APP_JAR"
 
 
-            rm -rf $TARGET_DIR/*
+            echo "===== 임시 파일 정리 ====="
+
+            rm -rf "$TARGET_DIR"/*
 
 
             echo "===== 서비스 재시작 ====="
@@ -119,22 +154,42 @@ jobs:
             sudo -n /usr/bin/systemctl restart annual-leave.service
 
 
-            echo "===== 기동 대기 ====="
+            echo "===== 신규 버전 기동 확인 ====="
 
-            sleep 10
+            if wait_for_service; then
 
+              echo "===== 배포 완료 ====="
+              exit 0
 
-            echo "===== 상태 확인 ====="
-
-            STATUS=$(sudo -n /usr/bin/systemctl is-active annual-leave.service)
-
-            echo "SERVICE STATUS : $STATUS"
-
-
-            if [ "$STATUS" != "active" ]; then
-              echo "서비스 실행 실패"
-              exit 1
             fi
 
 
-            echo "===== 배포 완료 ====="
+            echo "===== 신규 버전 실행 실패 ====="
+
+            sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
+
+
+            echo "===== 롤백 시작 ====="
+
+            if [ ! -f "$BACKUP_JAR" ]; then
+              echo "백업 파일이 없어 롤백 불가"
+              exit 1
+            fi
+
+            cp "$BACKUP_JAR" "$APP_JAR"
+
+
+            echo "===== 이전 버전 재시작 ====="
+
+            sudo -n /usr/bin/systemctl restart annual-leave.service
+
+
+            echo "===== 롤백 기동 확인 ====="
+
+            if wait_for_service; then
+              echo "===== 롤백 성공 ====="
+            else
+              echo "===== 롤백 실패 ====="
+              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
+              exit 1
+            fi
