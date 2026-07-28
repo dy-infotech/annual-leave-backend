@@ -107,8 +107,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
     @Query("SELECT lr FROM LeaveRequest lr " +
             "WHERE (:employeeId IS NULL OR lr.employee.employeeId = :employeeId) " +
-            "AND (:startDate IS NULL OR lr.endDate >= :startDate) " +
-            "AND (:endDate IS NULL OR lr.startDate <= :endDate) " +
+            "AND (:startDate IS NULL OR lr.startDate >= :startDate) " +
+            "AND (:endDate IS NULL OR lr.endDate <= :endDate) " +
             "AND (:status IS NULL OR lr.status = :status) " +
             "ORDER BY lr.createdAt DESC")
     List<LeaveRequest> searchLeaveRequests(@Param("employeeId") Long employeeId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("status") LeaveRequestStatus status);
