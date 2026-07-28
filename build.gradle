@@ -69,7 +69,8 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-json'
     // phone validation
     //implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.28'
-    developmentOnly 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
+    // XXX: developmentOnly -> implementation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2'
     
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
