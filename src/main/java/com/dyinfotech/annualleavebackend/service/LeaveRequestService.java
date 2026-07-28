@@ -18,6 +18,7 @@ import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
@@ -57,8 +58,9 @@ public class LeaveRequestService {
         }
     	
     	Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	Employee approver = employeeRepository.findById(employee.getApproverId()).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 승인자입니다."));
 
-        String currentYear = String.valueOf(LocalDate.now().getYear());
+    	String currentYear = String.valueOf(LocalDate.now().getYear());
         // 현재 연도를 currYear에 설정
         if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
 			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
@@ -85,6 +87,7 @@ public class LeaveRequestService {
                 .endDate(request.getEndDate())
                 .useDays(request.getUseDays())
                 .leaveReason(request.getLeaveReason())
+                .manager(approver)
                 .build();
 
         leaveRequestRepository.save(leaveRequest);
