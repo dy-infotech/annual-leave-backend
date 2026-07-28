@@ -11,7 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. SSH 접속 테스트 (Fail-Fast)
+
+      # 1. SSH 접속 테스트
       - name: 1. 서버 접속 테스트
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -21,12 +22,15 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script: |
             echo "SSH 접속 및 키 인증 성공!"
+            whoami
 
-      # 2. Repository Checkout
+
+      # 2. Checkout
       - name: 2. 소스코드 체크아웃
         uses: actions/checkout@v4
 
-      # 3. Java & Gradle Cache
+
+      # 3. JDK 설정
       - name: 3. JDK 21 설정
         uses: actions/setup-java@v4
         with:
@@ -34,14 +38,23 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # 4. Build
-      - name: 4. Gradle Build
+
+      # 4. Firebase 인증 파일 생성
+      - name: 4. Firebase Service Account 생성
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' \
+          > src/main/resources/firebase-service-account.json
+
+
+      # 5. Gradle Build
+      - name: 5. Gradle Build
         run: |
           chmod +x gradlew
           ./gradlew bootJar -x test
 
-      # 5. 서버 배포 디렉터리 준비
-      - name: 5. 서버 배포 디렉터리 준비
+
+      # 6. 서버 배포 디렉터리 준비
+      - name: 6. 서버 배포 디렉터리 준비
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -52,8 +65,9 @@ jobs:
             mkdir -p /opt/annual-leave/target
             rm -f /opt/annual-leave/target/*
 
-      # 6. JAR 업로드
-      - name: 6. Build JAR Upload
+
+      # 7. JAR 업로드
+      - name: 7. Build JAR Upload
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -64,49 +78,75 @@ jobs:
           target: "/opt/annual-leave/target/"
           strip_components: 2
 
-      # 7. 배포 및 서비스 재시작
-      - name: 7. Deploy & Restart
+
+      # 8. 배포 및 재시작
+      - name: 8. Deploy & Restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+
           script: |
             set -e
 
-            # plain.jar 제거
-            rm -f /opt/annual-leave/target/*plain.jar
+            APP_DIR=/opt/annual-leave
+            TARGET_DIR=$APP_DIR/target
+            APP_JAR=$APP_DIR/app.jar
 
-            # 업로드된 JAR 확인
-            JAR_FILE=$(find /opt/annual-leave/target -maxdepth 1 -name "*.jar" | head -n 1)
+
+            echo "===== 기존 파일 정리 ====="
+
+            rm -f $TARGET_DIR/*plain.jar
+
+
+            echo "===== JAR 확인 ====="
+
+            JAR_FILE=$(find $TARGET_DIR -maxdepth 1 -name "*.jar" | head -n 1)
 
             if [ -z "$JAR_FILE" ]; then
-              echo "ERROR: 업로드된 JAR 파일이 없습니다."
+              echo "ERROR: JAR 파일이 없습니다."
               exit 1
             fi
 
-            # 기존 JAR 백업
-            if [ -f /opt/annual-leave/app.jar ]; then
-              cp /opt/annual-leave/app.jar /opt/annual-leave/app.jar.bak
+
+            echo "===== 기존 JAR 백업 ====="
+
+            if [ -f "$APP_JAR" ]; then
+              cp "$APP_JAR" "$APP_DIR/app.jar.bak"
             fi
 
-            # 새 버전 배포
-            mv "$JAR_FILE" /opt/annual-leave/app.jar
 
-            # 임시 파일 정리
-            rm -rf /opt/annual-leave/target/*
+            echo "===== 신규 JAR 적용 ====="
 
-            # 서비스 재시작
+            mv "$JAR_FILE" "$APP_JAR"
+
+
+            rm -rf $TARGET_DIR/*
+
+
+            echo "===== 서비스 재시작 ====="
+
             sudo -n /usr/bin/systemctl restart annual-leave.service
 
-            # 기동 대기
-            sleep 5
 
-            # 서비스 상태 확인
-            if ! sudo -n /usr/bin/systemctl is-active --quiet annual-leave.service; then
-              echo "===== 서비스 실행 실패 ====="
+            echo "===== 기동 대기 ====="
+
+            sleep 10
+
+
+            echo "===== 상태 확인 ====="
+
+            STATUS=$(sudo -n /usr/bin/systemctl is-active annual-leave.service)
+
+            echo "SERVICE STATUS : $STATUS"
+
+
+            if [ "$STATUS" != "active" ]; then
+              echo "서비스 실행 실패"
               exit 1
             fi
 
-            echo "배포 완료!"
+
+            echo "===== 배포 완료 ====="
