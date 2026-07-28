@@ -19,8 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Configuration
 public class FirebaseConfig {
-	//@Value("${fcm.certification}")
-	@Value("classpath:firebase-service-account.json")
+	@Value("${fcm.certification}")
     private Resource credentialResource;
 	
 	@PostConstruct

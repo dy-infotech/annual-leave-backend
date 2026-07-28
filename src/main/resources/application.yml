@@ -46,7 +46,7 @@ openapi:
   service-key: ${SERVICE_KEY}
 
 fcm:
-  certification: classpath:firebase-service-account.json
+  certification: ${FIREBASE_CREDENTIAL_PATH:classpath:firebase-service-account.json}
 
 app:
   cors:
