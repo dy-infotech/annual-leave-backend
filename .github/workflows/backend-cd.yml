@@ -39,22 +39,15 @@ jobs:
           cache: gradle
 
 
-      # 4. Firebase 인증 파일 생성
-      - name: 4. Firebase Service Account 생성
-        run: |
-          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}' \
-          > src/main/resources/firebase-service-account.json
-
-
-      # 5. Gradle Build
-      - name: 5. Gradle Build
+      # 4. Gradle Build
+      - name: 4. Gradle Build
         run: |
           chmod +x gradlew
           ./gradlew bootJar -x test
 
 
-      # 6. 서버 배포 디렉터리 준비
-      - name: 6. 서버 배포 디렉터리 준비
+      # 5. 서버 배포 디렉터리 준비
+      - name: 5. 서버 배포 디렉터리 준비
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -66,8 +59,8 @@ jobs:
             rm -f /opt/annual-leave/target/*
 
 
-      # 7. JAR 업로드
-      - name: 7. Build JAR Upload
+      # 6. JAR 업로드
+      - name: 6. Build JAR Upload
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -79,8 +72,8 @@ jobs:
           strip_components: 2
 
 
-      # 8. 배포 및 재시작
-      - name: 8. Deploy & Restart
+      # 7. 배포 및 재시작
+      - name: 7. Deploy & Restart
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
