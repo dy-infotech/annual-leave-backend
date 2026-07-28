@@ -20,6 +20,7 @@ public class P6SpyCustomFormatter implements MessageFormattingStrategy {
 		
 		// SQL 내의 문자열 파라미터('...') 1/4 마스킹 처리
 		String maskedSql = maskSql(sql);
+		maskedSql = sql;	// 잠시 마스킹 처리 해제 (오류 확인용)
 		
 		// customLogMessageFormat과 동일한 한 줄 로그 포맷 생성
 		// connectionId = 커넥션 ID
