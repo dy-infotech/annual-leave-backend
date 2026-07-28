@@ -98,15 +98,14 @@ jobs:
             rm -rf /opt/annual-leave/target/*
 
             # 서비스 재시작
-            sudo -n systemctl restart annual-leave.service
+            sudo -n /usr/bin/systemctl restart annual-leave.service
 
             # 기동 대기
             sleep 5
 
             # 서비스 상태 확인
-            if ! sudo -n systemctl is-active --quiet annual-leave.service; then
+            if ! sudo -n /usr/bin/systemctl is-active --quiet annual-leave.service; then
               echo "===== 서비스 실행 실패 ====="
-              sudo -n journalctl -u annual-leave.service -n 50 --no-pager
               exit 1
             fi
 
