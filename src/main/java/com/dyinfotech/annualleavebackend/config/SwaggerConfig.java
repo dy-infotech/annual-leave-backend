@@ -13,8 +13,8 @@ public class SwaggerConfig {
     public OpenAPI annualLeaveOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("근태 관리 API")
-                        .description("연차 신청 · 승인 · 조회 API 문서")
+                        .title("근태 관리 서비스")
+                        .description("사원 및 휴가 관리 서비스 API 문서")
                         .version("v1.0.0")
                         .contact(new Contact()
                             .name("디와이정보기술")
