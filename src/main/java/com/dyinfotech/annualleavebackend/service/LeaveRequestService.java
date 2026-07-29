@@ -13,8 +13,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
+import com.dyinfotech.annualleavebackend.common.type.LeaveUnitType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -77,7 +80,29 @@ public class LeaveRequestService {
         validateUseDaysUnit(leaveType, request.getUseDays());
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
         validateRemainingLeave(employee, request.getUseDays());
-
+        
+        List<LeaveRequestListDto.LeaveRequestListResponse> dataList = 
+        		searchLeaveRequests(new LeaveRequestListDto.LeaveRequestListRequest(employeeId, request.getStartDate(), request.getEndDate(), null));
+        for (LeaveRequestListDto.LeaveRequestListResponse data : dataList) {
+        	// 신청과 승인 상태인 경우에만 중복 확인
+        	if (!data.getStatus().equals(LeaveRequestStatus.PENDING.name()) && !data.getStatus().equals(LeaveRequestStatus.APPROVED.name())) {
+        		continue;
+        	}
+        	
+        	// 기간 겹침 검사
+        	boolean notOverlap = request.getStartDate().isAfter(data.getEndDate()) || request.getEndDate().isBefore(data.getStartDate());
+        	if (notOverlap) {
+        	    continue;
+        	}
+            
+            // 반차 예외 처리
+            if (isHalfCombinationAllowed(data, request)) {
+                continue;
+            }
+            
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 신청된 연차 기간과 중복됩니다.");
+        }
+        
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .employee(employee)
                 .leaveType(request.getLeaveType())
@@ -106,21 +131,42 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
     }
-
-    // 0.5 단위인지 체크
+    
+//    // 1일과 0.5일 단위만 허용
+//    private boolean validateUseDaysUnit(Float useDays) {
+//        int useMinutes = (int)(useDays * CommonConfig.DAILY_STANDARD_WORKING_MINUTES);
+//        int modMinutes = useMinutes % CommonConfig.DAILY_STANDARD_WORKING_MINUTES;
+//        return modMinutes == 0 || modMinutes == CommonConfig.DAILY_STANDARD_WORKING_MINUTES / 2;
+//    }
+//
+//    // 0.5 단위인지 체크
+//    private void validateUseDaysUnit(LeaveType leaveType, Float useDays) {
+//    	if (!validateUseDaysUnit(useDays)) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0.5 단위로 입력해 주세요.");
+//        }
+//
+//        if (useDays <= 0) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
+//        }
+//        
+//        // XXX: 반차는 1일씩만 사용하도록 수정
+//        if (leaveType.isHalfLeave() && useDays > 1) {
+//        	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반차는 하루 단위로 사용해야 합니다.");
+//        }
+//    }
     private void validateUseDaysUnit(LeaveType leaveType, Float useDays) {
-    	float remainder = useDays.floatValue() - useDays.intValue();
-        if (remainder != 0.0f && remainder != 0.5f) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0.5 단위로 입력해 주세요.");
-        }
-
-        if (useDays <= 0) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
+        if (useDays == null || useDays <= 0) {
+        	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
         }
         
-        // XXX: 반차는 1일씩만 사용하도록 수정
-        if ((leaveType.equals(LeaveType.AM_HALF) || leaveType.equals(LeaveType.PM_HALF)) && useDays > 1) {
-        	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "반차는 하루 단위로 사용해야 합니다.");
+        int useMinutes = LeaveUnitType.toMinutes(useDays);
+        if (!leaveType.isValidMinutes(useMinutes)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, leaveType.getValidationMessage());
+        }
+        
+        // XXX: 하루 미만 단위 휴가는 신청 1건당 최대 하루까지만 가능 (예시: 반차)
+        if (leaveType.isPartialLeave() && useDays > 1.0f) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "시간 단위 휴가는 1일을 초과할 수 없습니다.");
         }
     }
 
@@ -192,6 +238,34 @@ public class LeaveRequestService {
         if (useDays > remainingDays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잔여 연차(" + remainingDays + "일)를 초과했습니다.");
         }
+    }
+    
+    private boolean isHalfCombinationAllowed(LeaveRequestListDto.LeaveRequestListResponse existing,
+           									LeaveRequestDto.LeaveRequestCreateRequest request) {
+        LeaveType existingType = LeaveType.fromName(existing.getLeaveType());
+        LeaveType requestType = LeaveType.fromName(request.getLeaveType());
+        if (existingType == null || requestType == null) {
+            return false;
+        }
+
+        // 각 요청은 반차 요청이어야 함
+        if (!existingType.isHalfLeave() || !requestType.isHalfLeave()) {
+            return false;
+        }
+
+        // 각 요청은 1일 단위여야 함
+        if (!existing.getStartDate().equals(existing.getEndDate())
+                || !request.getStartDate().equals(request.getEndDate())) {
+            return false;
+        }
+
+        // 두 요청이 같은 날이어야 함
+        if (!existing.getStartDate().equals(request.getStartDate())) {
+            return false;
+        }
+
+        // AM + PM만 허용
+        return !existingType.equals(requestType);
     }
 
     @Transactional(readOnly = true)
