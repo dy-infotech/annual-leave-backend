@@ -31,7 +31,7 @@ public class EmployeeController {
     }
 
     @Operation(summary = "이메일 변경", description = "로그인한 사용자가 이메일 변경을 위해 사용한다.")
-    @PatchMapping("/me/modify-email")
+    @PatchMapping("/me/email")
     public ResponseEntity<Void> changeEmail(@AuthenticationPrincipal Long employeeId, @Valid @RequestBody EmployeeDto.ModifyEmailRequest email) {
         employeeService.changeEmail(employeeId, email.getEmail());
         return ResponseEntity.ok().build();
