@@ -8,16 +8,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.reactive.JdkClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import tools.jackson.databind.ObjectMapper;
-
 @Configuration
 public class CommonConfig {
-	// JSON 파싱용 ObjectMapper 등록
-    @Bean
-    ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
-    
     @Bean
     WebClient.Builder webClientBuilder() {
     	return WebClient.builder();
