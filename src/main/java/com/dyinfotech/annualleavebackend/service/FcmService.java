@@ -101,7 +101,7 @@ public class FcmService {
 //
 //	        // 5개 묶음(또는 남은 묶음) 발송 처리
 //            String condition = partition.stream()
-//                    .map(id -> "'team_" + id + "' in topics")
+//                    .map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
 //                    .collect(Collectors.joining(" || "));
 //
 //            Message message = Message.builder()
@@ -123,7 +123,7 @@ public class FcmService {
 	            .buffer(maxTopicCount)
 	            .subscribe(partition -> {
                     String condition = partition.stream()
-                            .map(id -> "'team_" + id + "' in topics")
+                            .map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
                             .collect(Collectors.joining(" || "));
 
                     Message message = Message.builder()
