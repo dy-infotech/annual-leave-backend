@@ -124,8 +124,8 @@ public class LeaveRequest {
             throw new IllegalStateException(errorMsg);
         }
 
-        // 이미 휴가가 시작된(또는 지나간) 건은 취소 불가
-        if (!this.startDate.isAfter(LocalDate.now())) {
+        // 이미 휴가가 시작된(또는 지나간) 건은 취소 불가 (신청한 건에 대해서는 기간 체크 안 하는 걸로 수정)
+        if (this.status == LeaveRequestStatus.APPROVED && !this.startDate.isAfter(LocalDate.now())) {
         	String errorMsg = "이미 시작되었거나 지난 휴가는 취소할 수 없습니다.";
         	String detailMsg = "requestId : " + requestId + ",startDate: " + startDate + ",currDate: " + LocalDate.now();
         	log.error(errorMsg + " " + detailMsg);
