@@ -3,6 +3,8 @@ package com.dyinfotech.annualleavebackend.controller;
 import java.time.LocalDate;
 import java.util.List;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,29 +26,34 @@ import com.dyinfotech.annualleavebackend.service.LeaveRequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
+@Tag(name = "휴가 신청 관리", description = "휴가 신청/취소/조회, 휴가 신청 시 참고할 공휴일 정보 조회 API")
 @RestController
 @RequestMapping("/api/leave-requests")
 @RequiredArgsConstructor
 public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
-    
+
+    @Operation(summary = "금년 공휴일 조회", description = "휴가 신청 화면의 캘린더에 표시할 금년 공휴일 정보를 조회한다.")
     @GetMapping("/current-year-special-days")
     public List<SpecialDayDto.SpecialDayResponse> getCurrentYearSpecialDays() {
     	return leaveRequestService.getHolidays(LocalDate.now().getYear());
     }
-    
+
+    @Operation(summary = "차년도 공휴일 조회", description = "휴가 신청 화면의 캘린더에 표시할 차년도 공휴일 정보를 조회한다.")
     @GetMapping("/next-year-special-days")
     public List<SpecialDayDto.SpecialDayResponse> getNextYearSpecialDays() {
     	return leaveRequestService.getHolidays(LocalDate.now().getYear() + 1);
     }
 
+    @Operation(summary = "휴가 신청", description = "휴가를 신청한다.")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(@AuthenticationPrincipal Long employeeId, @Valid @RequestBody LeaveRequestDto.LeaveRequestCreateRequest request) {
         return leaveRequestService.createLeaveRequest(employeeId, request);
     }
 
+    @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 조회한다.")
     @GetMapping("/all")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
@@ -54,7 +61,7 @@ public class LeaveRequestController {
         return leaveRequestService.searchLeaveRequests(condition);
     }
 
-    // 내 휴가 신청 목록 조회는 employeeId를 로그인한 사용자 ID로 고정
+    @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 조회한다.")
     @GetMapping("/my")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
             @AuthenticationPrincipal Long employeeId,
@@ -64,6 +71,7 @@ public class LeaveRequestController {
         return leaveRequestService.searchLeaveRequests(condition);
     }
 
+    @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")
     @DeleteMapping("/{requestId}")
     public ResponseEntity<Void> cancelLeaveRequest(@AuthenticationPrincipal Long employeeId, @PathVariable("requestId") Long requestId) {
         leaveRequestService.cancel(employeeId, requestId);
