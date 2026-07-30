@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -56,6 +57,8 @@ public class AuthService {
     private final EmployeeService employeeService;
     private final TeamService teamService;
     
+    private final Clock clock;
+    
     private final JavaMailSender mailSender; // 이메일 발송 객체 추가
     @Value("${spring.mail.username}")
     private String mailFrom;
@@ -85,7 +88,7 @@ public class AuthService {
     	}
     	
     	// 사번 채번
-    	LocalDate now = LocalDate.now();
+    	LocalDate now = LocalDate.now(clock);
     	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPLOYEE_NUMBER_PREFIX);
     	if (employeeNumberPrefix.isEmpty()) {
     		String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType.EMPlOYEE_NUMBER_PREFIX";
@@ -215,8 +218,9 @@ public class AuthService {
         int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
         if (employee.getAccessCount() >= loginFailMaxCount) {
         	LocalDateTime unblockTime = employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
-        	if (unblockTime.isAfter(LocalDateTime.now())) {
-        		employee.initAccessCount();
+        	LocalDateTime now = LocalDateTime.now(clock);
+        	if (unblockTime.isAfter(now)) {
+        		employee.initAccessCount(now);
         	} else {
                 throw new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : " + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
@@ -240,12 +244,13 @@ public class AuthService {
         }
         
         // 비밀번호가 틀린 경우 실패 처리
+        LocalDateTime now = LocalDateTime.now(clock);
         if (!isPasswordValid) {
-        	employee.increaseAccessCount();
+        	employee.increaseAccessCount(now);
         	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccessCount());
         	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
-        	employee.initAccessCount();
+        	employee.initAccessCount(now);
         }
         
         // 로그인 성공 && 기존이 평문이었던 경우: BCrypt로 암호화하여 DB 업데이트 (마이그레이션)

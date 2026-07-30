@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 
@@ -19,6 +20,8 @@ public class NotificationService {
 	private final FcmTokenRepository tokenRepository;
     private final FcmService fcmService;
     
+    private final Clock clock;
+    
     /**
      * ① 로그인 및 토크 동기화
      */
@@ -33,11 +36,11 @@ public class NotificationService {
     	    }
     	});
     	
-        // 무조건 DB에 수정을 시도하여 updated_at을 현재 시간(LocalDateTime.now())으로 갱신
+        // 무조건 DB에 수정을 시도하여 updated_at을 현재 시간(LocalDateTime.now(Clock))으로 갱신
         int updatedRows = tokenRepository.updateTokenAndTouch(
                 employeeId, 
                 deviceOs, 
-                LocalDateTime.now(), 
+                LocalDateTime.now(clock), 
                 fcmToken
         );
         

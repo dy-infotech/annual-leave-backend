@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.domain;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -79,36 +80,7 @@ public class LeaveRequest extends CreatedTimeEntity {
         this.status = LeaveRequestStatus.PENDING;
     }
 
-    @Deprecated
-    public void approve(Employee manager) {
-        if (this.status != LeaveRequestStatus.PENDING) {
-        	String errorMsg = "대기 상태인 요청만 승인할 수 있습니다.";
-        	String detailMsg = "requestId : " + requestId + ",status: " + status;
-        	log.error(errorMsg + " " + detailMsg);
-            throw new IllegalStateException(errorMsg);
-        }
-
-        this.status = LeaveRequestStatus.APPROVED;
-        this.manager = manager;
-        this.managedAt = LocalDateTime.now();
-    }
-
-    @Deprecated
-    public void reject(Employee manager, String rejectReason) {
-        if (this.status != LeaveRequestStatus.PENDING) {
-        	String errorMsg = "대기 상태인 요청만 반려할 수 있습니다.";
-        	String detailMsg = "requestId : " + requestId + ",status: " + status;
-        	log.error(errorMsg + " " + detailMsg);
-            throw new IllegalStateException(errorMsg);
-        }
-
-        this.status = LeaveRequestStatus.REJECTED;
-        this.manager = manager;
-        this.rejectReason = rejectReason;
-        this.managedAt = LocalDateTime.now();
-    }
-
-    public void cancel() {
+    public void cancel(Clock clock) {
         if (this.status != LeaveRequestStatus.PENDING && this.status != LeaveRequestStatus.APPROVED) {
         	String errorMsg = "대기 또는 승인 상태인 신청만 취소할 수 있습니다.";
         	String detailMsg = "requestId : " + requestId + ",status: " + status;
@@ -117,9 +89,9 @@ public class LeaveRequest extends CreatedTimeEntity {
         }
 
         // 이미 휴가가 시작된(또는 지나간) 건은 취소 불가 (신청한 건에 대해서는 기간 체크 안 하는 걸로 수정)
-        if (this.status == LeaveRequestStatus.APPROVED && !this.startDate.isAfter(LocalDate.now())) {
+        if (this.status == LeaveRequestStatus.APPROVED && !this.startDate.isAfter(LocalDate.now(clock))) {
         	String errorMsg = "이미 시작되었거나 지난 휴가는 취소할 수 없습니다.";
-        	String detailMsg = "requestId : " + requestId + ",startDate: " + startDate + ",currDate: " + LocalDate.now();
+        	String detailMsg = "requestId : " + requestId + ",startDate: " + startDate + ",currDate: " + LocalDate.now(clock);
         	log.error(errorMsg + " " + detailMsg);
             throw new IllegalStateException(errorMsg);
         }

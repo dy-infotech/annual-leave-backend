@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.EnumSet;
@@ -42,6 +43,8 @@ public class LeaveRequestService {
     private final HolidaySyncService holidaySyncService;
     private final CommonService commonService;
     private final TeamService teamService;
+    
+    private final Clock clock;
 
     @Transactional
     @Caching(evict = {
@@ -61,7 +64,7 @@ public class LeaveRequestService {
     	
     	Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
-        String currentYear = String.valueOf(LocalDate.now().getYear());
+        String currentYear = String.valueOf(LocalDate.now(clock).getYear());
         // 현재 연도를 currYear에 설정
         if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
 			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
@@ -231,7 +234,7 @@ public class LeaveRequestService {
     // 잔여 휴가 수를 초과하지 않는지 체크
     private void validateRemainingLeave(Employee employee, Float useDays) {
     	// 사용한 휴가 수
-        Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
+        Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
         // 남은 휴가 수 = 현재 총 휴가 수 + 조정된 휴가 수 - 사용한 휴가 수
         Float remainingDays = commonService.getRemainingDays(employee, usedDays);
 
@@ -300,7 +303,7 @@ public class LeaveRequestService {
         }
 
         try {
-            leaveRequest.cancel();
+            leaveRequest.cancel(clock);
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
         }

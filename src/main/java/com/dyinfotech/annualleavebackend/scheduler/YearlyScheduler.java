@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.scheduler;
 
+import java.time.Clock;
 import java.time.LocalDate;
 
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,6 +22,8 @@ public class YearlyScheduler {
     private final HolidaySyncService holidaySyncService;
     private final BasisDataFactory basisDataFactory;
     
+    private final Clock clock;
+    
     /**
      * 매년 1월 1일 0시 0분 0초에 실행되는 연차 초기화 및 롤오버 스케줄러
      * 크론 표현식: 초 분 시 일 월 요일
@@ -36,7 +39,7 @@ public class YearlyScheduler {
         }
         
         log.info("=== [연간 스케줄러] 새해 맞이 전직원 연차 롤오버 및 재계산 시작 ===");
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(clock);
         int currentYear = now.getYear();
         String currentYearStr = String.valueOf(now.getYear());
         // 메서드 내부에서 예외를 잡더라도, DB 커넥션 장애나 findAll 조회 자체에서 에러가 터지면

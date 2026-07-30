@@ -113,14 +113,14 @@ public class Employee extends BaseEntity {
         this.approverId = approverId;
     }
     
-    public void increaseAccessCount() {
+    public void increaseAccessCount(LocalDateTime now) {
     	++this.accessCount;
-    	this.accessedAt = LocalDateTime.now();
+    	this.accessedAt = now;
     }
     
-    public void initAccessCount() {
+    public void initAccessCount(LocalDateTime now) {
     	this.accessCount = 0;
-    	this.accessedAt = LocalDateTime.now();
+    	this.accessedAt = now;
     }
     
     public void changeEmail(String email) {

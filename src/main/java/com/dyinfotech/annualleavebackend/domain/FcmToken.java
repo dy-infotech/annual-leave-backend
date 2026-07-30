@@ -1,9 +1,5 @@
 package com.dyinfotech.annualleavebackend.domain;
 
-import java.time.LocalDateTime;
-
-import org.hibernate.annotations.UpdateTimestamp;
-
 import com.dyinfotech.annualleavebackend.domain.common.UpdatedTimeEntity;
 
 import jakarta.persistence.Column;

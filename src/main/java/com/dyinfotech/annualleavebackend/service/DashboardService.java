@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -27,6 +28,8 @@ public class DashboardService {
     private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
 
+    private final Clock clock;
+    
     public DashboardDto getDashboard(Long employeeId) {
 
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
@@ -51,7 +54,7 @@ public class DashboardService {
     }
 
     private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee, float currTotalLeaveDays) {
-        Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId());
+        Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
 
         return DashboardDto.MyLeaveInfoResponse.builder()
                 .totalLeaveDays(currTotalLeaveDays)
@@ -61,9 +64,9 @@ public class DashboardService {
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getMyRequestSummary(Long employeeId) {
-        long pending = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.PENDING);
-        long approved = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.APPROVED);
-        long rejected = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.REJECTED);
+        long pending = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.PENDING, clock);
+        long approved = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.APPROVED, clock);
+        long rejected = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.REJECTED, clock);
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
                 .pendingCount(pending)
@@ -74,9 +77,9 @@ public class DashboardService {
 
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
     	List<Team> teams = employee.getTeams();
-        long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING);
-        long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED);
-        long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED);
+        long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING, clock);
+        long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED, clock);
+        long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED, clock);
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
                 .pendingCount(pending)

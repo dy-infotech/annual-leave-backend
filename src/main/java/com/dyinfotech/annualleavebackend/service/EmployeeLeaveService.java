@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
@@ -33,6 +34,8 @@ public class EmployeeLeaveService {
     private final TeamRepository teamRepository;
     // XXX: EmployeeService가 EmployeeLeaveService를 참조하고 있다. 상호 참조 이슈를 방지하기 위해 EmployeeRepository를 사용하도록 허용한다
     private final EmployeeRepository employeeRepository;
+    
+    private final Clock clock;
     
     /**
      * 전직원 새해 연차 롤오버 및 재계산
@@ -80,7 +83,7 @@ public class EmployeeLeaveService {
      * @return calculatedLeaveDays
      */
     public float getCalculatedCurrYearLeaveDays(LocalDate hireDate) {
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(clock);
         
         float calculatedLeaveDays;
         // 1. 입사 1년 미만인지 판단

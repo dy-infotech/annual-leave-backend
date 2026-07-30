@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -20,11 +21,11 @@ import io.jsonwebtoken.lang.Collections;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
 	
-	// 올해의 연도는 Year.now()를 파라미터로 넘긴다.
+	// 올해의 연도는 Year.now(Clock)를 파라미터로 넘긴다.
 	private static LocalDate getStartOfYear(Year year) {
 		return year.atDay(1);
 	}
-	// 올해의 연도는 Year.now()를 파라미터로 넘긴다.
+	// 올해의 연도는 Year.now(Clock)를 파라미터로 넘긴다.
     private static LocalDate getEndOfYear(Year year) {
         return year.atMonth(Month.DECEMBER).atEndOfMonth();
     }
@@ -37,8 +38,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     default Float sumApprovedUseDays(Long employeeId, Year year) {
     	return sumApprovedUseDays(employeeId, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
     }
-    default Float sumApprovedUseDays(Long employeeId) {
-    	return sumApprovedUseDays(employeeId, Year.now());
+    default Float sumApprovedUseDays(Long employeeId, Clock clock) {
+    	return sumApprovedUseDays(employeeId, Year.now(clock));
     }
     
     // 특정 상태의 내 요청 개수
@@ -51,8 +52,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     default long countByEmployee_EmployeeIdAndStatus(Long employeeId, LeaveRequestStatus status, Year year) {
     	return countByEmployee_EmployeeIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(employeeId, status, getEndOfYear(year), getStartOfYear(year));
     }
-    default long countByEmployee_EmployeeIdAndStatus(Long employeeId, LeaveRequestStatus status) {
-    	return countByEmployee_EmployeeIdAndStatus(employeeId, status, Year.now());
+    default long countByEmployee_EmployeeIdAndStatus(Long employeeId, LeaveRequestStatus status, Clock clock) {
+    	return countByEmployee_EmployeeIdAndStatus(employeeId, status, Year.now(clock));
     }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
@@ -66,8 +67,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     	if (teams == null || teams.isEmpty())	return 0L;
     	return countByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
     }
-    default long countByStatus(List<Team> teams,LeaveRequestStatus status) {
-    	return countByStatus(teams, status, Year.now());
+    default long countByStatus(List<Team> teams,LeaveRequestStatus status, Clock clock) {
+    	return countByStatus(teams, status, Year.now(clock));
     }
     
     List<LeaveRequest> findByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByCreatedAtAsc(
@@ -80,8 +81,8 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     	if (teams == null || teams.isEmpty())	return Collections.emptyList();
     	return findByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByCreatedAtAsc(status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
     }
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status) {
-    	return findByStatusOrderByCreatedAtAsc(teams, status, Year.now());
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status, Clock clock) {
+    	return findByStatusOrderByCreatedAtAsc(teams, status, Year.now(clock));
     }
 
 	// 휴가 결재 승인 또는 반려 처리
