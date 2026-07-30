@@ -33,6 +33,7 @@ import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
 import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
@@ -40,6 +41,7 @@ import com.dyinfotech.annualleavebackend.dto.RegisterDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,7 @@ public class AuthService {
 
 	private final BasisDataFactory basisDataFactory;
     private final EmployeeRepository employeeRepository;
+    private final FcmTokenRepository fcmTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
@@ -286,8 +289,8 @@ public class AuthService {
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
         // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리
+    	String fcmToken = request.getFcmToken();
         if (teamService.isTeamManager(employee.getEmployeeId())) {
-        	String fcmToken = request.getFcmToken();
         	if (fcmToken != null && !fcmToken.isBlank()) {
         		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
                 notificationService.syncToken(
@@ -298,6 +301,11 @@ public class AuthService {
         	} else {
         		log.warn("관리자 권한을 가졌으나 요청에 FCM 토큰이 누락되었습니다. employeeId: {}", employee.getEmployeeId());
         	}
+        }
+        // FCM Token 저장
+        String deviceOs = request.getDeviceOs() != null ? request.getDeviceOs() : "Unknown";
+        if (fcmToken != null) {
+        	fcmTokenRepository.save(new FcmToken(employee.getEmployeeId(), token, deviceOs));
         }
 
         return SignInDto.SignInResponse.builder()
