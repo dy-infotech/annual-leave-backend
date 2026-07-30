@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -17,7 +18,6 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.common.type.LeaveUnitType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
-import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -200,6 +200,7 @@ public class LeaveRequestService {
         						.toList();
     }
 
+    private static final Set<DayOfWeek> WEEKENDS = EnumSet.of(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY);
     private long countWeekdays(LocalDate startDate, LocalDate endDate) {
     	// 해당 연도 사이의 공휴일 전체 조회
         List<Holiday> holidays = holidaySyncService.findByYearRange(startDate.getYear(), endDate.getYear());
@@ -216,8 +217,7 @@ public class LeaveRequestService {
         while (!date.isAfter(endDate)) {
         	DayOfWeek dayOfWeek = date.getDayOfWeek();
 
-            if (dayOfWeek != DayOfWeek.SATURDAY && 
-                dayOfWeek != DayOfWeek.SUNDAY && 
+            if (!WEEKENDS.contains(dayOfWeek) && 
                 !holidayDates.contains(date)) {
             	weekdays += 1.0f;
             }

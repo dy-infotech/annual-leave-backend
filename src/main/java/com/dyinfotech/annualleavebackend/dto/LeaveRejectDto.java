@@ -1,11 +1,12 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import java.time.LocalDateTime;
+
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDateTime;
 
 public class LeaveRejectDto {
 

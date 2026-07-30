@@ -3,8 +3,6 @@ package com.dyinfotech.annualleavebackend.common.type;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.dyinfotech.annualleavebackend.config.CommonConfig;
-
 public enum LeaveType {
 	FULL			("FULL",		"연차",			LeaveUnitType.DAY)
 	,AM_HALF		("AM_HALF",		"반차(오전)",		LeaveUnitType.HALF)

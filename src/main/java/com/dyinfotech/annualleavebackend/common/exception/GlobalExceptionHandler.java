@@ -1,9 +1,6 @@
 package com.dyinfotech.annualleavebackend.common.exception;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,11 +13,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RestControllerAdvice
+@RequiredArgsConstructor
 public class GlobalExceptionHandler {
+	private final ErrorResponseFactory factory;
+	
 	// Controller에 등록된 위치지만 메소드가 맞지 않을 때
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
 	public ResponseEntity<ErrorResponse> handleMethodNotSupported(
@@ -30,7 +31,7 @@ public class GlobalExceptionHandler {
 	    log.warn("지원하지 않는 메서드 요청: [{}] {}, ip:{}", request.getMethod(), request.getRequestURI(), getClientIp(request));
 
 	    HttpStatus status = HttpStatus.METHOD_NOT_ALLOWED;
-	    return ResponseEntity.status(status).body(ErrorResponse.of(status, "지원하지 않는 HTTP 메서드입니다.", request.getRequestURI()));
+	    return ResponseEntity.status(status).body(factory.create(status, "지원하지 않는 HTTP 메서드입니다.", request.getRequestURI()));
 	}
 	
     // 기존 코드가 던지는 ResponseStatusException → status/reason 그대로 통일 포맷으로
@@ -39,7 +40,7 @@ public class GlobalExceptionHandler {
         HttpStatus status = HttpStatus.valueOf(e.getStatusCode().value());
         // reason은 우리가 넣은 메시지라 노출 OK
         return ResponseEntity.status(status)
-                .body(ErrorResponse.of(status, e.getReason(), req.getRequestURI()));
+                .body(factory.create(status, e.getReason(), req.getRequestURI()));
     }
  
     // @Valid 검증 실패 → 첫 번째 필드 에러 메시지로 400
@@ -48,7 +49,7 @@ public class GlobalExceptionHandler {
         FieldError fe = e.getBindingResult().getFieldError();
         String msg = (fe != null) ? fe.getField() + ": " + fe.getDefaultMessage() : "요청 값이 올바르지 않습니다.";
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, msg, req.getRequestURI()));
+                .body(factory.create(HttpStatus.BAD_REQUEST, msg, req.getRequestURI()));
     }
  
     // 잘못된 바디/타입(잘못된 날짜 문자열 등) → 400 (내부 메시지 숨김)
@@ -56,7 +57,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadInput(Exception e, HttpServletRequest req) {
         log.warn("잘못된 요청: {}, ip: {}", e.getMessage(), getClientIp(req));
         return ResponseEntity.badRequest()
-                .body(ErrorResponse.of(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다.", req.getRequestURI()));
+                .body(factory.create(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다.", req.getRequestURI()));
     }
  
     // 그 외 미처리 예외 → 500, 상세는 로그로만, 응답은 일반 메시지
@@ -64,7 +65,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest req) {
         log.error("처리되지 않은 예외 발생. ip: {} [{}]", getClientIp(req), req.getRequestURI(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.of(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.", req.getRequestURI()));
+                .body(factory.create(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.", req.getRequestURI()));
     }
     
     private String getClientIp(HttpServletRequest request) {
