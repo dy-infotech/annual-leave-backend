@@ -28,7 +28,7 @@ public class NotificationService {
     @Transactional
     public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
     	// 기기 재사용 및 소유자 변경 케이스 추적
-    	tokenRepository.findByFcmToken(fcmToken).ifPresent(existingToken -> {
+    	tokenRepository.findByToken(fcmToken).ifPresent(existingToken -> {
     	    Long oldEmployeeId = existingToken.getEmployeeId();
     	    if (!oldEmployeeId.equals(employeeId)) {
     	        log.info("기기 소유자 변경 감지 (이전 사번 ID: {} -> 신규 사번 ID: {})", oldEmployeeId, employeeId);
@@ -61,7 +61,7 @@ public class NotificationService {
     @Transactional
     public void logoutToken(String fcmToken, Long employeeId) {
         // DB에서 삭제
-        tokenRepository.deleteByFcmToken(fcmToken);
+        tokenRepository.deleteByToken(fcmToken);
         
         // 구글 서버에 토픽 해제 요청
         fcmService.unsubscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
