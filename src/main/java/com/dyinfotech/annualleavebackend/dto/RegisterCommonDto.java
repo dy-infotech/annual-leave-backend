@@ -2,11 +2,13 @@ package com.dyinfotech.annualleavebackend.dto;
 
 import java.util.Collection;
 
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public class RegisterCommonDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class RegisterCommonDto {
 
     @Getter
     @NoArgsConstructor

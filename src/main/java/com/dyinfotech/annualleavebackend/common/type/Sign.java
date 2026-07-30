@@ -1,6 +1,16 @@
 package com.dyinfotech.annualleavebackend.common.type;
 
+import lombok.Getter;
+
+@Getter
 public enum Sign {
-	plus,
-	minus
+	PLUS	("plus"),
+	MINUS	("minus")
+	;
+	
+	private String name;
+	
+	Sign(String name) {
+		this.name = name;
+	}
 }

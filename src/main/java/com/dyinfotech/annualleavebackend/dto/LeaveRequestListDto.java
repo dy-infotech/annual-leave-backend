@@ -8,12 +8,14 @@ import org.springframework.format.annotation.DateTimeFormat;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-public class LeaveRequestListDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class LeaveRequestListDto {
 
     @Getter
     @Setter

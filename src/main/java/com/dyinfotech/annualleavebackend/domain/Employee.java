@@ -5,7 +5,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.persistence.*;
+import com.dyinfotech.annualleavebackend.domain.common.BaseEntity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,7 +23,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "employee")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Employee {
+public class Employee extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,7 +37,7 @@ public class Employee {
     private String password;
     
     @Column(name = "access_count", nullable = false)
-    private Integer access_count = 0;
+    private Integer accessCount = 0;
     
     @Column(name = "accessed_at")
     private LocalDateTime accessedAt;
@@ -69,15 +77,9 @@ public class Employee {
     
     @Column(name = "fire_date")
     private LocalDate fireDate;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
     
     @Column(name = "approver_id", nullable = false)
     private Long approverId;
-
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
 
     @Builder
     public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {
@@ -91,17 +93,6 @@ public class Employee {
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
         this.approverId = approverId;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
     }
     
     
@@ -123,12 +114,12 @@ public class Employee {
     }
     
     public void increaseAccessCount() {
-    	++this.access_count;
+    	++this.accessCount;
     	this.accessedAt = LocalDateTime.now();
     }
     
     public void initAccessCount() {
-    	this.access_count = 0;
+    	this.accessCount = 0;
     	this.accessedAt = LocalDateTime.now();
     }
     

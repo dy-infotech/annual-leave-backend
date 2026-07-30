@@ -1,13 +1,14 @@
 package com.dyinfotech.annualleavebackend.domain;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+
+import com.dyinfotech.annualleavebackend.domain.common.UpdatedTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -19,7 +20,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @IdClass(LeaveAdjustment.LeaveAdjustmentId.class)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LeaveAdjustment {
+public class LeaveAdjustment extends UpdatedTimeEntity {
 
     @Id
     @Column(name = "employee_id")
@@ -43,29 +44,14 @@ public class LeaveAdjustment {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
     @Builder
-    public LeaveAdjustment(Long employeeId, String year, String sign, Float leaveDays, String reason) {
+    public LeaveAdjustment(Long employeeId, String year, String sign, Float leaveDays, String reason, Clock clock) {
         this.employeeId = employeeId;
         this.year = year;
         this.sign = sign;
         this.leaveDays = leaveDays;
         this.reason = reason;
-        this.createdAt = LocalDateTime.now();
-    }
-
-    @PrePersist
-    protected void onCreate() {
-    	// XXX: createdAt이 PK로 변경되었으므로 @PrePersist가 아니라 @Builder에서 처리되어야 한다..
-        //this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.createdAt = LocalDateTime.now(clock);
     }
 
     // Composite id defined as a static inner class so LeaveAdjustment is self-contained.

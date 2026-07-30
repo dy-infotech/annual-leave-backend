@@ -113,7 +113,7 @@ public class EmployeeService {
 
         // 비밀번호 일치 여부 확인
         if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
-        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccess_count());
+        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccessCount());
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
         }

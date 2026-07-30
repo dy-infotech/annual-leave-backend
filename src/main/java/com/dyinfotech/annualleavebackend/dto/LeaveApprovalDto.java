@@ -1,12 +1,16 @@
 package com.dyinfotech.annualleavebackend.dto;
 
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-public class LeaveApprovalDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class LeaveApprovalDto {
 
     @Getter
     @Builder

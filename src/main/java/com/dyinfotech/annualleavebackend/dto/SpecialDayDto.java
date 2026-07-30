@@ -2,16 +2,14 @@ package com.dyinfotech.annualleavebackend.dto;
 
 import java.time.LocalDate;
 
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-public class SpecialDayDto {
 
-//    @Getter
-//    @NoArgsConstructor
-//    public static class SpecialDayRequest {
-//    	
-//    }
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class SpecialDayDto {
 
     @Getter
     @Builder

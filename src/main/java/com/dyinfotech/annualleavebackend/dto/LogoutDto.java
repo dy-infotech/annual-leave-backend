@@ -1,9 +1,11 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public class LogoutDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class LogoutDto {
 
     @Getter
     @NoArgsConstructor

@@ -167,6 +167,6 @@ public class EmployeeLeaveService {
         return teamRepository.existsByProjectManager_EmployeeId(employeeId) ? Role.ADMIN : Role.EMPLOYEE;
     }
     public float getAdjustedLeaveDays(Long employeeId, String year) {
-        return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeId, year, Sign.plus.name());
+        return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeId, year, Sign.PLUS.getName());
     }
 }

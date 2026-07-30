@@ -5,10 +5,13 @@ import java.time.LocalDateTime;
 
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-public class PendingLeaveRequestDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class PendingLeaveRequestDto {
 
     @Getter
     @Builder

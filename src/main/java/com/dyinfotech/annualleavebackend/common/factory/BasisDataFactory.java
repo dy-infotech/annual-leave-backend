@@ -1,8 +1,9 @@
 package com.dyinfotech.annualleavebackend.common.factory;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -22,12 +23,13 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 public class BasisDataFactory {
+	private final Clock clock;
 	private final BasisDataRepository repository;
 
 	private Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
 	
 	private Map<BasisDataType, BasisData> loadByYear(int year) {
-	    Map<BasisDataType, BasisData> grouped = new HashMap<>();
+	    Map<BasisDataType, BasisData> grouped = new EnumMap<>(BasisDataType.class);
 
 	    List<BasisData> list = repository.findByYear(String.valueOf(year));
 
@@ -44,7 +46,7 @@ public class BasisDataFactory {
 	}
 	
 	public void reload() {
-		int currentYear = LocalDate.now().getYear();
+		int currentYear = LocalDate.now(clock).getYear();
 		Map<BasisDataType, BasisData> grouped = loadByYear(currentYear);
 
 	    if (grouped.isEmpty()) {

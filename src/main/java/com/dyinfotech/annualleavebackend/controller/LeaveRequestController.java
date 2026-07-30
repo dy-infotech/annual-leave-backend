@@ -1,10 +1,9 @@
 package com.dyinfotech.annualleavebackend.controller;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -23,6 +22,8 @@ import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
 import com.dyinfotech.annualleavebackend.service.LeaveRequestService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -33,17 +34,18 @@ import lombok.RequiredArgsConstructor;
 public class LeaveRequestController {
 
     private final LeaveRequestService leaveRequestService;
+    private final Clock clock;
 
     @Operation(summary = "금년 공휴일 조회", description = "휴가 신청 화면의 캘린더에 표시할 금년 공휴일 정보를 조회한다.")
     @GetMapping("/current-year-special-days")
     public List<SpecialDayDto.SpecialDayResponse> getCurrentYearSpecialDays() {
-    	return leaveRequestService.getHolidays(LocalDate.now().getYear());
+    	return leaveRequestService.getHolidays(LocalDate.now(clock).getYear());
     }
 
     @Operation(summary = "차년도 공휴일 조회", description = "휴가 신청 화면의 캘린더에 표시할 차년도 공휴일 정보를 조회한다.")
     @GetMapping("/next-year-special-days")
     public List<SpecialDayDto.SpecialDayResponse> getNextYearSpecialDays() {
-    	return leaveRequestService.getHolidays(LocalDate.now().getYear() + 1);
+    	return leaveRequestService.getHolidays(LocalDate.now(clock).getYear() + 1);
     }
 
     @Operation(summary = "휴가 신청", description = "휴가를 신청한다.")

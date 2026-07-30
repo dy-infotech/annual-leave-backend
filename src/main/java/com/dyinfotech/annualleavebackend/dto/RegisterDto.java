@@ -3,11 +3,13 @@ package com.dyinfotech.annualleavebackend.dto;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 
 import jakarta.validation.constraints.NotBlank;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public class RegisterDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class RegisterDto {
 
     @Getter
     @NoArgsConstructor

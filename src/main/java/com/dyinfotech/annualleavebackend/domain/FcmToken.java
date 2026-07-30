@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.dyinfotech.annualleavebackend.domain.common.UpdatedTimeEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -17,7 +19,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "fcm_token")
 @Getter
 @NoArgsConstructor
-public class FcmToken {
+public class FcmToken extends UpdatedTimeEntity {
 	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "token_id")
@@ -28,18 +30,14 @@ public class FcmToken {
 
     // UNIQUE 제약조건으로 기기 변경 시 덮어쓰기 대응
     @Column(name = "fcm_token", nullable = false, unique = true)
-    private String fcmToken;
+    private String token;
 
     @Column(name = "device_os")
     private String deviceOs;
 
-    @UpdateTimestamp
-    @Column(name = "updated_at", insertable = false)
-    private LocalDateTime updatedAt;
-
-    public FcmToken(Long employeeId, String fcmToken, String deviceOs) {
+    public FcmToken(Long employeeId, String token, String deviceOs) {
         this.employeeId = employeeId;
-        this.fcmToken = fcmToken;
+        this.token = token;
         this.deviceOs = deviceOs;
     }
 

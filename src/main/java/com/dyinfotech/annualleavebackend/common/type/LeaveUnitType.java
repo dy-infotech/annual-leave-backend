@@ -40,9 +40,6 @@ public enum LeaveUnitType {
 	public static final int toMinutes(@NotNull Float useDays) {
 		return Math.round(useDays * CommonConfig.DAILY_STANDARD_WORKING_MINUTES);
 	}
-//	protected boolean isValidMinutes(Float useDays) {
-//        return isValidMinutes(toMinutes(useDays));
-//	}
 	protected boolean isValidMinutes(int useMinutes) {
 		return useMinutes % minutesPerUnit == 0;
 	}

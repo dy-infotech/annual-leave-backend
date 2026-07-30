@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.AbstractMap;
 import java.util.List;
@@ -37,6 +38,8 @@ public class LeaveApprovalService {
     private final TeamService teamService;
     
     private final CacheManager cacheManager;
+    
+    private final Clock clock;
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(Long employeeId) {
     	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
@@ -122,7 +125,7 @@ public class LeaveApprovalService {
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
         
-    	LocalDateTime now = LocalDateTime.now();
+    	LocalDateTime now = LocalDateTime.now(clock);
         long updatedCount = leaveRequestRepository.updateLeaveRequest(
                 requestId,
                 response.getValue(),		// approver
@@ -158,7 +161,7 @@ public class LeaveApprovalService {
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
         
-    	LocalDateTime now = LocalDateTime.now();
+    	LocalDateTime now = LocalDateTime.now(clock);
         long updatedCount = leaveRequestRepository.updateLeaveRequest(
                 requestId,
                 response.getValue(),		// approver

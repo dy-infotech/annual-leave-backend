@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.common.init;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.concurrent.CompletableFuture;
 
@@ -18,11 +19,12 @@ import reactor.core.publisher.Flux;
 @RequiredArgsConstructor
 public class HolidayInitializer implements ApplicationRunner {
 	private final HolidaySyncService holidaySyncService;
+	private final Clock clock;
     
 	@Override
 	public void run(ApplicationArguments args) throws Exception {
 		// TODO Auto-generated method stub
-		int currentYear = LocalDate.now().getYear();
+		int currentYear = LocalDate.now(clock).getYear();
 		
 		// CompletableFuture를 사용하여 별도의 백그라운드 스레드에서 비동기로 실행합니다.
         // 이로 인해 스프링 컨텍스트는 대기하지 않고 즉시 기동을 완료합니다.

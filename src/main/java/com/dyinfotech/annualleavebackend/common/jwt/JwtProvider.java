@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.common.jwt;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
 
 import javax.crypto.SecretKey;
@@ -31,17 +32,17 @@ public class JwtProvider {
 
     // 토큰 생성
     public String generateToken(Long employeeId, String role) {
-        Date now = new Date();
-        Date expiry = new Date(now.getTime() + expirationMs);
-
+        Instant now = Instant.now();
+        
         return Jwts.builder()
-                .subject(String.valueOf(employeeId))
-                .claim("role", role)
-                .issuedAt(now)
-                .expiration(expiry)
-                .signWith(secretKey)
-                .compact();
+        		.subject(String.valueOf(employeeId))
+        		.claim("role", role)
+        		.issuedAt(Date.from(now))
+        		.expiration(Date.from(now.plusMillis(expirationMs)))
+        		.signWith(secretKey)
+        		.compact();
     }
+    
 
     // 토큰에서 employeeId 추출
     public Long getEmployeeId(String token) {

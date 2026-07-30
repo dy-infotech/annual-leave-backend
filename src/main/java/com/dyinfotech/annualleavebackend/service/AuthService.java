@@ -86,7 +86,7 @@ public class AuthService {
     	
     	// 사번 채번
     	LocalDate now = LocalDate.now();
-    	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPlOYEE_NUMBER_PREFIX);
+    	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPLOYEE_NUMBER_PREFIX);
     	if (employeeNumberPrefix.isEmpty()) {
     		String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType.EMPlOYEE_NUMBER_PREFIX";
     		log.error(errorMsg);
@@ -213,7 +213,7 @@ public class AuthService {
         // 로그인 실패 최대 횟수 제한
         int loginFailMaxCount = basisDataFactory.getAsInteger(BasisDataType.LOGIN_FAIL_MAX_COUNT).orElse(30);
         int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
-        if (employee.getAccess_count() >= loginFailMaxCount) {
+        if (employee.getAccessCount() >= loginFailMaxCount) {
         	LocalDateTime unblockTime = employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
         	if (unblockTime.isAfter(LocalDateTime.now())) {
         		employee.initAccessCount();
@@ -242,7 +242,7 @@ public class AuthService {
         // 비밀번호가 틀린 경우 실패 처리
         if (!isPasswordValid) {
         	employee.increaseAccessCount();
-        	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccess_count());
+        	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccessCount());
         	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
         	employee.initAccessCount();

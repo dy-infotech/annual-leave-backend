@@ -1,10 +1,13 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
-public class DashboardDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class DashboardDto {
 
     private MyLeaveInfoResponse myLeaveInfoResponse;
     private LeaveRequestSummaryResponse myRequestSummary;

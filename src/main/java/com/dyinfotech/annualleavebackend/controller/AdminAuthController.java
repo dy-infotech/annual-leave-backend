@@ -27,8 +27,6 @@ public class AdminAuthController {
 
     @Operation(summary = "부서, 팀, 직급 조회", description = "신규 사원 등록 시 로그인한 관리자가 부여 가능한 부서, 팀, 직급을 조회한다.")
     @GetMapping("/common")
-//	public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData(@Valid @RequestBody RegisterCommonDto.RegisterCommonRequest request) {
-//		return ResponseEntity.ok(authService.getCommonData(request));
     public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData(@AuthenticationPrincipal Long employeeId) {
     	return ResponseEntity.ok(authService.getCommonData(employeeId));
     }

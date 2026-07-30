@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.domain.common.CreatedTimeEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,7 +16,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
-import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Table(name = "leave_request")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LeaveRequest {
+public class LeaveRequest extends CreatedTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -68,9 +68,6 @@ public class LeaveRequest {
     @Column(name = "reject_reason", length = 200)
     private String rejectReason;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
     @Builder
     public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, String leaveReason) {
         this.employee = employee;
@@ -80,11 +77,6 @@ public class LeaveRequest {
         this.useDays = useDays;
         this.leaveReason = leaveReason;
         this.status = LeaveRequestStatus.PENDING;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
     }
 
     @Deprecated

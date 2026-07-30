@@ -6,11 +6,13 @@ import java.time.LocalDateTime;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
 import jakarta.validation.constraints.NotNull;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public class LeaveRequestDto {
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
+public final class LeaveRequestDto {
 
     @Getter
     @NoArgsConstructor
