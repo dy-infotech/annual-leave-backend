@@ -127,7 +127,7 @@ public class TeamService {
         return ancestors;
     }
 	
-	private Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId, List<Team> approverTeamList) {
+	private Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, List<Team> approverTeamList) {
 		int manageType = 0;
 		
 		List<Team> targetTeamList = findAllByTeam(targetTeam);
@@ -159,19 +159,8 @@ public class TeamService {
 	 */
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a0 + '-' + #a1.employeeId")
 	public Map.Entry<Integer, String> getTeamManagerData(String targetTeam, Employee approver) {
-		return getTeamManagerData(PositionType.getType(approver.getPosition()), targetTeam, approver.getEmployeeId(), approver.getTeams());
+		return getTeamManagerData(PositionType.getType(approver.getPosition()), targetTeam, approver.getTeams());
 	}
-//	/**
-//	 * 관리자가 해당 팀을 관리하는지, 신규 팀인지 정보 탐색해서 전달
-//	 * @param approverPosition 관리자 포지션
-//	 * @param targetTeam 탐색할 팀 정보
-//	 * @param approverId 팀의 관리자
-//	 * @return Entry<Integer, String>(ManageType, approverTeamList)
-//	 */
-//	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a1 + '-' + #a2")	// key : #{targetTeam}-#{approverId}
-//	public Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, Long approverId) {
-//		return getTeamManagerData(approverPosition, targetTeam, approverId, findAllByTeam(targetTeam));
-//	}
 	
 	public boolean isTeamManager(Long employeeId) {
 		return teamRepository.existsByProjectManager_EmployeeId(employeeId);
@@ -226,11 +215,6 @@ public class TeamService {
         
         return resolvedApproverIds;
 	}
-	
-//	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'all-names'")
-//	public Collection<String> findAllTeamName() {
-//		return teamRepository.findAll().stream().map(Team::getTeam).toList();
-//	}
 	
 	@Transactional
 	@CacheEvict(value = CacheConfig.CACHE_TEAMS, allEntries = true)

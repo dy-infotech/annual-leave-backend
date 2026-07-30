@@ -60,7 +60,6 @@ public class FcmService {
 	public void subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
-//			firebaseMessaging.subscribeToTopic(tokens, "all");
 			firebaseMessaging.subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
 			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
 		} catch (Exception e) {
@@ -72,7 +71,6 @@ public class FcmService {
 	public void unsubscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
-//			firebaseMessaging.unsubscribeFromTopic(tokens, "all");
 			firebaseMessaging.unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
 			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
 		} catch (Exception e) {
@@ -141,7 +139,7 @@ public class FcmService {
 	}
 	
 	@Transactional
-	public void deleteInactiveToken(LocalDateTime now, int N) {
-		fcmTokenRepository.deleteByUpdatedAtBefore(now.minusMonths(N));
+	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
+		fcmTokenRepository.deleteByUpdatedAtBefore(now.minusMonths(monthCount));
 	}
 }

@@ -23,7 +23,7 @@ public class MonthlyScheduler {
 	
 	private final Clock clock;
 	
-    /// 매월 1일 새벽 3시에 주기적으로 공휴일 정보 동기화
+    // 매월 1일 새벽 3시에 주기적으로 공휴일 정보 동기화
     @Scheduled(cron = "0 0 3 1 * ?") 
     public void monthlySchedule() {
     	LocalDate now = LocalDate.now(clock);

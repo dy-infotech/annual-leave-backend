@@ -90,7 +90,7 @@ public class EmployeeLeaveService {
         if (now.isBefore(hireDate.plusYears(1))) {
             // 월차 계산: 입사월 제외, 이후 경과 월수
             int monthlyLeaveDays = calculateMonthlyLeaveDays(hireDate, now);
-            calculatedLeaveDays = (float) Math.min(monthlyLeaveDays, 11);
+            calculatedLeaveDays = Math.min(monthlyLeaveDays, 11);
         } else {
             // 2. 근무 연수 계산
             int yearsOfService = Period.between(hireDate, now).getYears();

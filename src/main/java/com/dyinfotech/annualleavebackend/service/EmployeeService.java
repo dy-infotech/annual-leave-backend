@@ -58,15 +58,14 @@ public class EmployeeService {
     }
     
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
-    	List<EmployeeResponse> responses = new ArrayList<>();
-    	List<Employee> employees = new ArrayList<>();
-    	
+    	List<Employee> employees;
 	    if (searchParam == null || searchParam.isEmpty()) {
 	        employees = employeeRepository.findAllEmployees();
 	    } else {
 	    	employees = employeeRepository.findAllEmployeesWithSearch(searchParam);
 	    }       
-        
+
+    	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
             Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
             Float remainingLeaveDays = commonService.getRemainingDays(employee);

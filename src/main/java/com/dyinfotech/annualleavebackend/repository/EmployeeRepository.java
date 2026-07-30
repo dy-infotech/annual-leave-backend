@@ -14,10 +14,6 @@ import com.dyinfotech.annualleavebackend.domain.Employee;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmployeeNumber(String employeeNumber);
-//    @Deprecated
-//    Optional<Employee> findByLoginId(String loginId);
-//    @Deprecated
-//    boolean existsByLoginId(String loginId);
     
     Optional<Employee> findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(String prefix);
     

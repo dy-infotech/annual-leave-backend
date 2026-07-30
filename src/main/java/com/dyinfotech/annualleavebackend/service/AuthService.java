@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.MailException;
 import org.springframework.mail.SimpleMailMessage; // 추가됨
 import org.springframework.mail.javamail.JavaMailSender; // 추가됨
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -64,7 +65,6 @@ public class AuthService {
     private String mailFrom;
     
     @Transactional(readOnly = true)
-//	public RegisterCommonDto.RegisterCommonResponse getCommonData(RegisterCommonDto.RegisterCommonRequest request) {
     public RegisterCommonDto.RegisterCommonResponse getCommonData(Long employeeId) {
     	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	return RegisterCommonDto.RegisterCommonResponse.builder()
@@ -309,7 +309,7 @@ public class AuthService {
                 .build();
     }
     
-    private void sendMail(String to, String subject, String text) throws Exception {
+    private void sendMail(String to, String subject, String text) throws MailException {
     	SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(mailFrom);
         message.setTo(to);
@@ -336,8 +336,6 @@ public class AuthService {
         	log.error("사번 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
         	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
         }
-        
-        return;
     }
  
  

@@ -51,7 +51,7 @@ public class LeaveApprovalService {
     		return Collections.emptyList();
     	}
     	
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(teams, LeaveRequestStatus.PENDING)
+        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(teams, LeaveRequestStatus.PENDING, clock)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();
@@ -117,7 +117,6 @@ public class LeaveApprovalService {
         return new AbstractMap.SimpleEntry<>(leaveRequest, approver);
     }
     
-//    private ConcurrentMap<Long, ReentrantLock> map = new ConcurrentHashMap<>();
     @Transactional
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {

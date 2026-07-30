@@ -38,7 +38,7 @@ public class HolidaySyncService {
 
     private final String serviceKey;
     
-    private final String API_URL;
+    private final String apiUrl;
     
     public HolidaySyncService(
     		BasisDataFactory basisDataFactory,
@@ -52,7 +52,7 @@ public class HolidaySyncService {
     	this.objectMapper = objectMapper;
     	this.webClient = webClient;
     	this.serviceKey = serviceKey;
-    	this.API_URL = this.basisDataFactory.getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL).orElse("http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService") + "/" + 
+    	this.apiUrl = this.basisDataFactory.getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL).orElse("http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService") + "/" + 
     					this.basisDataFactory.getAsString(BasisDataType.KASI_HOLIDAY_REQUEST_ADDRESS).orElse("getRestDeInfo");
     }
     
@@ -74,7 +74,7 @@ public class HolidaySyncService {
         String yearStr = String.valueOf(year);
         String monthStr = String.format("%02d", month);
 
-        URI uri = UriComponentsBuilder.fromUriString(API_URL)
+        URI uri = UriComponentsBuilder.fromUriString(apiUrl)
         		.queryParam("serviceKey", serviceKey)
         		.queryParam("solYear", yearStr)
         		.queryParam("solMonth", monthStr)
@@ -97,7 +97,7 @@ public class HolidaySyncService {
         		.retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(1)))
         		.onErrorResume(e -> {
         			log.error("[공공데이터] {}년 {}월 공휴일 조회 중 에러 발생", yearStr, monthStr, e);
-                    return Mono.error(new RuntimeException("API 호출 실패", e));
+                    return Mono.error(new IllegalStateException("API 호출 실패", e));
         		});
     }
     
@@ -139,7 +139,7 @@ public class HolidaySyncService {
         if (!ResultCode.SUCCESS.getCode().equals(resultCode)) {
         	String errorMsg = "[공공데이터] 공휴일 데이터 파싱 오류 resultCode: " + resultCode + ", resultMsg: " + headerNode.path("resultMsg").asString();
         	log.error(errorMsg);
-        	throw new RuntimeException(errorMsg);
+        	throw new IllegalStateException(errorMsg);
         }
         
         JsonNode itemsNode = responseNode.path("body").path("items");
