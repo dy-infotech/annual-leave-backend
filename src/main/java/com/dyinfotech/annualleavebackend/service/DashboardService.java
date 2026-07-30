@@ -2,6 +2,8 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
+import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 
 import lombok.RequiredArgsConstructor;
 
@@ -64,27 +67,48 @@ public class DashboardService {
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getMyRequestSummary(Long employeeId) {
-        long pending = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.PENDING, clock);
-        long approved = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.APPROVED, clock);
-        long rejected = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.REJECTED, clock);
-
+//		long pending = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.PENDING, clock);
+//		long approved = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.APPROVED, clock);
+//		long rejected = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.REJECTED, clock);
+//    	
+//    	return DashboardDto.LeaveRequestSummaryResponse.builder()
+//    			.pendingCount(pending)
+//    			.approvedCount(approved)
+//    			.rejectedCount(rejected)
+//    			.build();
+    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(employeeId, clock).stream()
+																			    	                  .collect(Collectors.toMap(
+																			    	                      LeaveRequestStatusCount::getStatus,
+																			    	                      LeaveRequestStatusCount::getCount
+																			    	                  ));
         return DashboardDto.LeaveRequestSummaryResponse.builder()
-                .pendingCount(pending)
-                .approvedCount(approved)
-                .rejectedCount(rejected)
+                .pendingCount(countMap.getOrDefault(LeaveRequestStatus.PENDING, 0L))
+                .approvedCount(countMap.getOrDefault(LeaveRequestStatus.APPROVED, 0L))
+                .rejectedCount(countMap.getOrDefault(LeaveRequestStatus.REJECTED, 0L))
                 .build();
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
     	List<Team> teams = employee.getTeams();
-        long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING, clock);
-        long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED, clock);
-        long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED, clock);
+//		long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING, clock);
+//		long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED, clock);
+//		long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED, clock);
+//    	
+//    	return DashboardDto.LeaveRequestSummaryResponse.builder()
+//    			.pendingCount(pending)
+//    			.approvedCount(approved)
+//    			.rejectedCount(rejected)
+//    			.build();
+    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(teams, clock).stream()
+																					                .collect(Collectors.toMap(
+																					                    LeaveRequestStatusCount::getStatus,
+																					                    LeaveRequestStatusCount::getCount
+																					                ));
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
-                .pendingCount(pending)
-                .approvedCount(approved)
-                .rejectedCount(rejected)
+                .pendingCount(countMap.getOrDefault(LeaveRequestStatus.PENDING, 0L))
+                .approvedCount(countMap.getOrDefault(LeaveRequestStatus.APPROVED, 0L))
+                .rejectedCount(countMap.getOrDefault(LeaveRequestStatus.REJECTED, 0L))
                 .build();
     }
 }

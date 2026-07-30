@@ -16,6 +16,7 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 
 import io.jsonwebtoken.lang.Collections;
 
@@ -41,8 +42,25 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     default Float sumApprovedUseDays(Long employeeId, Clock clock) {
     	return sumApprovedUseDays(employeeId, Year.now(clock));
     }
-    
+
     // 특정 상태의 내 요청 개수
+    @Query("SELECT lr.status AS status, COUNT(lr) AS count " +
+    	   "FROM LeaveRequest lr " + 
+    	   "WHERE lr.employee.employeeId = :employeeId " + 
+    	   "  AND lr.startDate <= :endRange " + 
+    	   "  AND lr.endDate >= :startRange " +
+    	   "GROUP BY lr.status")
+    List<LeaveRequestStatusCount> countByStatus(
+            @Param("employeeId") Long employeeId,
+            @Param("endRange") LocalDate endRange,		// 위치 주의: LessThanEqual 조건용 (연말)
+            @Param("startRange") LocalDate startRange	// 위치 주의: GreaterThanEqual 조건용 (연초)
+    );
+    default List<LeaveRequestStatusCount> countByStatus(Long employeeId, Year year) {
+    	return countByStatus(employeeId, getEndOfYear(year), getStartOfYear(year));
+    }
+    default List<LeaveRequestStatusCount> countByStatus(Long employeeId, Clock clock) {
+    	return countByStatus(employeeId, Year.now(clock));
+    }
     long countByEmployee_EmployeeIdAndStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
             Long employeeId, 
             LeaveRequestStatus status, 
@@ -57,20 +75,38 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    long countByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
-            LeaveRequestStatus status, 
-            List<String> teams, 
-            LocalDate endRange,   // 위치 주의: LessThanEqual 조건용 (연말)
-            LocalDate startRange  // 위치 주의: GreaterThanEqual 조건용 (연초)
-    );
-    default long countByStatus(List<Team> teams, LeaveRequestStatus status, Year year) {
-    	if (teams == null || teams.isEmpty())	return 0L;
-    	return countByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
-    }
-    default long countByStatus(List<Team> teams,LeaveRequestStatus status, Clock clock) {
-    	return countByStatus(teams, status, Year.now(clock));
-    }
+    @Query("SELECT lr.status AS status, COUNT(lr) AS count " +
+     	   "FROM LeaveRequest lr " + 
+     	   "WHERE lr.employee.team IN :teams " + 
+     	   "  AND lr.startDate <= :endRange " + 
+     	   "  AND lr.endDate >= :startRange " +
+     	   "GROUP BY lr.status")
+     List<LeaveRequestStatusCount> countByStatus(
+    		 @Param("teams") List<String> teams,
+             @Param("endRange") LocalDate endRange,		// 위치 주의: LessThanEqual 조건용 (연말)
+             @Param("startRange") LocalDate startRange	// 위치 주의: GreaterThanEqual 조건용 (연초)
+     );
+	default List<LeaveRequestStatusCount> countByStatus(List<Team> teams, Year year) {
+		if (teams == null || teams.isEmpty())	return Collections.emptyList();
+		return countByStatus(teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
+	}
+	default List<LeaveRequestStatusCount> countByStatus(List<Team> teams, Clock clock) {
+		return countByStatus(teams, Year.now(clock));
+	}
     
+//	long countByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+//			LeaveRequestStatus status, 
+//			List<String> teams, 
+//			LocalDate endRange,   // 위치 주의: LessThanEqual 조건용 (연말)
+//			LocalDate startRange  // 위치 주의: GreaterThanEqual 조건용 (연초)
+//			);
+//	default long countByStatus(List<Team> teams, LeaveRequestStatus status, Year year) {
+//		if (teams == null || teams.isEmpty())	return 0L;
+//		return countByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
+//	}
+//	default long countByStatus(List<Team> teams, LeaveRequestStatus status, Clock clock) {
+//		return countByStatus(teams, status, Year.now(clock));
+//	}
     List<LeaveRequest> findByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqualOrderByCreatedAtAsc(
             LeaveRequestStatus status, 
             List<String> teams, 
