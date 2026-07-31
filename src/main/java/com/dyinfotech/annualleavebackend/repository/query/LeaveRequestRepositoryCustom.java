@@ -37,4 +37,12 @@ public interface LeaveRequestRepositoryCustom {
             LocalDate endDate,
             LeaveRequestStatus status
     );
+    
+    //팀 배열(타겟팀 하위 전체 팀 목록)에 포함된 모든 요청 목록정보를 조회
+	List<LeaveRequest> searchLeaveRequestsByTeam(
+			LocalDate startDate, 
+			LocalDate endDate, 
+			LeaveRequestStatus status,
+			List<String> teams
+	);
 }

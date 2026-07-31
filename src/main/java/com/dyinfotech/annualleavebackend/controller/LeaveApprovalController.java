@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
+import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
 import com.dyinfotech.annualleavebackend.service.LeaveApprovalService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,6 +26,18 @@ public class LeaveApprovalController {
     @GetMapping("/pending")
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(@AuthenticationPrincipal Long employeeId) {
         return leaveApprovalService.getPendingRequests(employeeId);
+    }
+    
+    @Operation(summary = "승인 상태 휴가 조회", description = "관리자가 하위팀의 승인 상태인 전체 휴가 정보를 조회한다.")
+    @GetMapping("/approved")
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(@AuthenticationPrincipal Long employeeId) {
+        return leaveApprovalService.getApprovedRequests(employeeId);
+    }
+    
+    @Operation(summary = "반려 상태 휴가 조회", description = "관리자가 하위팀의 반려 상태인 전체 휴가 정보를 조회한다.")
+    @GetMapping("/rejected")
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(@AuthenticationPrincipal Long employeeId) {
+        return leaveApprovalService.getRejectedRequests(employeeId);
     }
 
     @Operation(summary = "휴가 승인", description = "관리자가 휴가 요청을 승인한다.")
