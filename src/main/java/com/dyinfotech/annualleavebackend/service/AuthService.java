@@ -22,6 +22,7 @@ import org.springframework.mail.javamail.JavaMailSender; // 추가됨
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -229,6 +230,11 @@ public class AuthService {
                 .name(employee.getName())
                 .build();
     }
+    
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void increaseLoginFailCount(Employee employee, LocalDateTime now) {
+        employee.increaseAccessCount(now);
+    }
 
     private static final Pattern BCRYPT_PATTERN = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
     private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -266,7 +272,7 @@ public class AuthService {
         // 비밀번호가 틀린 경우 실패 처리
         LocalDateTime now = LocalDateTime.now(clock);
         if (!isPasswordValid) {
-        	employee.increaseAccessCount(now);
+        	increaseLoginFailCount(employee, now);
         	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccessCount());
         	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
