@@ -62,7 +62,7 @@ public class EmployeeService {
 	    if (searchParam == null || searchParam.isEmpty()) {
 	        employees = employeeRepository.findAllEmployees();
 	    } else {
-	    	employees = employeeRepository.findAllEmployeesWithSearch(searchParam);
+	    	employees = employeeRepository.findAllEmployees(searchParam);
 	    }       
 
     	List<EmployeeResponse> responses = new ArrayList<>();
