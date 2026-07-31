@@ -2,7 +2,6 @@ package com.dyinfotech.annualleavebackend.dto;
 
 import java.util.Collection;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
