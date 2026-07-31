@@ -94,7 +94,7 @@ public class LeaveApprovalService {
     	}
     	Year year = Year.now(clock);
     	
-        return leaveRequestRepository.searchLeaveRequestsByTeam(
+        return leaveRequestRepository.searchLeaveRequests(
         		DateUtils.getFirstDayOfYear(year), 
         		DateUtils.getLastDayOfYear(year),
         		LeaveRequestStatus.APPROVED,
@@ -119,7 +119,7 @@ public class LeaveApprovalService {
     	}
     	Year year = Year.now(clock);
     	
-        return leaveRequestRepository.searchLeaveRequestsByTeam(
+        return leaveRequestRepository.searchLeaveRequests(
         		DateUtils.getFirstDayOfYear(year), 
         		DateUtils.getLastDayOfYear(year),
         		LeaveRequestStatus.REJECTED,

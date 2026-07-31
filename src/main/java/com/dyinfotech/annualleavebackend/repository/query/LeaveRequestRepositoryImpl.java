@@ -118,49 +118,12 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequest> searchLeaveRequests(Long employeeId, LocalDate startDate, LocalDate endDate,
-			LeaveRequestStatus status) {
+	public List<LeaveRequest> searchLeaveRequests(Long employeeId, LocalDate startDate, LocalDate endDate, LeaveRequestStatus status, List<String> teams) {
 		BooleanBuilder builder = new BooleanBuilder();
 
         if (employeeId != null) {
-            builder.and(
-                qLeaveRequest.employee.employeeId.eq(employeeId)
-            );
+            builder.and(qLeaveRequest.employee.employeeId.eq(employeeId));
         }
-
-        if (startDate != null) {
-            builder.and(
-                qLeaveRequest.startDate.goe(startDate)
-            );
-        }
-
-        if (endDate != null) {
-            builder.and(
-                qLeaveRequest.endDate.loe(endDate)
-            );
-        }
-
-        if (status != null) {
-            builder.and(
-                qLeaveRequest.status.eq(status)
-            );
-        }
-
-        return queryFactory
-                .selectFrom(qLeaveRequest)
-                .where(builder)
-                .orderBy(qLeaveRequest.createdAt.desc())
-                .fetch();
-	}
-	
-	@Override
-	public List<LeaveRequest> searchLeaveRequestsByTeam(
-	        LocalDate startDate,
-	        LocalDate endDate,
-	        LeaveRequestStatus status,
-	        List<String> teams) {
-
-	    BooleanBuilder builder = new BooleanBuilder();
 
 	    if (startDate != null) {
 	        builder.and(qLeaveRequest.startDate.goe(startDate));
@@ -178,11 +141,10 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	        builder.and(qLeaveRequest.employee.team.in(teams));
 	    }
 
-	    return queryFactory
-	            .selectFrom(qLeaveRequest)
-	            .where(builder)
-	            .orderBy(qLeaveRequest.createdAt.desc())
-	            .fetch();
+        return queryFactory.selectFrom(qLeaveRequest)
+			                .where(builder)
+			                .orderBy(qLeaveRequest.createdAt.desc())
+			                .fetch();
 	}
 
 }
