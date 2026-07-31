@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.domain.QEmployee;
 import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 import com.querydsl.core.BooleanBuilder;
@@ -174,8 +175,9 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    if (teams != null && !teams.isEmpty()) {
 	        builder.and(qLeaveRequest.employee.team.in(teams));
 	    }
-
+	    
         return queryFactory.selectFrom(qLeaveRequest)
+        					.join(qLeaveRequest.employee).fetchJoin()
 			                .where(builder)
 			                .orderBy(qLeaveRequest.createdAt.desc())
 			                .fetch();
