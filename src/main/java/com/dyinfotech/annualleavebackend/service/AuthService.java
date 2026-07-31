@@ -373,6 +373,9 @@ public class AuthService {
 	    										.filter(email -> MaskingUtils.maskEmail(email).equals(request.getEmail()) || 
 	    														email.equals(request.getEmail()))
 	    										.toList();
+    	if (emailList.isEmpty()) {
+        	throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
+    	}
         List<EmployeeNumberEmail> dataList = employeeService.findEmployeeNumberAndEmailByNameAndEmailIn(request.getName(), emailList);
         if (dataList.isEmpty()) {
         	throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
