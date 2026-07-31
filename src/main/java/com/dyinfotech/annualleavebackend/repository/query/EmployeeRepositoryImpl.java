@@ -17,7 +17,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 	
 	private final JPAQueryFactory queryFactory;
 
-    private final QEmployee employee = QEmployee.employee;
+    private static final QEmployee employee = QEmployee.employee;
 
 	@Override
 	public List<Employee> findAllEmployees(String searchParam, String team) {
