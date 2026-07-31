@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -67,6 +68,17 @@ public class LeaveApprovalService {
                 .toList();
     }
     
+    private List<String> getAccessibleTeams(List<Team> teams) {
+    	if (teams.isEmpty()) {
+    		return Collections.emptyList();
+    	}
+    	
+    	return teams.stream()
+    				.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam())
+    										.stream())
+    				.toList();
+    }
+    
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(Long employeeId) {
     	//승인권자 정보
@@ -75,30 +87,20 @@ public class LeaveApprovalService {
     		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
     	}
     	
-    	Set<String> directTeams = new HashSet<>();
-    	List<String> accessibleTeams = new ArrayList<>();
-    	
     	//승인권자의 팀정보
-    	List<Team> teams = employeeList.get(0).getTeams();
-    	if (teams.isEmpty()) {
+    	List<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
+    	if (accessibleTeams.isEmpty()) {
     		return Collections.emptyList();
-    	}
-    	else {
-        	
-        	for (Team team : teams) {
-        		String myTeam = team.getTeam();
-        		directTeams.add(myTeam);
-        		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
-        	}
     	}
     	Year year = Year.now(clock);
     	
-        return leaveRequestRepository.searchLeaveRequestsByTeam(
-        		year.atDay(1), 
-        		year.atMonth(Month.DECEMBER).atEndOfMonth(),
+        return leaveRequestRepository.searchLeaveRequests(
+        		DateUtils.getFirstDayOfYear(year), 
+        		DateUtils.getLastDayOfYear(year),
         		LeaveRequestStatus.APPROVED,
         		accessibleTeams
-        		).stream()
+        		)
+        		.stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }
@@ -110,30 +112,20 @@ public class LeaveApprovalService {
     		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
     	}
     	
-    	Set<String> directTeams = new HashSet<>();
-    	List<String> accessibleTeams = new ArrayList<>();
-    	
     	//승인권자의 팀정보
-    	List<Team> teams = employeeList.get(0).getTeams();
-    	if (teams.isEmpty()) {
+    	List<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
+    	if (accessibleTeams.isEmpty()) {
     		return Collections.emptyList();
-    	}
-    	else {
-        	
-        	for (Team team : teams) {
-        		String myTeam = team.getTeam();
-        		directTeams.add(myTeam);
-        		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
-        	}
     	}
     	Year year = Year.now(clock);
     	
-        return leaveRequestRepository.searchLeaveRequestsByTeam(
-        		year.atDay(1), 
-        		year.atMonth(Month.DECEMBER).atEndOfMonth(),
+        return leaveRequestRepository.searchLeaveRequests(
+        		DateUtils.getFirstDayOfYear(year), 
+        		DateUtils.getLastDayOfYear(year),
         		LeaveRequestStatus.REJECTED,
         		accessibleTeams
-        		).stream()
+        		)
+        		.stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }

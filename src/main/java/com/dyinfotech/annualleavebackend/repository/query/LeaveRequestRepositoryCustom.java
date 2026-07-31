@@ -29,20 +29,33 @@ public interface LeaveRequestRepositoryCustom {
             LeaveRequestStatus targetStatus,
             LocalDateTime now
     );
-
-    // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
+    
+    // 공통 조회 코드
     List<LeaveRequest> searchLeaveRequests(
             Long employeeId,
             LocalDate startDate,
             LocalDate endDate,
-            LeaveRequestStatus status
+            LeaveRequestStatus status,
+            List<String> team
     );
+
+    // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
+    default List<LeaveRequest> searchLeaveRequests(
+            Long employeeId,
+            LocalDate startDate,
+            LocalDate endDate,
+            LeaveRequestStatus status
+    ) {
+    	return searchLeaveRequests(employeeId, startDate, endDate, status, null);
+    }
     
     //팀 배열(타겟팀 하위 전체 팀 목록)에 포함된 모든 요청 목록정보를 조회
-	List<LeaveRequest> searchLeaveRequestsByTeam(
+	default List<LeaveRequest> searchLeaveRequests(
 			LocalDate startDate, 
 			LocalDate endDate, 
 			LeaveRequestStatus status,
 			List<String> teams
-	);
+	) {
+    	return searchLeaveRequests(null, startDate, endDate, status, teams);
+	}
 }
