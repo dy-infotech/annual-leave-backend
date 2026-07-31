@@ -47,6 +47,7 @@ import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.SingleEmployeeRoleResolver;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -302,27 +303,29 @@ public class AuthService {
         teamService.refreshApproverIds(employee);
         
         // 5. JWT 발급
-        Role role = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId()).resolveRole();
+        SingleEmployeeRoleResolver roleResolver = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId());
+        Role role = roleResolver.resolveRole();
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
         // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리
     	String fcmToken = request.getFcmToken();
-        if (teamService.isTeamManager(employee.getEmployeeId())) {
+    	String deviceOs = request.getDeviceOs() != null ? request.getDeviceOs() : "Unknown";
+        if (roleResolver.isAdmin()) {	// 팀 프로젝트 매니저면 Role.ADMIN이다
         	if (fcmToken != null && !fcmToken.isBlank()) {
         		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
                 notificationService.syncToken(
                     employee.getEmployeeId(),
                     fcmToken, 
-                    request.getDeviceOs()
+                    deviceOs
                 );
         	} else {
         		log.warn("관리자 권한을 가졌으나 요청에 FCM 토큰이 누락되었습니다. employeeId: {}", employee.getEmployeeId());
         	}
-        }
-        // FCM Token 저장
-        String deviceOs = request.getDeviceOs() != null ? request.getDeviceOs() : "Unknown";
-        if (fcmToken != null) {
-        	fcmTokenRepository.save(new FcmToken(employee.getEmployeeId(), token, deviceOs));
+        } else {        	
+        	// FCM Token 저장
+        	if (fcmToken != null && !fcmToken.isBlank()) {
+        		fcmTokenRepository.save(new FcmToken(employee.getEmployeeId(), fcmToken, deviceOs));
+        	}
         }
 
         return SignInDto.SignInResponse.builder()
