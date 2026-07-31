@@ -6,6 +6,7 @@ import java.time.Month;
 import java.time.Year;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -33,11 +34,17 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 //            "WHERE lr.employee.employeeId = :employeeId AND lr.status IN :status " + 
 //            "AND lr.startDate BETWEEN :startRange AND :endRange")
 //    Float sumApprovedUseDays(@Param("employeeId") Long employeeId, @Param("status") List<LeaveRequestStatus> status, @Param("startRange") LocalDate startRange, @Param("endRange") LocalDate endRange);
-    default Float sumApprovedUseDays(Long employeeId, Year year) {
+    default float sumApprovedUseDays(Long employeeId, Year year) {
     	return sumApprovedUseDays(employeeId, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
     }
-    default Float sumApprovedUseDays(Long employeeId, Clock clock) {
+    default float sumApprovedUseDays(Long employeeId, Clock clock) {
     	return sumApprovedUseDays(employeeId, Year.now(clock));
+    }
+    default Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, Year year) {
+    	return sumApprovedUseDays(employeeIds, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
+    }
+    default Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, Clock clock) {
+    	return sumApprovedUseDays(employeeIds, Year.now(clock));
     }
 
     // 특정 상태의 내 요청 개수

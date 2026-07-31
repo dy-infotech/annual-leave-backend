@@ -4,6 +4,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,7 @@ import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatu
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 import jakarta.persistence.EntityManager;
@@ -31,7 +34,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
     private static final QLeaveRequest qLeaveRequest = QLeaveRequest.leaveRequest;
 
 	@Override
-	public Float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startRange,
+	public float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startRange,
 			LocalDate endRange) {
 		Float result = queryFactory.select(qLeaveRequest.useDays.sum())
 					                .from(qLeaveRequest)
@@ -43,6 +46,37 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 					                .fetchOne();
 
         return result != null ? result : 0.0f;
+	}
+	
+	@Override
+	public Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status,
+	                                           LocalDate startRange, LocalDate endRange) {
+	    NumberExpression<Float> sumUseDays = qLeaveRequest.useDays.sum();
+
+	    Map<Long, Float> result = queryFactory.select(
+									                qLeaveRequest.employee.employeeId,
+									                sumUseDays
+									            )
+									            .from(qLeaveRequest)
+									            .where(
+									                qLeaveRequest.employee.employeeId.in(employeeIds),
+									                qLeaveRequest.status.in(status),
+									                qLeaveRequest.startDate.between(startRange, endRange)
+									            )
+									            .groupBy(qLeaveRequest.employee.employeeId)
+									            .fetch()
+									            .stream()
+									            .collect(Collectors.toMap(
+									                tuple -> tuple.get(qLeaveRequest.employee.employeeId),
+									                tuple -> {
+									                    Float value = tuple.get(sumUseDays);
+									                    return value != null ? value : 0.0f;
+									                }
+									            ));
+
+	    employeeIds.forEach(employeeId -> result.putIfAbsent(employeeId, 0.0f));
+
+	    return result;
 	}
 
 	@Override

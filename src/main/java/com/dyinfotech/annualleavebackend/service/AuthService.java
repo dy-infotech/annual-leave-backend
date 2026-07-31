@@ -303,7 +303,7 @@ public class AuthService {
         teamService.refreshApproverIds(employee);
         
         // 5. JWT 발급
-        Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
+        Role role = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId()).resolveRole();
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
         // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리

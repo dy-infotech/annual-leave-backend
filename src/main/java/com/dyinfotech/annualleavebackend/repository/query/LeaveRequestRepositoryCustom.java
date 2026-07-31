@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
@@ -12,7 +13,8 @@ import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatu
 
 public interface LeaveRequestRepositoryCustom {
 	// 승인된 요청의 사용일수 합계 (잔여 연차 계산용)
-	Float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startRange, LocalDate endRange);
+	float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startRange, LocalDate endRange);
+	Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status, LocalDate startRange, LocalDate endRange);
 
 	// 특정 상태의 내 요청 개수
     List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate endRange, LocalDate startRange);

@@ -3,7 +3,10 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -165,11 +168,54 @@ public class EmployeeLeaveService {
 
         return count;
     }
-    
-    public Role resolveRole(Long employeeId) {
-        return teamRepository.existsByProjectManager_EmployeeId(employeeId) ? Role.ADMIN : Role.EMPLOYEE;
+
+    public interface SingleEmployeeRoleResolver {
+    	boolean isAdmin();
+    	default Role resolveRole() {
+    		return EmployeeLeaveService.convertRole(isAdmin());
+    	}
     }
+	public interface MultipleEmployeeRoleResolver {
+		boolean isAdmin(Long employeeId);
+		default Role resolveRole(Long employeeId) {
+			return EmployeeLeaveService.convertRole(isAdmin(employeeId));
+		}
+	}
+	@RequiredArgsConstructor
+	private static class SingleEmployeeRoleResolverImpl implements SingleEmployeeRoleResolver {
+		private final boolean admin;
+
+		@Override
+		public boolean isAdmin() {
+			return admin;
+		}
+	}
+	@RequiredArgsConstructor
+	private static class MultipleEmployeeRoleResolverImpl implements MultipleEmployeeRoleResolver {
+		private final Set<Long> projectManagerIds;
+
+		@Override
+		public boolean isAdmin(Long employeeId) {
+			return projectManagerIds.contains(employeeId);
+		}
+	}
+	public MultipleEmployeeRoleResolver createRoleResolver() {
+		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamRepository.findAllProjectManagerIds()));
+	}
+	public MultipleEmployeeRoleResolver createRoleResolver(Collection<Long> targetEmployeeIds) {
+		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamRepository.findAllProjectManagerIdsByEmployeeIds(targetEmployeeIds)));
+	}
+	public SingleEmployeeRoleResolver createSingleRoleResolver(Long employeeId) {
+		return new SingleEmployeeRoleResolverImpl(teamRepository.existsByProjectManager_EmployeeId(employeeId));
+	}
+    private static Role convertRole(boolean isAdmin) {
+    	return isAdmin ? Role.ADMIN : Role.EMPLOYEE;
+    }
+    
     public float getAdjustedLeaveDays(Long employeeId, String year) {
         return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeId, year, Sign.PLUS.getName());
+    }
+    public Map<Long, Float> getAdjustedLeaveDays(Collection<Long> employeeIds, String year) {
+        return leaveAdjustmentRepository.sumAdjustedLeaveDays(employeeIds, year, Sign.PLUS.getName());
     }
 }
