@@ -38,6 +38,7 @@ import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto; // 추가됨
 import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
 import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
@@ -61,7 +62,6 @@ public class AuthService {
 
 	private final BasisDataFactory basisDataFactory;
     private final EmployeeRepository employeeRepository;
-    private final FcmTokenRepository fcmTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
@@ -84,6 +84,16 @@ public class AuthService {
     private final JavaMailSender mailSender; // 이메일 발송 객체 추가
     @Value("${spring.mail.username}")
     private String mailFrom;
+    
+    @Transactional
+    public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
+		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
+        notificationService.syncToken(
+            employeeId,
+            request.getFcmToken(), 
+            request.getDeviceOs()
+        );
+    }
     
     @Transactional(readOnly = true)
     public RegisterCommonDto.RegisterCommonResponse getCommonData(Long employeeId) {
@@ -306,27 +316,6 @@ public class AuthService {
         SingleEmployeeRoleResolver roleResolver = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId());
         Role role = roleResolver.resolveRole();
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
-        
-        // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리
-    	String fcmToken = request.getFcmToken();
-    	String deviceOs = request.getDeviceOs() != null ? request.getDeviceOs() : "Unknown";
-        if (roleResolver.isAdmin()) {	// 팀 프로젝트 매니저면 Role.ADMIN이다
-        	if (fcmToken != null && !fcmToken.isBlank()) {
-        		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
-                notificationService.syncToken(
-                    employee.getEmployeeId(),
-                    fcmToken, 
-                    deviceOs
-                );
-        	} else {
-        		log.warn("관리자 권한을 가졌으나 요청에 FCM 토큰이 누락되었습니다. employeeId: {}", employee.getEmployeeId());
-        	}
-        } else {        	
-        	// FCM Token 저장
-        	if (fcmToken != null && !fcmToken.isBlank()) {
-        		fcmTokenRepository.save(new FcmToken(employee.getEmployeeId(), fcmToken, deviceOs));
-        	}
-        }
 
         return SignInDto.SignInResponse.builder()
                 .token(token)
