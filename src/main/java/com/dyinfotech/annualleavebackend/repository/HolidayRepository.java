@@ -1,7 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository;
 
 import java.time.LocalDate;
-import java.time.Month;
 import java.time.Year;
 import java.time.YearMonth;
 import java.util.List;
@@ -10,6 +9,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 
@@ -18,8 +18,8 @@ public interface HolidayRepository extends HolidayJpaRepository {
 	default boolean existsByYear(int startYear) {
 	    Year year = Year.of(startYear);
 	    return existsByHolidayDateBetween(
-	    	year.atDay(1), 
-	    	year.atMonth(Month.DECEMBER).atEndOfMonth()
+	    	DateUtils.getFirstDayOfYear(year), 
+	    	DateUtils.getLastDayOfYear(year)
 	    );
 	}
 	
@@ -28,8 +28,8 @@ public interface HolidayRepository extends HolidayJpaRepository {
     default List<Holiday> findAllByYear(int startYear) {
     	Year year = Year.of(startYear);
         return findByHolidayDateBetween(
-        	year.atDay(1),
-        	year.atMonth(Month.DECEMBER).atEndOfMonth()
+    	    DateUtils.getFirstDayOfYear(year), 
+    	    DateUtils.getLastDayOfYear(year)
         );
     }
 
@@ -37,8 +37,8 @@ public interface HolidayRepository extends HolidayJpaRepository {
 	@Cacheable(value = CacheConfig.CACHE_HOLIDAYS, key = "#a0 + '-' + #a1")
     default List<Holiday> findByYearRange(int startYear, int endYear) {
         return findByHolidayDateBetween(
-        	Year.of(startYear).atDay(1),
-        	Year.of(endYear).atMonth(Month.DECEMBER).atEndOfMonth()
+    	    DateUtils.getFirstDayOfYear(Year.of(startYear)), 
+    	    DateUtils.getLastDayOfYear(Year.of(endYear))
         );
     }
 
