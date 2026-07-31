@@ -5,6 +5,9 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,17 +28,40 @@ public class CommonService {
 	
 	private final Clock clock;
 	
-	public Float getRemainingDays(Employee employee, float currTotalLeaveDays, Float usedDays) {
-        return currTotalLeaveDays + employeeLeaveService.getAdjustedLeaveDays(employee.getEmployeeId(), employee.getCurrYear()) - usedDays;
+	private static float getRemainingDays(float currTotalLeaveDays, float adjustedLeaveDays, float usedDays) {
+		return currTotalLeaveDays + adjustedLeaveDays - usedDays;
+	}
+	
+	public float getRemainingDays(Employee employee, float currTotalLeaveDays, float usedDays) {
+        return getRemainingDays(currTotalLeaveDays, employeeLeaveService.getAdjustedLeaveDays(employee.getEmployeeId(), employee.getCurrYear()), usedDays);
 	}
 
-	public Float getRemainingDays(Employee employee, Float usedDays) {
+	public float getRemainingDays(Employee employee, float usedDays) {
         return getRemainingDays(employee, employeeLeaveService.getCalculatedCurrYearLeaveDays(employee), usedDays);
 	}
 
-	public Float getRemainingDays(Employee employee) {
-		Float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
+	public float getRemainingDays(Employee employee) {
+		float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
 		return getRemainingDays(employee, employee.getCurrTotalLeaveDays(), usedDays);
+	}
+	
+	public Map<Long, Float> getRemainingDays(List<Employee> employees) {
+		List<Long> employeeIds = employees.stream()
+										.map(Employee::getEmployeeId)
+										.toList();
+		Map<Long, Float> usedLeaveDaysByEmployee = leaveRequestRepository.sumApprovedUseDays(employeeIds, clock);
+		Map<Long, Float> adjustedLeaveDaysByEmployee = employeeLeaveService.getAdjustedLeaveDays(employeeIds, Year.now(clock).toString());
+		
+		return employees.stream()
+				        .collect(Collectors.toMap(
+				                Employee::getEmployeeId,
+				                employee -> {
+				                    Long employeeId = employee.getEmployeeId();
+				                    return getRemainingDays(employee.getCurrTotalLeaveDays(), 
+				                    						adjustedLeaveDaysByEmployee.getOrDefault(employeeId, 0.0f), 
+				                    						usedLeaveDaysByEmployee.getOrDefault(employeeId, 0.0f));
+				                }
+				        ));
 	}
 
     private static final DateTimeFormatter YYYY_MM_DD = DateTimeFormatter.ofPattern("yyyy-MM-dd");

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -23,6 +24,7 @@ import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.MultipleEmployeeRoleResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +56,7 @@ public class EmployeeService {
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
-        Role role = employeeLeaveService.resolveRole(employeeId);
+        Role role = employeeLeaveService.createSingleRoleResolver(employeeId).resolveRole();
         Float remainingDays = commonService.getRemainingDays(employee);
 
         return EmployeeDto.EmployeeResponse.from(employee, approver, role, remainingDays);
@@ -62,18 +64,26 @@ public class EmployeeService {
     
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
     	List<Employee> employees;
-	    if (searchParam == null || searchParam.isEmpty()) {
-	        employees = employeeRepository.findAllEmployees();
-	    } else {
-	    	employees = employeeRepository.findAllEmployees(searchParam);
-	    }       
-
+    	MultipleEmployeeRoleResolver roleResolver;
+//    	// XXX: 주석 처리된 부분은 remainingLeaveDays가 필요할 경우에만 사용. 현재는 필요하지 않다고 판단함.
+//    	Map<Long, Float> remainingLeaveDaysMap;
+    	if (searchParam == null || searchParam.isBlank()) {
+    		employees = employeeRepository.findAllEmployees();
+    		roleResolver = employeeLeaveService.createRoleResolver();
+//    		Collection<Long> employeeIds = employees.stream().map(Employee::getEmployeeId).toList();
+//    		remainingLeaveDaysMap = employeeLeaveService.getAdjustedLeaveDays(employeeIds, employees.get(0).getCurrYear());
+    	} else {
+    		employees = employeeRepository.findAllEmployees(searchParam);
+    		Collection<Long> employeeIds = employees.stream().map(Employee::getEmployeeId).toList();
+    		roleResolver = employeeLeaveService.createRoleResolver(employeeIds);
+//    		remainingLeaveDaysMap = employeeLeaveService.getAdjustedLeaveDays(employeeIds, employees.get(0).getCurrYear());
+    	}
+    	
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
             // XXX: approver 데이터 필요 없어서 뺐음.
-            //		remainingLeaveDays도 필요 없음. 오히려 employeeLeaveService::getAdjustedLeaveDays 가 호출되는데 
-            //		모든 Employee를 대상으로 LeaveAdjustment를 조회하는 쿼리문이 날아가기 때문에 위험함.
-            responses.add(EmployeeResponse.from(employee, employee, employeeLeaveService.resolveRole(employee.getEmployeeId()), 0.0f));
+//			responses.add(EmployeeResponse.from(employee, employee, roleResolver.resolveRole(employee.getEmployeeId()), remainingLeaveDaysMap.get(employee.getEmployeeId())));
+            responses.add(EmployeeResponse.from(employee, employee, roleResolver.resolveRole(employee.getEmployeeId()), 0.0f));
         }
 
         return responses;

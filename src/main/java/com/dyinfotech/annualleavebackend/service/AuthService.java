@@ -22,7 +22,6 @@ import org.springframework.mail.javamail.JavaMailSender; // 추가됨
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -303,7 +302,7 @@ public class AuthService {
         teamService.refreshApproverIds(employee);
         
         // 5. JWT 발급
-        Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
+        Role role = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId()).resolveRole();
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
         // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리

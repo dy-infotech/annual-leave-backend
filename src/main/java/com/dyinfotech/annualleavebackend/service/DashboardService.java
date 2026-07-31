@@ -19,6 +19,7 @@ import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.MultipleEmployeeRoleResolver;
 
 import lombok.RequiredArgsConstructor;
 
@@ -49,7 +50,7 @@ public class DashboardService {
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
 
         // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.resolveRole(employeeId) == Role.ADMIN ? getAllEmployeeRequestSummary(employee) : null;
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createSingleRoleResolver(employeeId).isAdmin() ? getAllEmployeeRequestSummary(employee) : null;
 
         return DashboardDto.builder()
                 .myLeaveInfoResponse(myLeaveInfo)
