@@ -369,7 +369,8 @@ public class AuthService {
         // 성함과 이메일로 회원 조회
     	List<String> emailList = emailByNameCache.get(request.getName(), employeeService::findEmailsByName)
 	    										.stream()
-	    										.filter(email -> MaskingUtils.maskEmail(email).equals(request.getEmail()))
+	    										.filter(email -> MaskingUtils.maskEmail(email).equals(request.getEmail()) || 
+	    														email.equals(request.getEmail()))
 	    										.toList();
         List<EmployeeNumberEmail> dataList = employeeService.findEmployeeNumberAndEmailByNameAndEmailIn(request.getName(), emailList);
         if (dataList.isEmpty()) {
