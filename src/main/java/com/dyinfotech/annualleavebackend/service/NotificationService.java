@@ -3,6 +3,8 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ public class NotificationService {
     
     private final Clock clock;
     
+    private final Set<String> fcmTokenSet = ConcurrentHashMap.newKeySet(); 
     /**
      * ① 로그인 및 토크 동기화
      */
@@ -49,9 +52,12 @@ public class NotificationService {
             FcmToken newToken = new FcmToken(employeeId, fcmToken, deviceOs);
             tokenRepository.save(newToken);
         }
-
-        // 구글 서버 토픽 구독은 비동기로 처리하여 로그인 API 지연 방지
-        fcmService.subscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
+        
+        // 서버 첫 로그인시
+        if (fcmTokenSet.add(fcmToken)) {        	
+        	// 구글 서버 토픽 구독은 비동기로 처리하여 로그인 API 지연 방지
+        	fcmService.subscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
+        }
     }
 
     /**
@@ -64,6 +70,7 @@ public class NotificationService {
         tokenRepository.deleteByToken(fcmToken);
         
         // 구글 서버에 토픽 해제 요청
+        fcmTokenSet.remove(fcmToken);
         fcmService.unsubscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
     }
 
