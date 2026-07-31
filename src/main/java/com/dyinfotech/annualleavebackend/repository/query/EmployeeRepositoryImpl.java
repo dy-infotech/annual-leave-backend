@@ -6,6 +6,8 @@ import org.springframework.stereotype.Repository;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.QEmployee;
+import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
@@ -46,5 +48,36 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
                 ? qEmployee.team.eq(team)
                 : null;
     }
+    
+    @Override
+    public List<String> findEmailsByName(String name) {
+    	return queryFactory.select(qEmployee.email)
+    						.from(qEmployee)
+							.where(qEmployee.name.eq(name))
+							.fetch();
+    }
+    
+    @Override
+    public List<String> findEmailsByEmployeeNumber(String employeeName) {
+        return queryFactory.select(qEmployee.email)
+        					.from(qEmployee)
+							.where(qEmployee.employeeNumber.eq(employeeName))
+							.fetch();
+    }
+
+	@Override
+	public List<EmployeeNumberEmail> findEmployeeNumberAndEmailByNameAndEmailIn(String name, List<String> emailList) {
+		return queryFactory.select(Projections.constructor(
+				                    EmployeeNumberEmail.class,
+				                    qEmployee.employeeNumber,
+				                    qEmployee.email
+				            ))
+				            .from(qEmployee)
+				            .where(
+				            		qEmployee.name.eq(name),
+				            		qEmployee.email.in(emailList)
+				            )
+				            .fetch();
+	}
 
 }

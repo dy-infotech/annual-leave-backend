@@ -20,6 +20,7 @@ import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -135,12 +136,20 @@ public class EmployeeService {
     
     // 계정 찾기 
     
-    public Optional<Employee> getEmployeeNumberByNameAndEmail(String name, String email) {
-        return employeeRepository.findEmployeeNumberByNameAndEmail(name, email);
+    public List<EmployeeNumberEmail> findEmployeeNumberAndEmailByNameAndEmailIn(String name, List<String> emailList) {
+        return employeeRepository.findEmployeeNumberAndEmailByNameAndEmailIn(name, emailList);
     }
     
     public Optional<Employee> getEmployee(String employeeNumber, String email) {	// forgotPassword에 쓰이는 데이터라서 쓰기 작업으로 오염될 것이므로 캐싱 미처리
     	return employeeRepository.findByEmployeeNumberAndEmail(employeeNumber, email);
+    }
+    
+    public List<String> findEmailsByName(String name) {
+    	return employeeRepository.findEmailsByName(name);
+    }
+    
+    public List<String> findEmailsByEmployeeNumber(String employeeNumber) {
+    	return employeeRepository.findEmailsByEmployeeNumber(employeeNumber);
     }
     
     

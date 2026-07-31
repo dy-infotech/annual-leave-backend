@@ -5,6 +5,7 @@ import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Component;
 
+import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
 import com.p6spy.engine.spy.appender.MessageFormattingStrategy;
 
 @Component
@@ -14,7 +15,7 @@ public class P6SpyCustomFormatter implements MessageFormattingStrategy {
 	
 	@Override
 	public String formatMessage(int connectionId, String now, long elapsed, String category, String prepared, String sql, String url) {
-		if (sql == null || sql.trim().isEmpty()) {
+		if (sql == null || sql.trim().isBlank()) {
 			return "";
 		}
 		
@@ -33,45 +34,11 @@ public class P6SpyCustomFormatter implements MessageFormattingStrategy {
 		StringBuilder sb = new StringBuilder();
 		
 		while (matcher.find()) {
-			String originalValue = matcher.group(1);
-			String maskedValue = maskValue(originalValue);
-			
-			matcher.appendReplacement(sb, Matcher.quoteReplacement("'" + maskedValue + "'"));
+			matcher.appendReplacement(sb, Matcher.quoteReplacement("'" + MaskingUtils.maskCenter(matcher.group(1)) + "'"));
 		}
 		matcher.appendTail(sb);
 		
 		return sb.toString();
-	}
-	
-	private String maskValue(String str) {
-		if (str == null || str.isEmpty()) {
-			return str;
-		}
-		
-		int len = str.length();
-		
-		// 1글자: 'Y', 'N', 'M', 'F' 등 단순 코드값인 경우가 많으므로 그대로 노출
-	    if (len == 1) {
-	        return str;
-	    }
-
-	    // 2글자: '이산', '김철' 등 2자 성명을 고려하여 뒷글자 마스킹 -> '이*'
-	    if (len == 2) {
-	        return str.charAt(0) + "*";
-	    }
-		
-		int quarter = len / 4;
-		
-		// 3글자 (예: '홍길동'): quarter가 0이므로 가운데 마스킹 -> '홍*동'
-		if (quarter == 0) {
-			return str.charAt(0) + "*" + str.charAt(len - 1);
-		}
-		
-		int headLen = quarter;
-		int tailLen = quarter;
-		int maskLen = len - headLen - tailLen;
-		
-		return str.substring(0, headLen) + "*".repeat(maskLen) + str.substring(len - tailLen);
 	}
 
 }
