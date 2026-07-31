@@ -6,7 +6,7 @@ VALUES
     ('A2025015', '이서우', 'SI사업팀', '스마트팩토리구축사업', 'test@test.com', '사원', '2025-08-06', YEAR(SYSDATE()), 15.0),
     ('A2020001', '이호영', 'SI사업팀', '스마트팩토리구축사업', 'test@test.com', '이사', '2020-03-15', YEAR(SYSDATE()), 15.0)
     ;
-UPDATE employee SET approver_id = (SELECT employee_id FROM employee WHERE name = '우동영') WHERE approver_id IS NULL;
+UPDATE employee SET approver_id = (SELECT employee_id FROM (SELECT employee_id FROM employee WHERE name = '우동영') AS TEMP) WHERE approver_id IS NULL;
 ALTER TABLE employee MODIFY approver_id BIGINT NOT NULL;
 
 INSERT INTO team (team, project_manager_id, parent_team)
