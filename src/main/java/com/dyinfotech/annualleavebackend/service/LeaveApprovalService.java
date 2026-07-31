@@ -6,6 +6,8 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -63,7 +65,7 @@ public class LeaveApprovalService {
         
         // 요청자와 관리자 정보 추출
         Long employeeId = leaveRequest.getEmployee().getEmployeeId();
-        Set<Long> employeeIds = Set.of(employeeId, approverId);
+        Set<Long> employeeIds = Stream.of(employeeId, approverId).collect(Collectors.toSet());
         List<Employee> employees = employeeService.getEmployeeList(employeeIds);
         if (employees.size() < employeeIds.size()) {
         	String errorMsg = null;
