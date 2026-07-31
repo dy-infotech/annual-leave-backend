@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Async;
@@ -57,24 +58,28 @@ public class FcmService {
 	}
 	
 	@Async("fcmExecutor") // 별도의 스레드 풀 사용 권장
-	public void subscribeTopics(String fcmToken, Long approverId) {
+	public CompletableFuture<Boolean> subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
 			firebaseMessaging.subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
 			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
+			return CompletableFuture.completedFuture(Boolean.TRUE);
 		} catch (Exception e) {
 			log.error("FCM 토픽 구독 중 오류 발생", e);
+			return CompletableFuture.completedFuture(Boolean.FALSE);
 		}
 	}
 	
 	@Async("fcmExecutor")
-	public void unsubscribeTopics(String fcmToken, Long approverId) {
+	public CompletableFuture<Boolean> unsubscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
 			firebaseMessaging.unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
 			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
+			return CompletableFuture.completedFuture(Boolean.TRUE);
 		} catch (Exception e) {
 			log.error("FCM 토픽 해제 중 오류 발생", e);
+			return CompletableFuture.completedFuture(Boolean.FALSE);
 		}
 	}
 	

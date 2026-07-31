@@ -24,7 +24,6 @@ public class NotificationService {
     
     private final Clock clock;
     
-    private final Set<String> fcmTokenSet = ConcurrentHashMap.newKeySet(); 
     /**
      * ① 로그인 및 토크 동기화
      */
@@ -35,7 +34,13 @@ public class NotificationService {
     	    Long oldEmployeeId = existingToken.getEmployeeId();
     	    if (!oldEmployeeId.equals(employeeId)) {
     	        log.info("기기 소유자 변경 감지 (이전 사번 ID: {} -> 신규 사번 ID: {})", oldEmployeeId, employeeId);
-    	        fcmService.unsubscribeTopics(fcmToken, oldEmployeeId);
+    	        if (fcmService.unsubscribeTopics(fcmToken, oldEmployeeId).join()) {
+    	            if (!fcmService.subscribeTopics(fcmToken, employeeId).join()) {
+    	            	log.error("FCM topic 이동 실패. token={}, employeeId={}", fcmToken, employeeId);
+    	            }
+    	        } else {
+    	            log.warn("기기 소유자 변경 시 FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, employeeId);
+    	        }
     	    }
     	});
     	
@@ -49,14 +54,10 @@ public class NotificationService {
         
         // 업데이트된 행이 0개라는 것은 DB에 이 토큰이 없다는 뜻이므로 완전히 새로운 토큰으로 생성(INSERT)
         if (updatedRows == 0) {
-            FcmToken newToken = new FcmToken(employeeId, fcmToken, deviceOs);
-            tokenRepository.save(newToken);
-        }
-        
-        // 서버 첫 로그인시
-        if (fcmTokenSet.add(fcmToken)) {        	
-        	// 구글 서버 토픽 구독은 비동기로 처리하여 로그인 API 지연 방지
-        	fcmService.subscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
+            if (fcmService.subscribeTopics(fcmToken, employeeId).join()) {	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
+            	FcmToken newToken = new FcmToken(employeeId, fcmToken, deviceOs);
+            	tokenRepository.save(newToken);            	
+            }
         }
     }
 
@@ -66,12 +67,12 @@ public class NotificationService {
      */
     @Transactional
     public void logoutToken(String fcmToken, Long employeeId) {
-        // DB에서 삭제
+        if (!fcmService.unsubscribeTopics(fcmToken, employeeId).join()) {
+            log.warn("FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, employeeId);
+            return;
+        }
+
         tokenRepository.deleteByToken(fcmToken);
-        
-        // 구글 서버에 토픽 해제 요청
-        fcmTokenSet.remove(fcmToken);
-        fcmService.unsubscribeTopics(fcmToken, employeeId);	// Employee::approverId가 Team::projectManagerId이므로 해당 팀의 PM의 Employee.employeeId.
     }
 
     /**
