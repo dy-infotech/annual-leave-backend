@@ -15,17 +15,16 @@ import lombok.RequiredArgsConstructor;
 public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	private final JPAQueryFactory queryFactory;
     private final EntityManager entityManager;
-	private static final QFcmToken fcmToken = QFcmToken.fcmToken;
+	private static final QFcmToken qFcmToken = QFcmToken.fcmToken;
 	
 	@Override
 	public int updateTokenAndTouch(Long employeeId, String deviceOs, LocalDateTime now, String token) {
-		int result = (int) queryFactory
-                .update(fcmToken)
-                .set(fcmToken.employeeId, employeeId)
-                .set(fcmToken.deviceOs, deviceOs)
-                .set(fcmToken.updatedAt, now)
-                .where(fcmToken.token.eq(token))
-                .execute();
+		int result = (int) queryFactory.update(qFcmToken)
+						                .set(qFcmToken.employeeId, employeeId)
+						                .set(qFcmToken.deviceOs, deviceOs)
+						                .set(qFcmToken.updatedAt, now)
+						                .where(qFcmToken.token.eq(token))
+						                .execute();
 		
 		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
         entityManager.clear();

@@ -17,19 +17,18 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 	
 	private final JPAQueryFactory queryFactory;
 
-    private static final QEmployee employee = QEmployee.employee;
+    private static final QEmployee qEmployee = QEmployee.employee;
 
 	@Override
 	public List<Employee> findAllEmployees(String searchParam, String team) {
 		// TODO Auto-generated method stub
-		return queryFactory
-                .selectFrom(employee)
-                .where(
-                    searchCondition(searchParam),
-                    teamCondition(team)
-                )
-                .orderBy(employee.employeeNumber.desc())
-                .fetch();
+		return queryFactory.selectFrom(qEmployee)
+			                .where(
+			                    searchCondition(searchParam),
+			                    teamCondition(team)
+			                )
+			                .orderBy(qEmployee.employeeNumber.desc())
+			                .fetch();
 	}
 	
 	private BooleanExpression searchCondition(String searchParam) {
@@ -37,14 +36,14 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
             return null;
         }
 
-        return employee.employeeNumber.contains(searchParam)
-                .or(employee.name.contains(searchParam));
+        return qEmployee.employeeNumber.contains(searchParam)
+                .or(qEmployee.name.contains(searchParam));
     }
 
 
     private BooleanExpression teamCondition(String team) {
         return team != null && !team.isBlank()
-                ? employee.team.eq(team)
+                ? qEmployee.team.eq(team)
                 : null;
     }
 
