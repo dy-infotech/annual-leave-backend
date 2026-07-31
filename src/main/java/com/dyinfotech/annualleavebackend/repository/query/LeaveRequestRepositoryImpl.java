@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.repository.query;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.stereotype.Repository;
@@ -14,6 +15,7 @@ import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
 import jakarta.persistence.EntityManager;
@@ -63,22 +65,35 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequestStatusCount> countByStatus(List<String> teams, LocalDate endRange, LocalDate startRange) {
-		return queryFactory.select(
-			                    Projections.constructor(
-			                        LeaveRequestStatusCount.class,
-			                        qLeaveRequest.status,
-			                        qLeaveRequest.count()
-			                    )
-			                )
-			                .from(qLeaveRequest)
-			                .where(
-			                    qLeaveRequest.employee.team.in(teams),
-			                    qLeaveRequest.startDate.loe(endRange),
-			                    qLeaveRequest.endDate.goe(startRange)
-			                )
-			                .groupBy(qLeaveRequest.status)
-			                .fetch();
+	public List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, LocalDate endRange, LocalDate startRange) {
+		BooleanExpression pendingCondition =
+		        qLeaveRequest.status.eq(LeaveRequestStatus.PENDING)
+		            .and(qLeaveRequest.employee.team.in(directTeams));
+
+		BooleanExpression processedCondition =
+		        qLeaveRequest.status.in(
+		                LeaveRequestStatus.APPROVED,
+		                LeaveRequestStatus.REJECTED
+		        )
+		        .and(qLeaveRequest.employee.team.in(accessibleTeams));
+
+		BooleanExpression teamCondition = pendingCondition.or(processedCondition);
+
+	    return queryFactory.select(
+				                Projections.constructor(
+				                    LeaveRequestStatusCount.class,
+				                    qLeaveRequest.status,
+				                    qLeaveRequest.count()
+				                )
+				            )
+				            .from(qLeaveRequest)
+				            .where(
+				                teamCondition,
+				                qLeaveRequest.startDate.loe(endRange),
+				                qLeaveRequest.endDate.goe(startRange)
+				            )
+				            .groupBy(qLeaveRequest.status)
+				            .fetch();
 	}
 
 	@Override

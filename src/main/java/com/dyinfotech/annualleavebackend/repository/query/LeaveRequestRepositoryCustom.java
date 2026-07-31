@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.repository.query;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
@@ -17,7 +18,7 @@ public interface LeaveRequestRepositoryCustom {
     List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate endRange, LocalDate startRange);
     
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    List<LeaveRequestStatusCount> countByStatus(List<String> teams, LocalDate endRange, LocalDate startRange);
+    List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, LocalDate endRange, LocalDate startRange);
 
     // 휴가 결재 승인 또는 반려 처리
     int updateLeaveRequest(

@@ -2,18 +2,14 @@ package com.dyinfotech.annualleavebackend.repository;
 
 import java.time.Clock;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
@@ -87,12 +83,14 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 //             @Param("endRange") LocalDate endRange,		// 위치 주의: LessThanEqual 조건용 (연말)
 //             @Param("startRange") LocalDate startRange	// 위치 주의: GreaterThanEqual 조건용 (연초)
 //     );
-	default List<LeaveRequestStatusCount> countByStatus(List<String> teams, Year year) {
-		if (teams == null || teams.isEmpty())	return Collections.emptyList();
-		return countByStatus(teams, getEndOfYear(year), getStartOfYear(year));
+	default List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, Year year) {
+		if (directTeams == null || directTeams.isEmpty() || accessibleTeams == null || accessibleTeams.isEmpty()) {
+			return Collections.emptyList();
+		}
+		return countByStatus(directTeams, accessibleTeams, getEndOfYear(year), getStartOfYear(year));
 	}
-	default List<LeaveRequestStatusCount> countByStatus(List<String> teams, Clock clock) {
-		return countByStatus(teams, Year.now(clock));
+	default List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, Clock clock) {
+		return countByStatus(directTeams, accessibleTeams, Year.now(clock));
 	}
     
 //	long countByStatusAndEmployee_TeamInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(

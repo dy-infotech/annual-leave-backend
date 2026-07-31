@@ -1,9 +1,9 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.http.HttpStatus;
@@ -91,24 +91,20 @@ public class DashboardService {
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
-    	List<String> teams = new ArrayList<>();
+    	Set<String> directTeams = new HashSet<>();
+    	Set<String> accessibleTeams = new HashSet<>();
     	for (Team team : employee.getTeams()) {
-    		teams.addAll(teamService.getSelfAndDescendants(team.getTeam()));
+    		String myTeam = team.getTeam();
+    		directTeams.add(myTeam);
+    		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
     	}
-//		long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING, clock);
-//		long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED, clock);
-//		long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED, clock);
-//    	
-//    	return DashboardDto.LeaveRequestSummaryResponse.builder()
-//    			.pendingCount(pending)
-//    			.approvedCount(approved)
-//    			.rejectedCount(rejected)
-//    			.build();
-    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(teams, clock).stream()
-																					                .collect(Collectors.toMap(
-																					                    LeaveRequestStatusCount::status,
-																					                    LeaveRequestStatusCount::count
-																					                ));
+    	
+    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(directTeams, accessibleTeams, clock)
+    																	.stream()
+    																	.collect(Collectors.toMap(
+    																		LeaveRequestStatusCount::status,
+    																		LeaveRequestStatusCount::count
+    																	));
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
                 .pendingCount(countMap.getOrDefault(LeaveRequestStatus.PENDING, 0L))
