@@ -70,12 +70,10 @@ public class EmployeeService {
 
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
-            Role role = employeeLeaveService.resolveRole(employee.getEmployeeId());
-            Float remainingLeaveDays = commonService.getRemainingDays(employee);
-            
             // XXX: approver 데이터 필요 없어서 뺐음.
-            EmployeeResponse response = EmployeeResponse.from(employee, employee, role, remainingLeaveDays);
-            responses.add(response);
+            //		remainingLeaveDays도 필요 없음. 오히려 employeeLeaveService::getAdjustedLeaveDays 가 호출되는데 
+            //		모든 Employee를 대상으로 LeaveAdjustment를 조회하는 쿼리문이 날아가기 때문에 위험함.
+            responses.add(EmployeeResponse.from(employee, employee, employeeLeaveService.resolveRole(employee.getEmployeeId()), 0.0f));
         }
 
         return responses;
