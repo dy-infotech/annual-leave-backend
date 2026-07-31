@@ -181,7 +181,7 @@ public class TeamService {
 					return Collections.emptySet();
 				}
 				
-				List<Team> parentTeams = findAllByTeam(parent);
+				List<Team> parentTeams = parent.equals(employee.getTeam()) ? myTeam : findAllByTeam(parent);
 				if (parentTeams.isEmpty()) {
 					throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다.");
 				}

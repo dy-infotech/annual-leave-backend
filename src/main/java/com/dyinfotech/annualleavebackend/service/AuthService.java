@@ -47,6 +47,7 @@ import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.SingleEmployeeRoleResolver;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
@@ -302,12 +303,13 @@ public class AuthService {
         teamService.refreshApproverIds(employee);
         
         // 5. JWT 발급
-        Role role = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId()).resolveRole();
+        SingleEmployeeRoleResolver roleResolver = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId());
+        Role role = roleResolver.resolveRole();
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
         
         // 6. 팀 프로젝트 매니저면 FCM Token 구독 처리
     	String fcmToken = request.getFcmToken();
-        if (teamService.isTeamManager(employee.getEmployeeId())) {
+        if (roleResolver.isAdmin()) {	// 팀 프로젝트 매니저면 Role.ADMIN이다
         	if (fcmToken != null && !fcmToken.isBlank()) {
         		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
                 notificationService.syncToken(
