@@ -8,7 +8,7 @@ public enum LeaveType {
 	,AM_HALF		("AM_HALF",		"반차(오전)",		LeaveUnitType.HALF)
 	,PM_HALF		("PM_HALF",		"반차(오후)",		LeaveUnitType.HALF)
 	,ALTERNATIVE	("ALTERNATIVE",	"대체 휴가",		LeaveUnitType.DAY)
-	,PERENTAL		("PERENTAL",	"출산 휴가",		LeaveUnitType.DAY)
+	,PARENTAL		("PARENTAL",	"출산 휴가",		LeaveUnitType.DAY)
 	,FAMILY			("FAMILY",		"가족 돌봄 휴가",	LeaveUnitType.DAY)
 	,OTHER			("OTHER",		"기타",			LeaveUnitType.DAY)
 	;
