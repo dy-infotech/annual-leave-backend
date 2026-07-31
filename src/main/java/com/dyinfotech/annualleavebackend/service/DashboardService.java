@@ -78,8 +78,8 @@ public class DashboardService {
 //    			.build();
     	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(employeeId, clock).stream()
 																			    	                  .collect(Collectors.toMap(
-																			    	                      LeaveRequestStatusCount::getStatus,
-																			    	                      LeaveRequestStatusCount::getCount
+																			    	                      LeaveRequestStatusCount::status,
+																			    	                      LeaveRequestStatusCount::count
 																			    	                  ));
         return DashboardDto.LeaveRequestSummaryResponse.builder()
                 .pendingCount(countMap.getOrDefault(LeaveRequestStatus.PENDING, 0L))
@@ -101,8 +101,8 @@ public class DashboardService {
 //    			.build();
     	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(teams, clock).stream()
 																					                .collect(Collectors.toMap(
-																					                    LeaveRequestStatusCount::getStatus,
-																					                    LeaveRequestStatusCount::getCount
+																					                    LeaveRequestStatusCount::status,
+																					                    LeaveRequestStatusCount::count
 																					                ));
 
         return DashboardDto.LeaveRequestSummaryResponse.builder()
