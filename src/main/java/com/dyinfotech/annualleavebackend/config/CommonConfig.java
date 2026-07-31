@@ -1,6 +1,9 @@
 package com.dyinfotech.annualleavebackend.config;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +13,8 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 @Configuration
 public class CommonConfig {
+	// 회사 창립 기념일
+	public static final LocalDateTime COMPANY_ANNIVERSARY = LocalDateTime.of(LocalDate.of(2011, 7, 8), LocalTime.MIN);
 	// 일일 소정 근로시간은 8시간으로 간주한다. DB에서도 float 단위로 구현되어 있고, 2의 n승 분의 1 구조이기 때문에 부동 소수점을 유지했으므로 하드코딩한다.
 	public static final int DAILY_STANDARD_WORKING_HOURS = 8;
 	public static final int DAILY_STANDARD_WORKING_MINUTES = DAILY_STANDARD_WORKING_HOURS * 60;

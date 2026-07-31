@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -19,6 +20,7 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.common.type.LeaveUnitType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -133,6 +135,7 @@ public class LeaveRequestService {
         if (endDate.isBefore(startDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
+    	commonService.isValidDate(startDate, endDate);
     }
     
 //    // 1일과 0.5일 단위만 허용
@@ -270,9 +273,10 @@ public class LeaveRequestService {
         // AM + PM만 허용
         return !existingType.equals(requestType);
     }
-
+    
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(LeaveRequestListDto.LeaveRequestListRequest condition) {
+    	commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
         return leaveRequestRepository.searchLeaveRequests(condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(), condition.getStatus())
                 .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
