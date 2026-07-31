@@ -6,16 +6,17 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import com.dyinfotech.annualleavebackend.common.type.Role;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
@@ -123,10 +124,12 @@ public class EmployeeService {
         employee.changePassword(encodedNewPassword);
     }
 	// 로그인 실패시 접근 횟수 추가
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void increaseAccessCount(Long employeeId, LocalDateTime now) {
 		employeeRepository.increaseAccessCount(employeeId, now);
 	}
 	// 로그인 성공시 접근 횟수 초기화
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resetAccessCount(Long employeeId, LocalDateTime now) {
     	employeeRepository.resetAccessCount(employeeId, now);
     }
