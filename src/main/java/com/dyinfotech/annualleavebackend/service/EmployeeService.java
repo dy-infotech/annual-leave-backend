@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -120,6 +121,14 @@ public class EmployeeService {
 
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
         employee.changePassword(encodedNewPassword);
+    }
+	// 로그인 실패시 접근 횟수 추가
+    public void increaseAccessCount(Long employeeId, LocalDateTime now) {
+		employeeRepository.increaseAccessCount(employeeId, now);
+	}
+	// 로그인 성공시 접근 횟수 초기화
+    public void resetAccessCount(Long employeeId, LocalDateTime now) {
+    	employeeRepository.resetAccessCount(employeeId, now);
     }
     
     public Optional<Employee> findByPrefixEmployeeNumber(String prefix) {	// 신규 사번 등록 실패도 있으므로 캐싱 미처리

@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository.query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Repository;
@@ -47,6 +48,24 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         return team != null && !team.isBlank()
                 ? qEmployee.team.eq(team)
                 : null;
+    }
+    
+    @Override
+    public long increaseAccessCount(Long employeeId, LocalDateTime now) {
+        return queryFactory.update(qEmployee)
+			                .set(qEmployee.accessCount, qEmployee.accessCount.add(1))
+			                .set(qEmployee.accessedAt, now)
+			                .where(qEmployee.employeeId.eq(employeeId))
+			                .execute();
+    }
+
+    @Override
+    public long resetAccessCount(Long employeeId, LocalDateTime now) {
+        return queryFactory.update(qEmployee)
+			                .set(qEmployee.accessCount, 0)
+			                .set(qEmployee.accessedAt, now)
+			                .where(qEmployee.employeeId.eq(employeeId))
+			                .execute();
     }
     
     @Override

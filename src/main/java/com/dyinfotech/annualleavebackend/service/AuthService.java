@@ -230,11 +230,6 @@ public class AuthService {
                 .name(employee.getName())
                 .build();
     }
-    
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void increaseLoginFailCount(Employee employee, LocalDateTime now) {
-        employee.increaseAccessCount(now);
-    }
 
     private static final Pattern BCRYPT_PATTERN = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
     private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -246,7 +241,7 @@ public class AuthService {
         	LocalDateTime unblockTime = employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
         	LocalDateTime now = LocalDateTime.now(clock);
         	if (unblockTime.isAfter(now)) {
-        		employee.initAccessCount(now);
+            	employeeService.resetAccessCount(employee.getEmployeeId(), now);
         	} else {
                 throw new ResponseStatusException(
                         HttpStatus.UNAUTHORIZED, "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : " + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
@@ -272,7 +267,7 @@ public class AuthService {
         // 비밀번호가 틀린 경우 실패 처리
         LocalDateTime now = LocalDateTime.now(clock);
         if (!isPasswordValid) {
-        	increaseLoginFailCount(employee, now);
+        	employeeService.increaseAccessCount(employee.getEmployeeId(), now);
         	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccessCount());
         	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
