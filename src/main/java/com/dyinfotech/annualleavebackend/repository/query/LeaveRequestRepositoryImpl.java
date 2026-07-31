@@ -152,5 +152,37 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
                 .orderBy(qLeaveRequest.createdAt.desc())
                 .fetch();
 	}
+	
+	@Override
+	public List<LeaveRequest> searchLeaveRequestsByTeam(
+	        LocalDate startDate,
+	        LocalDate endDate,
+	        LeaveRequestStatus status,
+	        List<String> teams) {
+
+	    BooleanBuilder builder = new BooleanBuilder();
+
+	    if (startDate != null) {
+	        builder.and(qLeaveRequest.startDate.goe(startDate));
+	    }
+
+	    if (endDate != null) {
+	        builder.and(qLeaveRequest.endDate.loe(endDate));
+	    }
+
+	    if (status != null) {
+	        builder.and(qLeaveRequest.status.eq(status));
+	    }
+
+	    if (teams != null && !teams.isEmpty()) {
+	        builder.and(qLeaveRequest.employee.team.in(teams));
+	    }
+
+	    return queryFactory
+	            .selectFrom(qLeaveRequest)
+	            .where(builder)
+	            .orderBy(qLeaveRequest.createdAt.desc())
+	            .fetch();
+	}
 
 }
