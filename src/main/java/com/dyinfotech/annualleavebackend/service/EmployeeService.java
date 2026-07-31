@@ -128,7 +128,7 @@ public class EmployeeService {
     public void increaseAccessCount(Long employeeId, LocalDateTime now) {
 		employeeRepository.increaseAccessCount(employeeId, now);
 	}
-	// 로그인 성공시 접근 횟수 초기화
+	// 로그인 성공시 또는 접근 차단 시간 초과시 접근 횟수 초기화
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resetAccessCount(Long employeeId, LocalDateTime now) {
     	employeeRepository.resetAccessCount(employeeId, now);
