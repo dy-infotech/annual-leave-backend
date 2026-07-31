@@ -20,9 +20,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, Emplo
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     List<Employee> findAllByFireDateIsNull();
-     
-    
-    Optional<Employee> findEmployeeNumberByNameAndEmail(String name, String email);
 
     Optional<Employee> findByEmployeeNumberAndEmail(String employeeNumber, String email);
     

@@ -1,11 +1,13 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -31,17 +33,22 @@ import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
 import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.domain.Team;
-import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto; // 추가됨
+import com.dyinfotech.annualleavebackend.dto.FindDataDto; // 추가됨
+import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
 import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
 import com.dyinfotech.annualleavebackend.dto.RegisterDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
+import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +69,16 @@ public class AuthService {
     private final TeamService teamService;
     
     private final Clock clock;
+    
+    private final Cache<String, List<String>> emailByNameCache = Caffeine.newBuilder()
+													                    .maximumSize(20_000)
+													                    .expireAfterWrite(Duration.ofHours(1))
+													                    .build();
+
+    private final Cache<String, List<String>> emailByEmployeeNumberCache = Caffeine.newBuilder()
+																                    .maximumSize(20_000)
+																                    .expireAfterWrite(Duration.ofHours(1))
+																                    .build();
     
     private final JavaMailSender mailSender; // 이메일 발송 객체 추가
     @Value("${spring.mail.username}")
@@ -316,6 +333,26 @@ public class AuthService {
 				.email(employee.getEmail())
                 .build();
     }
+
+    @Transactional(readOnly = true)
+    public EmailResponse findEmails(FindDataDto.FindEmailByIdRequest request) {
+        return createEmailResponse(emailByNameCache.get(request.getName(), name -> employeeService.findEmailsByName(name)));
+    }
+
+    @Transactional(readOnly = true)
+    public EmailResponse findEmails(FindDataDto.FindEmailByEmployeeNumberRequest request) {
+        return createEmailResponse(emailByEmployeeNumberCache.get(request.getEmployeeNumber(), number -> employeeService.findEmailsByEmployeeNumber(number)));
+    }
+
+    private EmailResponse createEmailResponse(List<String> emails) {
+        return FindDataDto.EmailResponse.builder()
+						                .maskedEmailList(
+						                        emails.stream()
+						                              .map(MaskingUtils::maskEmail)
+						                              .toList()
+						                )
+						                .build();
+    }
     
     private void sendMail(String to, String subject, String text) throws MailException {
     	SimpleMailMessage message = new SimpleMailMessage();
@@ -328,37 +365,62 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public void findId(ForgotPasswordDto.FindIdRequest request) {
+    public void findId(FindDataDto.FindIdRequest request) {
         // 성함과 이메일로 회원 조회
-        Employee employee = employeeService.getEmployeeNumberByNameAndEmail(request.getName(), request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.OK));
-
-        // 사번 이메일 전송
-        String to = employee.getEmail();
-        String subject = "[(주)디와이정보기술] 휴가관리 시스템 사번 조회";
-    	String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n" +
-                "요청하신 사번은 " + employee.getEmployeeNumber() +"입니다.";
-        try {
-        	sendMail(to, subject, text);
-        } catch (Exception e) {
-        	log.error("사번 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
-        	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
+    	List<String> emailList = emailByNameCache.get(request.getName(), employeeService::findEmailsByName)
+	    										.stream()
+	    										.filter(email -> MaskingUtils.maskEmail(email).equals(request.getEmail()))
+	    										.toList();
+        List<EmployeeNumberEmail> dataList = employeeService.findEmployeeNumberAndEmailByNameAndEmailIn(request.getName(), emailList);
+        if (dataList.isEmpty()) {
+        	throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
+        }
+        
+        boolean failed = false;
+        for (EmployeeNumberEmail data : dataList) {
+            // 사번 이메일 전송
+            String to = data.email();
+            String subject = "[(주)디와이정보기술] 휴가관리 시스템 사번 조회";
+        	String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n" +
+                    "요청하신 사번은 " + data.employeeNumber() +"입니다.";
+            try {
+            	sendMail(to, subject, text);
+            } catch (Exception e) {
+            	failed = true;
+            	log.error("사번 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
+            }
+        }
+        
+        if (failed) {
+        	StringBuilder errorMsg = new StringBuilder();
+        	if (dataList.size() > 1) {
+        		errorMsg.append("일부 ");
+        	}
+        	errorMsg.append("이메일 발송에 실패했습니다.");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg.toString());
         }
     }
  
  
     @Transactional
-    public void forgotPassword(ForgotPasswordDto.Request request) {
-        // 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생시키고, 성공 케이스인 것처럼 전달해서 공격 방지)
-        Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), request.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.OK));
+    public void forgotPassword(FindDataDto.FindPasswordRequest request) {
+        // 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생)
+    	String realEmail = null;
+    	for (String email : emailByEmployeeNumberCache.get(request.getEmployeeNumber(), employeeService::findEmailsByEmployeeNumber)) {
+    		if (email.equals(request.getEmail())) {
+    			realEmail = email;
+    			break;
+    		}
+    	}
+    	Entry<HttpStatus, String> emptyUserErrorEntry = new java.util.AbstractMap.SimpleEntry<>(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
+    	if (realEmail == null) {
+    		throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
+    	}
+        Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), realEmail)
+                .orElseThrow(() -> new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue()));
 
         // 임시 비밀번호 생성 (소문자 16진수 + 하이픈 10자리)
         String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
-
-        // 비밀번호 암호화 후 업데이트
-        String encodedPassword = passwordEncoder.encode(temporaryPassword);
-        employee.changePassword(encodedPassword);
 
         // 임시 비밀번호 이메일 전송
         String to = employee.getEmail();
@@ -368,7 +430,12 @@ public class AuthService {
                 "임시 비밀번호: " + temporaryPassword + "\n\n" +
                 "로그인 후 반드시 비밀번호를 변경해 주세요.";
         try {
+        	// 메일 전송
         	sendMail(to, subject, text);
+        	
+            // 비밀번호 암호화 후 업데이트
+            String encodedPassword = passwordEncoder.encode(temporaryPassword);
+            employee.changePassword(encodedPassword);
         } catch (Exception e) {
         	log.error("패스워드 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
         	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);

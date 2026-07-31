@@ -7,7 +7,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dyinfotech.annualleavebackend.dto.ForgotPasswordDto;
+import com.dyinfotech.annualleavebackend.dto.FindDataDto;
+import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
 import com.dyinfotech.annualleavebackend.dto.LogoutDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
@@ -38,17 +39,29 @@ public class AuthController {
     public ResponseEntity<SignInDto.SignInResponse> signIn(@Valid @RequestBody SignInDto.SignInRequest request) {
         return ResponseEntity.ok(authService.signIn(request));
     }
+    
+    @Operation(summary = "이름으로 이메일 찾기", description = "이름으로 이메일 리스트 조회 후에 선택해서 사번 조회 가능하다.")
+    @PostMapping("/find-email-by-id")
+    public ResponseEntity<EmailResponse> findEmail(@Valid @RequestBody FindDataDto.FindEmailByIdRequest request) {
+        return ResponseEntity.ok(authService.findEmails(request));
+    }
 
+    @Operation(summary = "사번으로 이메일 찾기", description = "사번으로 이메일 리스트 조회 후에 선택해서 임시 비밀번호 발급 가능하다.")
+    @PostMapping("/find-email-by-employee-number")
+    public ResponseEntity<EmailResponse> findEmail(@Valid @RequestBody FindDataDto.FindEmailByEmployeeNumberRequest request) {
+        return ResponseEntity.ok(authService.findEmails(request));
+    }
+    
     @Operation(summary = "비밀번호 찾기", description = "사번, 이메일을 입력하면 등록된 이메일로 임시 비밀번호가 발송된다.")
     @PostMapping("/forgot-password")
-    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordDto.Request request) {
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody FindDataDto.FindPasswordRequest request) {
         authService.forgotPassword(request);
         return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "아이디 찾기", description = "성함, 이메일을 입력하면 등록된 이메일로 아이디가 발송된다.")
     @PostMapping("/find-id")
-    public ResponseEntity<Void> findId(@Valid @RequestBody ForgotPasswordDto.FindIdRequest request) {
+    public ResponseEntity<Void> findId(@Valid @RequestBody FindDataDto.FindIdRequest request) {
         authService.findId(request);
         return ResponseEntity.ok().build();
     }
