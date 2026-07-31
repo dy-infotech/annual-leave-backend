@@ -87,11 +87,11 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 //             @Param("endRange") LocalDate endRange,		// 위치 주의: LessThanEqual 조건용 (연말)
 //             @Param("startRange") LocalDate startRange	// 위치 주의: GreaterThanEqual 조건용 (연초)
 //     );
-	default List<LeaveRequestStatusCount> countByStatus(List<Team> teams, Year year) {
+	default List<LeaveRequestStatusCount> countByStatus(List<String> teams, Year year) {
 		if (teams == null || teams.isEmpty())	return Collections.emptyList();
-		return countByStatus(teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
+		return countByStatus(teams, getEndOfYear(year), getStartOfYear(year));
 	}
-	default List<LeaveRequestStatusCount> countByStatus(List<Team> teams, Clock clock) {
+	default List<LeaveRequestStatusCount> countByStatus(List<String> teams, Clock clock) {
 		return countByStatus(teams, Year.now(clock));
 	}
     

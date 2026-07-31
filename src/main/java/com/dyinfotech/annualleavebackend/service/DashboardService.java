@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,6 +29,7 @@ public class DashboardService {
 
     private final EmployeeRepository employeeRepository;
     private final LeaveRequestRepository leaveRequestRepository;
+    private final TeamService teamService;
     private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
 
@@ -89,7 +91,10 @@ public class DashboardService {
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
-    	List<Team> teams = employee.getTeams();
+    	List<String> teams = new ArrayList<>();
+    	for (Team team : employee.getTeams()) {
+    		teams.addAll(teamService.getSelfAndDescendants(team.getTeam()));
+    	}
 //		long pending = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.PENDING, clock);
 //		long approved = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.APPROVED, clock);
 //		long rejected = teams.isEmpty() ? 0L : leaveRequestRepository.countByStatus(teams, LeaveRequestStatus.REJECTED, clock);
