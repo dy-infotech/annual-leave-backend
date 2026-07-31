@@ -240,7 +240,7 @@ public class AuthService {
         if (employee.getAccessCount() >= loginFailMaxCount) {
         	LocalDateTime unblockTime = employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
         	LocalDateTime now = LocalDateTime.now(clock);
-        	if (unblockTime.isAfter(now)) {
+        	if (now.isAfter(unblockTime)) {
             	employeeService.resetAccessCount(employee.getEmployeeId(), now);
         	} else {
                 throw new ResponseStatusException(
