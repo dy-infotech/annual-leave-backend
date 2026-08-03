@@ -48,7 +48,7 @@ fcm:
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://annual-leave-frontend.vercel.app}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://app.dyinfotech.com}
 
 logging:
   level:
