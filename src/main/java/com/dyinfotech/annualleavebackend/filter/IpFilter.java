@@ -3,8 +3,6 @@ package com.dyinfotech.annualleavebackend.filter;
 import java.io.IOException;
 
 import org.slf4j.MDC;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -17,7 +15,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
 public class IpFilter extends OncePerRequestFilter {
     private static final String MDC_KEY = "clientIp";
     
