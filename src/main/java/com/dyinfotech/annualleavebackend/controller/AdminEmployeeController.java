@@ -2,6 +2,12 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import java.util.List;
 
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,4 +34,16 @@ public class AdminEmployeeController {
         return employeeService.getAllEmployees(searchParam);
     }
     
+    
+    @PutMapping("/{employeeNumber}") 
+    public ResponseEntity<Void> updateEmployeeByAdmin(
+            @PathVariable("employeeNumber") String employeeNumber, // 👈 명시적으로 경로 변수 매핑 지정
+            @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
+        
+        // 서비스 메서드 호출
+        employeeService.updateEmployeeByAdmin(employeeNumber, request);
+        
+        return ResponseEntity.ok().build(); // 200 OK 빈 바디 반환
+    }
+ 
 }

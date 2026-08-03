@@ -146,4 +146,16 @@ public class Employee extends BaseEntity {
     public boolean isRegisted() {
     	return this.password != null && !this.password.isBlank();
     }
+    
+    // 관리자용 사원 정보 수정 메서드
+    public void updateInfoByAdmin(String name, String email, String department, String team, String position, LocalDate hireDate, Float currTotalLeaveDays) {
+        this.name = name;
+        this.email = email;             // 👈 필드 바인딩 추가
+        this.department = department;
+        this.team = team;
+        this.position = position;
+        this.hireDate = hireDate;       // 👈 필드 바인딩 추가
+       // this.approverId = approverId;
+        this.currTotalLeaveDays = currTotalLeaveDays;
+    }
 }
