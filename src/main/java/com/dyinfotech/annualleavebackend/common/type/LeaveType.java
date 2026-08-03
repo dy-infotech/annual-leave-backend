@@ -1,7 +1,9 @@
 package com.dyinfotech.annualleavebackend.common.type;
 
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public enum LeaveType {
 	FULL			("FULL",		"연차",			LeaveUnitType.DAY)
@@ -13,16 +15,13 @@ public enum LeaveType {
 	,OTHER			("OTHER",		"기타",			LeaveUnitType.DAY)
 	;
 	
-	private String name;		// 사실 enum의 name() 메소드 써도 상관은 없다.
-	private String desc;
-	private LeaveUnitType leaveUnitType;	// 최소 사용 단위
+	private final String name;					// 사실 enum의 name() 메소드 써도 상관은 없다.
+	private final String desc;
+	private final LeaveUnitType leaveUnitType;	// 최소 사용 단위
 	
-	private static final Map<String, LeaveType> nameToEnumMap = new HashMap<>();
-	static {
-		for (LeaveType type : LeaveType.values()) {
-			nameToEnumMap.put(type.getName(), type);
-		}
-	}
+	private static final Map<String, LeaveType> nameToEnumMap = Arrays.stream(values())
+																		.collect(Collectors.toUnmodifiableMap(LeaveType::getName,
+																		              							Function.identity()));
 	
 	LeaveType(String name, String desc, LeaveUnitType leaveUnitType) {
 		this.name = name;
