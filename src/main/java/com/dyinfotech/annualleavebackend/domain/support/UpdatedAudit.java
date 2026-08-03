@@ -6,10 +6,13 @@ import org.springframework.data.annotation.LastModifiedDate;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Embeddable
 @Getter
+@NoArgsConstructor(access = AccessLevel.PUBLIC) // 이미 있다면 PUBLIC이나 PACKAGE로 조정 필요
 public class UpdatedAudit {
 
     @LastModifiedDate

@@ -39,7 +39,7 @@ public class FcmToken implements HasUpdatedAudit {
     private String deviceOs;
     
     @Embedded
-    private UpdatedAudit updatedAudit;
+    private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     public FcmToken(Long employeeId, String token, String deviceOs) {
         this.employeeId = employeeId;
