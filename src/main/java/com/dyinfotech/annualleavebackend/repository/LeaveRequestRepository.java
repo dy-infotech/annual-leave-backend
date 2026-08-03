@@ -7,6 +7,7 @@ import java.time.Year;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -17,6 +18,9 @@ import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatu
 import com.dyinfotech.annualleavebackend.repository.query.LeaveRequestRepositoryCustom;
 
 import io.jsonwebtoken.lang.Collections;
+
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long>, LeaveRequestRepositoryCustom {
 	
@@ -127,7 +131,13 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     	return findByStatusOrderByCreatedAtAsc(teams, status, Year.now(clock));
     }
 
-	// 휴가 결재 승인 또는 반려 처리
+    @Query("SELECT lr FROM LeaveRequest lr " +
+            "JOIN FETCH lr.employee " +
+            "LEFT JOIN FETCH lr.manager " +   // manager가 null일 경우에 대비해 LEFT
+            "WHERE lr.requestId = :requestId")
+    Optional<LeaveRequest> findDetailById(@Param("requestId") Long requestId);
+
+    // 휴가 결재 승인 또는 반려 처리
     // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException을 GlobalExceptionHandler에서 처리하는 건
     //		별도 세부 정보를 담을 수 없고 로그 처리도 확실하지 않을 것 같다. 일단 개별 쿼리문으로 대응한다.
 //	@Modifying(clearAutomatically = true) // 쿼리 실행 후 영속성 컨텍스트 자동 클리어

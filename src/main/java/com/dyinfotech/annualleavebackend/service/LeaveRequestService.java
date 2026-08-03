@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
@@ -279,6 +280,19 @@ public class LeaveRequestService {
                 .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(Long requestId, Long currentEmployeeId, boolean isAdmin) {
+
+        LeaveRequest leaveRequest = leaveRequestRepository.findDetailById(requestId)
+                .orElseThrow(() -> new IllegalArgumentException("휴가 신청을 찾을 수 없습니다. requestId: " + requestId));
+
+        // 본인, 관리자만 사유 조회 권한을 가짐
+        boolean isOwner = leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        boolean canViewReason = isOwner || isAdmin;
+
+        return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(leaveRequest, canViewReason);
     }
 
     @Transactional
