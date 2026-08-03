@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Repository;
 
+import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.QEmployee;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
@@ -55,6 +56,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         return queryFactory.update(qEmployee)
 			                .set(qEmployee.accessCount, qEmployee.accessCount.add(1))
 			                .set(qEmployee.accessedAt, now)
+			                .set(qEmployee.accessedIp, IpContext.get())
 			                .where(qEmployee.employeeId.eq(employeeId))
 			                .execute();
     }
@@ -64,6 +66,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         return queryFactory.update(qEmployee)
 			                .set(qEmployee.accessCount, 0)
 			                .set(qEmployee.accessedAt, now)
+			                .set(qEmployee.accessedIp, IpContext.get())
 			                .where(qEmployee.employeeId.eq(employeeId))
 			                .execute();
     }

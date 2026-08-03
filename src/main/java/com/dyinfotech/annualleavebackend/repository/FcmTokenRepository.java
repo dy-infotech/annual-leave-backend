@@ -1,10 +1,8 @@
 package com.dyinfotech.annualleavebackend.repository;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.repository.query.FcmTokenRepositoryCustom;
@@ -25,7 +23,4 @@ public interface FcmTokenRepository extends JpaRepository<FcmToken, Long>, FcmTo
 //                            @Param("deviceOs") String deviceOs, 
 //                            @Param("now") LocalDateTime now, 
 //                            @Param("token") String token);
-	
-	@Modifying
-	void deleteByUpdatedAtBefore(LocalDateTime threshold);
 }

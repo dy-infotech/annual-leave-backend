@@ -5,10 +5,18 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.dyinfotech.annualleavebackend.domain.common.BaseEntity;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
+import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
+import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
+import com.dyinfotech.annualleavebackend.domain.support.IpEntityListener;
+import com.dyinfotech.annualleavebackend.domain.support.UpdatedAudit;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -22,8 +30,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "employee")
 @Getter
+@EntityListeners({AuditingEntityListener.class, IpEntityListener.class})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Employee extends BaseEntity {
+public class Employee implements HasCreatedAudit, HasUpdatedAudit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +47,9 @@ public class Employee extends BaseEntity {
     
     @Column(name = "access_count", nullable = false)
     private Integer accessCount = 0;
+    
+    @Column(name = "accessed_ip", length = 45)
+    private String accessedIp;
     
     @Column(name = "accessed_at")
     private LocalDateTime accessedAt;
@@ -80,6 +92,12 @@ public class Employee extends BaseEntity {
     
     @Column(name = "approver_id", nullable = false)
     private Long approverId;
+    
+    @Embedded
+    private CreatedAudit createdAudit;
+    
+    @Embedded
+    private UpdatedAudit updatedAudit;
 
     @Builder
     public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {

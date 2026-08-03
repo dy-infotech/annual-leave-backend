@@ -32,11 +32,9 @@ spring:
          writetimeout: 5000 
          starttls:
            enable: true
-           required: true 
+           required: true
            ssl:
-             protocols: TLSv1 TLSv1.1 TLSv1.2 TLSv1.3          
-server:
-  forward-headers-strategy: framework # 프록시 헤더(X-Forwarded-For 등)를 Spring이 내부적으로 검증하여 getRemoteAddr()에 자동으로 반영
+             protocols: TLSv1 TLSv1.1 TLSv1.2 TLSv1.3
     
 jwt:
   secret: ${JWT_SECRET}
@@ -59,7 +57,11 @@ logging:
     org.hibernate.SQL: info                        # disable sql log (use p6spy)
     org.hibernate.orm.jdbc.bind: info              # disable sql parameter log (use p6spy)
 
-    com.dyinfotech.annualleavebackend: debug       # @Slf4j log level
+    com.dyinfotech.annualleavebackend: info       # @Slf4j log level
+  
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%replace(, clientIp=%X{clientIp}){'^, clientIp=$',''}%n"
+    file: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %5p ${PID:- } --- [%15.15t] %-40.40logger{39} : %m%replace(, clientIp=%X{clientIp}){'^, clientIp=$',''}%n"
 
   file:
    name: logs/local-app.log

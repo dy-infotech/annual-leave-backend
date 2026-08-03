@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
 import com.p6spy.engine.spy.appender.MessageFormattingStrategy;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Component
 public class P6SpyCustomFormatter implements MessageFormattingStrategy {
 
@@ -23,10 +26,12 @@ public class P6SpyCustomFormatter implements MessageFormattingStrategy {
 		String maskedSql = maskSql(sql);
 		maskedSql = sql;	// 잠시 마스킹 처리 해제 (오류 확인용)
 		
-		// customLogMessageFormat과 동일한 한 줄 로그 포맷 생성
-		// connectionId = 커넥션 ID
-		// elapsed = 실행시간(ms)
-		return String.format("Connection: %d | Time: %dms | %s", connectionId, elapsed, maskedSql);
+		if (elapsed > 500) {
+		    log.warn("Slow SQL detected: {}ms | {}", elapsed, maskedSql);
+		}
+		
+		// category = JDBC Event Type, elapsed = execution time(ms)
+		return String.format("Category: %s | Time: %dms | %s", category, elapsed, maskedSql);
 	}
 	
 	private String maskSql(String sql) {

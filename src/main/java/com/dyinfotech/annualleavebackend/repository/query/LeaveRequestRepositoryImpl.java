@@ -10,10 +10,10 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.QEmployee;
 import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 import com.querydsl.core.BooleanBuilder;
@@ -130,6 +130,19 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				            .groupBy(qLeaveRequest.status)
 				            .fetch();
 	}
+	
+	@Override
+	public List<LeaveRequest> findByStatusAndTeamsInRange(LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange) {
+	    return queryFactory.selectFrom(qLeaveRequest)
+	                        .where(
+	                            qLeaveRequest.status.eq(status),
+	                            qLeaveRequest.employee.team.in(teams),
+	                            qLeaveRequest.startDate.loe(endRange),
+	                            qLeaveRequest.endDate.goe(startRange)
+	                        )
+	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
+	                        .fetch();
+	}
 
 	@Override
 	@Transactional
@@ -139,6 +152,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 						                .set(qLeaveRequest.status, targetStatus)
 						                .set(qLeaveRequest.manager, approver)
 						                .set(qLeaveRequest.managedAt, now)
+						                .set(qLeaveRequest.managedIp, IpContext.get())
 						                .set(qLeaveRequest.rejectReason, rejectReason)
 						                .where(
 						                    qLeaveRequest.requestId.eq(requestId),
@@ -179,7 +193,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
         return queryFactory.selectFrom(qLeaveRequest)
         					.join(qLeaveRequest.employee).fetchJoin()
 			                .where(builder)
-			                .orderBy(qLeaveRequest.createdAt.desc())
+			                .orderBy(qLeaveRequest.createdAudit.createdAt.desc())
 			                .fetch();
 	}
 

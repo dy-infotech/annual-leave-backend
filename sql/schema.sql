@@ -8,6 +8,7 @@ CREATE TABLE employee (
                           password          	VARCHAR(255)	NULL COMMENT '비밀번호 (NULL일 경우 아직 회원가입 전)',
                           access_count			INT				NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수',
                           accessed_at			DATETIME		NULL COMMENT '로그인 실패 시각',
+                          accessed_ip			VARCHAR(45)		NULL COMMENT '로그인 실패 IP 주소',
                           name              	VARCHAR(50)   	NOT NULL COMMENT '성명',
                           department        	VARCHAR(50)   	NULL COMMENT '부서',
                           team		        	VARCHAR(30) 	NOT NULL COMMENT '팀 // 배정되지 않은 경우 대표이사 팀 선택 및 approver_id도 대표이사의 id로 해야 한다',
@@ -21,9 +22,11 @@ CREATE TABLE employee (
                           prev_year				VARCHAR(4)  	NULL COMMENT '작년 연도',
                           prev_total_leave_days	FLOAT  			NULL DEFAULT 0 COMMENT '작년 부여된 총 연차일수',
 
-                          created_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                          created_at        	DATETIME      	NOT NULL COMMENT '생성 시각',
+                          created_ip        	VARCHAR(45)   	NOT NULL COMMENT '생성 요청 IP 주소',
                           approver_id          	BIGINT			NOT NULL COMMENT '승인한 관리자 번호',
-                          updated_at        	DATETIME      	NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                          updated_at        	DATETIME      	NOT NULL COMMENT '수정 시각',
+                          updated_ip        	VARCHAR(45)   	NOT NULL COMMENT '수정 요청 IP 주소',
                           
                           CONSTRAINT fk_employee_approver FOREIGN KEY (approver_id) REFERENCES employee(employee_id) ON DELETE RESTRICT
 ) COMMENT '인사정보 + 로그인 계정 + 배정 연차';
@@ -43,9 +46,11 @@ CREATE TABLE leave_request (
                                status             VARCHAR(10)	NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING(대기) / APPROVED(승인 완료) / REJECTED(반려) / CANCELLED(신청자 취소)',
                                manager_id         BIGINT		NULL COMMENT '처리한 관리자',
                                managed_at         DATETIME		NULL COMMENT '처리 시각',
+                               managed_ip         VARCHAR(45)	NULL COMMENT '처리 요청 IP 주소',
                                reject_reason      VARCHAR(200)	NULL COMMENT '반려 사유',
 
-                               created_at         DATETIME		NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                               created_at         DATETIME		NOT NULL COMMENT '생성 시각',
+                               created_ip         VARCHAR(45)	NOT NULL COMMENT '생성 요청 IP 주소',
 
                                CONSTRAINT fk_request_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
                                CONSTRAINT fk_request_manager FOREIGN KEY (manager_id) REFERENCES employee(employee_id)
@@ -82,8 +87,10 @@ CREATE TABLE leave_adjustment (
                                leave_days         FLOAT			NOT NULL COMMENT '조정 일수',
                                reason             VARCHAR(200)	NOT NULL COMMENT '발생 사유',
 
-                               created_at         DATETIME		NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                               updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                               created_at         DATETIME		NOT NULL COMMENT '생성 시각',
+                               created_ip         VARCHAR(45)	NOT NULL COMMENT '생성 요청 IP 주소',
+                               updated_at         DATETIME		NOT NULL COMMENT '수정 시각',
+                               updated_ip         VARCHAR(45)   NOT NULL COMMENT '수정 요청 IP 주소',
                                
                                PRIMARY KEY (employee_id, year, created_at),
                                CONSTRAINT fk_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
@@ -103,7 +110,8 @@ CREATE TABLE fcm_token (
                                employee_id        BIGINT		NOT NULL COMMENT '근로자 인덱스',
                                fcm_token		  VARCHAR(255)	NOT NULL UNIQUE COMMENT 'FCM 디바이스 토큰',
                                device_os          VARCHAR(10)	NULL COMMENT 'ANDROID, IOS, WEB 등',
-                               updated_at         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                               updated_at         DATETIME		NOT NULL COMMENT '수정 시점',
+                               updated_ip         VARCHAR(45)   NOT NULL COMMENT '수정 요청 IP 주소',
                                
                                CONSTRAINT fk_fcm_token_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 ) COMMENT 'FCM 디바이스 토큰';

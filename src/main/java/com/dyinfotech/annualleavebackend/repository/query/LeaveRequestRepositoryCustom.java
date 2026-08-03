@@ -22,6 +22,9 @@ public interface LeaveRequestRepositoryCustom {
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
     List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, LocalDate endRange, LocalDate startRange);
 
+    // 승인 대기 상태 휴가 조회 (관리자용)
+    List<LeaveRequest> findByStatusAndTeamsInRange(LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange);
+    
     // 휴가 결재 승인 또는 반려 처리
     int updateLeaveRequest(
             Long requestId,
@@ -51,7 +54,7 @@ public interface LeaveRequestRepositoryCustom {
     	return searchLeaveRequests(employeeId, startDate, endDate, status, null);
     }
     
-    //팀 배열(타겟팀 하위 전체 팀 목록)에 포함된 모든 요청 목록정보를 조회
+    // 팀 배열(타겟팀 하위 전체 팀 목록)에 포함된 모든 요청 목록정보를 조회
 	default List<LeaveRequest> searchLeaveRequests(
 			LocalDate startDate, 
 			LocalDate endDate, 

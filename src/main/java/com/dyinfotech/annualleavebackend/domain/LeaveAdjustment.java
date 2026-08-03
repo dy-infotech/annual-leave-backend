@@ -3,10 +3,18 @@ package com.dyinfotech.annualleavebackend.domain;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
-import com.dyinfotech.annualleavebackend.domain.common.UpdatedTimeEntity;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import com.dyinfotech.annualleavebackend.common.IpContext;
+import com.dyinfotech.annualleavebackend.domain.support.HasCreatedIp;
+import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
+import com.dyinfotech.annualleavebackend.domain.support.IpEntityListener;
+import com.dyinfotech.annualleavebackend.domain.support.UpdatedAudit;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
@@ -19,8 +27,9 @@ import lombok.NoArgsConstructor;
 @Table(name = "leave_adjustment")
 @Getter
 @IdClass(LeaveAdjustment.LeaveAdjustmentId.class)
+@EntityListeners({AuditingEntityListener.class, IpEntityListener.class})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LeaveAdjustment extends UpdatedTimeEntity {
+public class LeaveAdjustment implements HasCreatedIp, HasUpdatedAudit {
 
     @Id
     @Column(name = "employee_id")
@@ -43,6 +52,12 @@ public class LeaveAdjustment extends UpdatedTimeEntity {
     @Id
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+    
+    @Column(name = "created_ip", nullable = false, updatable = false, length = 45)
+    private String createdIp;
+    
+    @Embedded
+    private UpdatedAudit updatedAudit;
 
     @Builder
     public LeaveAdjustment(Long employeeId, String year, String sign, Float leaveDays, String reason, Clock clock) {
@@ -52,6 +67,12 @@ public class LeaveAdjustment extends UpdatedTimeEntity {
         this.leaveDays = leaveDays;
         this.reason = reason;
         this.createdAt = LocalDateTime.now(clock);
+        this.createdIp = IpContext.get();
+    }
+    
+    @Override
+    public void changeCreatedIp(String ip) {
+        this.createdIp = ip;
     }
 
     // Composite id defined as a static inner class so LeaveAdjustment is self-contained.
