@@ -14,7 +14,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-//@Component
+@Component
 public class IpFilter extends OncePerRequestFilter {
     private static final String MDC_KEY = "clientIp";
     
