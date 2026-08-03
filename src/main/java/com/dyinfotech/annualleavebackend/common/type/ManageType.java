@@ -8,8 +8,8 @@ public enum ManageType {
 	,IS_TEAM_MANAGER	(2, "팀 매니저 여부")
 	;
 	
-	private int code;
-	private String desc;
+	private final int code;
+	private final String desc;
 	
 	ManageType(int code, String desc) {
 		this.code = code;

@@ -3,7 +3,6 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -18,9 +17,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
-import com.dyinfotech.annualleavebackend.common.type.LeaveUnitType;
+import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
-import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -165,7 +163,7 @@ public class LeaveRequestService {
         	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
         }
         
-        int useMinutes = LeaveUnitType.toMinutes(useDays);
+        int useMinutes = DateUtils.toMinutes(useDays);
         if (!leaveType.isValidMinutes(useMinutes)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, leaveType.getValidationMessage());
         }

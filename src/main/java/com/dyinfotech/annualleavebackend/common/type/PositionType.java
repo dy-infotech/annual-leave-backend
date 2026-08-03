@@ -1,7 +1,9 @@
 package com.dyinfotech.annualleavebackend.common.type;
 
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import lombok.Getter;
 
@@ -20,14 +22,11 @@ public enum PositionType {
 	,CEO						("사장")
 	;
 	
-	private String name;
+	private final String name;
 	
-	private static final Map<String, PositionType> nameToEnumMap = new HashMap<>();
-	static {
-		for (PositionType type : PositionType.values()) {
-			nameToEnumMap.put(type.name, type);
-		}
-	}
+	private static final Map<String, PositionType> nameToEnumMap = Arrays.stream(values())
+																		.collect(Collectors.toUnmodifiableMap(PositionType::getName,
+																		              							Function.identity()));
 	
 	private PositionType(String name) {
 		this.name = name;

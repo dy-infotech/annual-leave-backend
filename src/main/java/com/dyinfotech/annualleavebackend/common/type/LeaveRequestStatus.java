@@ -5,4 +5,4 @@ public enum LeaveRequestStatus {
     APPROVED,   // 승인 완료
     REJECTED,   // 반려
     CANCELLED   // 취소(사용자가 스스로 취소한 경우)
-    }
+}

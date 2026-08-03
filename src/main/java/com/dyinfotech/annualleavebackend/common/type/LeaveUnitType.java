@@ -1,11 +1,13 @@
 package com.dyinfotech.annualleavebackend.common.type;
 
-import java.util.HashMap;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 
 @Getter
@@ -13,19 +15,16 @@ public enum LeaveUnitType {
 	DAY			("DAY",		"1일 단위",		CommonConfig.DAILY_STANDARD_WORKING_MINUTES)
 	,HALF		("HALF",	"0.5일 단위",		CommonConfig.DAILY_STANDARD_WORKING_MINUTES / 2)
 	,QUATER		("QUATER",	"0.25일 단위",	CommonConfig.DAILY_STANDARD_WORKING_MINUTES / 4)
-	,HOUR		("HOUR",	"1시간 단위",		60)
+	,HOUR		("HOUR",	"1시간 단위",		(int) Duration.ofHours(1).toMinutes())
 	;
 	
-	private String name;		// 사실 enum의 name() 메소드 써도 상관은 없다.
-	private String desc;
-	private int minutesPerUnit;	// 최소 사용 분 단위
+	private final String name;			// 사실 enum의 name() 메소드 써도 상관은 없다.
+	private final String desc;
+	private final int minutesPerUnit;	// 최소 사용 분 단위
 	
-	private static final Map<String, LeaveUnitType> nameToEnumMap = new HashMap<>();
-	static {
-		for (LeaveUnitType type : LeaveUnitType.values()) {
-			nameToEnumMap.put(type.getName(), type);
-		}
-	}
+	private static final Map<String, LeaveUnitType> nameToEnumMap = Arrays.stream(values())
+																			.collect(Collectors.toUnmodifiableMap(LeaveUnitType::getName,
+																		              								Function.identity()));
 	
 	LeaveUnitType(String name, String desc, int minutesPerUnit) {
 		this.name = name;
@@ -37,9 +36,6 @@ public enum LeaveUnitType {
 		return nameToEnumMap.get(name);
 	}
 	
-	public static final int toMinutes(@NotNull Float useDays) {
-		return Math.round(useDays * CommonConfig.DAILY_STANDARD_WORKING_MINUTES);
-	}
 	protected boolean isValidMinutes(int useMinutes) {
 		return useMinutes % minutesPerUnit == 0;
 	}

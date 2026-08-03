@@ -1,7 +1,9 @@
 package com.dyinfotech.annualleavebackend.common.type;
 
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import lombok.Getter;
 
@@ -22,12 +24,10 @@ public enum BasisDataType {
 	private final long code;
 	private final String description;
 	
-	private static final Map<Long, BasisDataType> codeToEnumMap = new HashMap<>();
-	static {
-		for (BasisDataType type : BasisDataType.values()) {
-			codeToEnumMap.put(type.getCode(), type);
-		}
-	}
+	private static final Map<Long, BasisDataType> codeToEnumMap = Arrays.stream(values())
+																		.collect(Collectors.toUnmodifiableMap(BasisDataType::getCode,
+																		              							Function.identity()));
+	
 	
 	BasisDataType(long code, String description) {
 		this.code = code;
