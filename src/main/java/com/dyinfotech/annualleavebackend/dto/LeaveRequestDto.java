@@ -51,7 +51,7 @@ public final class LeaveRequestDto {
                     .endDate(leaveRequest.getEndDate())
                     .useDays(leaveRequest.getUseDays())
                     .status(leaveRequest.getStatus().name())
-                    .createdAt(leaveRequest.getCreatedAt())
+                    .createdAt(leaveRequest.getCreatedAudit().getCreatedAt())
                     .build();
         }
     }

@@ -28,7 +28,7 @@ public class GlobalExceptionHandler {
 	        HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
 	    
 	    // StackTrace를 전부 찍지 않고 한 줄짜리 경고 로그만 남기기
-	    log.warn("지원하지 않는 메서드 요청: [{}] {}, ip:{}", request.getMethod(), request.getRequestURI(), getClientIp(request));
+	    log.warn("지원하지 않는 메서드 요청: [{}] {}", request.getMethod(), request.getRequestURI());
 
 	    HttpStatus status = HttpStatus.METHOD_NOT_ALLOWED;
 	    return ResponseEntity.status(status).body(factory.create(status, "지원하지 않는 HTTP 메서드입니다.", request.getRequestURI()));
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
     // 잘못된 바디/타입(잘못된 날짜 문자열 등) → 400 (내부 메시지 숨김)
     @ExceptionHandler({ HttpMessageNotReadableException.class, DateTimeParseException.class })
     public ResponseEntity<ErrorResponse> handleBadInput(Exception e, HttpServletRequest req) {
-        log.warn("잘못된 요청: {}, ip: {}", e.getMessage(), getClientIp(req));
+        log.warn("잘못된 요청: {}", e.getMessage());
         return ResponseEntity.badRequest()
                 .body(factory.create(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다.", req.getRequestURI()));
     }
@@ -63,13 +63,8 @@ public class GlobalExceptionHandler {
     // 그 외 미처리 예외 → 500, 상세는 로그로만, 응답은 일반 메시지
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest req) {
-        log.error("처리되지 않은 예외 발생. ip: {} [{}]", getClientIp(req), req.getRequestURI(), e);
+        log.error("처리되지 않은 예외 발생. [{}]", req.getRequestURI(), e);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(factory.create(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.", req.getRequestURI()));
-    }
-    
-    private String getClientIp(HttpServletRequest request) {
-        // server.forward-headers-strategy 설정이 되어 있다면 getRemoteAddr()만 쓰면 됩니다.
-        return request.getRemoteAddr();
     }
 }

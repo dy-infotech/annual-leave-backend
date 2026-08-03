@@ -36,7 +36,7 @@ public final class PendingLeaveRequestDto {
                     .startDate(leaveRequest.getStartDate())
                     .endDate(leaveRequest.getEndDate())
                     .useDays(leaveRequest.getUseDays())
-                    .createdAt(leaveRequest.getCreatedAt())
+                    .createdAt(leaveRequest.getCreatedAudit().getCreatedAt())
                     .build();
         }
     }

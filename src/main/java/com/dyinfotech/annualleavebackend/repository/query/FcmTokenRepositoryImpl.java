@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Repository;
 
+import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.QFcmToken;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
@@ -22,7 +23,8 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 		int result = (int) queryFactory.update(qFcmToken)
 						                .set(qFcmToken.employeeId, employeeId)
 						                .set(qFcmToken.deviceOs, deviceOs)
-						                .set(qFcmToken.updatedAt, now)
+						                .set(qFcmToken.updatedAudit.updatedAt, now)
+						                .set(qFcmToken.updatedAudit.updatedIp, IpContext.get())
 						                .where(qFcmToken.token.eq(token))
 						                .execute();
 		
@@ -30,6 +32,16 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
         entityManager.clear();
 
         return result;
+	}
+	
+	@Override
+	public void deleteByUpdatedAtBefore(LocalDateTime threshold) {
+	    queryFactory.delete(qFcmToken)
+	    			.where(qFcmToken.updatedAudit.updatedAt.before(threshold))
+			        .execute();
+
+		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
+        entityManager.clear();
 	}
 
 }

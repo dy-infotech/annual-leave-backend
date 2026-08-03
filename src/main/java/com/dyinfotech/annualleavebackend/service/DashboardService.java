@@ -12,14 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
-import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.MultipleEmployeeRoleResolver;
 
 import lombok.RequiredArgsConstructor;
 
@@ -71,15 +69,6 @@ public class DashboardService {
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getMyRequestSummary(Long employeeId) {
-//		long pending = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.PENDING, clock);
-//		long approved = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.APPROVED, clock);
-//		long rejected = leaveRequestRepository.countByEmployee_EmployeeIdAndStatus(employeeId, LeaveRequestStatus.REJECTED, clock);
-//    	
-//    	return DashboardDto.LeaveRequestSummaryResponse.builder()
-//    			.pendingCount(pending)
-//    			.approvedCount(approved)
-//    			.rejectedCount(rejected)
-//    			.build();
     	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(employeeId, clock).stream()
 																			    	                  .collect(Collectors.toMap(
 																			    	                      LeaveRequestStatusCount::status,

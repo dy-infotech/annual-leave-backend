@@ -60,7 +60,7 @@ public final class LeaveRequestListDto {
                     .employeeNumber(leaveRequest.getEmployee().getEmployeeNumber())
                     .position(leaveRequest.getEmployee().getPosition())
                     .department(leaveRequest.getEmployee().getDepartment())
-                    .requestedAt(leaveRequest.getCreatedAt())
+                    .requestedAt(leaveRequest.getCreatedAudit().getCreatedAt())
                     .leaveType(leaveRequest.getLeaveType())
                     .startDate(leaveRequest.getStartDate())
                     .endDate(leaveRequest.getEndDate())

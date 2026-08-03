@@ -4,11 +4,17 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
-import com.dyinfotech.annualleavebackend.domain.common.CreatedTimeEntity;
+import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
+import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
+import com.dyinfotech.annualleavebackend.domain.support.IpEntityListener;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -28,8 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 @Entity
 @Table(name = "leave_request")
 @Getter
+@EntityListeners({AuditingEntityListener.class, IpEntityListener.class})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class LeaveRequest extends CreatedTimeEntity {
+public class LeaveRequest implements HasCreatedAudit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -66,8 +73,14 @@ public class LeaveRequest extends CreatedTimeEntity {
     @Column(name = "managed_at")
     private LocalDateTime managedAt;
 
+    @Column(name = "managed_ip", nullable = false, updatable = false, length = 45)
+    private String managedIp;
+
     @Column(name = "reject_reason", length = 200)
     private String rejectReason;
+    
+    @Embedded
+    private CreatedAudit createdAudit;
 
     @Builder
     public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, String leaveReason) {

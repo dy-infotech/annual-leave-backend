@@ -4,4 +4,5 @@ import java.time.LocalDateTime;
 
 public interface FcmTokenRepositoryCustom {
 	int updateTokenAndTouch(Long employeeId, String deviceOs, LocalDateTime now, String token);
+	void deleteByUpdatedAtBefore(LocalDateTime threshold);
 }
