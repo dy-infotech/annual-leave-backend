@@ -14,7 +14,7 @@ import lombok.Getter;
 public enum LeaveUnitType {
 	DAY			("DAY",		"1일 단위",		CommonConfig.DAILY_STANDARD_WORKING_MINUTES)
 	,HALF		("HALF",	"0.5일 단위",		CommonConfig.DAILY_STANDARD_WORKING_MINUTES / 2)
-	,QUATER		("QUATER",	"0.25일 단위",	CommonConfig.DAILY_STANDARD_WORKING_MINUTES / 4)
+	,QUARTER	("QUARTER",	"0.25일 단위",	CommonConfig.DAILY_STANDARD_WORKING_MINUTES / 4)
 	,HOUR		("HOUR",	"1시간 단위",		(int) Duration.ofHours(1).toMinutes())
 	;
 	
