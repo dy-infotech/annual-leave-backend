@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -65,25 +66,21 @@ public class EmployeeService {
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
     	List<Employee> employees;
     	MultipleEmployeeRoleResolver roleResolver;
-//    	// XXX: 주석 처리된 부분은 remainingLeaveDays가 필요할 경우에만 사용. 현재는 필요하지 않다고 판단함.
-//    	Map<Long, Float> remainingLeaveDaysMap;
+    	// XXX: 주석 처리된 부분은 remainingLeaveDays가 필요할 경우에만 사용. 현재는 필요하지 않다고 판단함.
     	if (searchParam == null || searchParam.isBlank()) {
     		employees = employeeRepository.findAllEmployees();
     		roleResolver = employeeLeaveService.createRoleResolver();
-//    		Collection<Long> employeeIds = employees.stream().map(Employee::getEmployeeId).toList();
-//    		remainingLeaveDaysMap = employeeLeaveService.getAdjustedLeaveDays(employeeIds, employees.get(0).getCurrYear());
     	} else {
     		employees = employeeRepository.findAllEmployees(searchParam);
     		Collection<Long> employeeIds = employees.stream().map(Employee::getEmployeeId).toList();
     		roleResolver = employeeLeaveService.createRoleResolver(employeeIds);
-//    		remainingLeaveDaysMap = employeeLeaveService.getAdjustedLeaveDays(employeeIds, employees.get(0).getCurrYear());
     	}
+    	Map<Long, Float> remainingLeaveDaysMap = commonService.getRemainingDays(employees);
     	
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
             // XXX: approver 데이터 필요 없어서 뺐음.
-//			responses.add(EmployeeResponse.from(employee, employee, roleResolver.resolveRole(employee.getEmployeeId()), remainingLeaveDaysMap.get(employee.getEmployeeId())));
-            responses.add(EmployeeResponse.from(employee, employee, roleResolver.resolveRole(employee.getEmployeeId()), 0.0f));
+			responses.add(EmployeeResponse.from(employee, employee, roleResolver.resolveRole(employee.getEmployeeId()), remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
 
         return responses;
@@ -214,6 +211,8 @@ public class EmployeeService {
                 ? request.getTeam() 
                 : employee.getTeam();
 
+    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
+    	
         // 4. [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
         employee.updateInfoByAdmin(
             request.getName() != null ? request.getName() : employee.getName(),
@@ -223,7 +222,9 @@ public class EmployeeService {
             request.getPosition() != null ? request.getPosition() : employee.getPosition(),
             parsedHireDate,            // 👈 포맷 오류가 해결된 LocalDate 객체 주입
            // employee.getApproverId(),   // 👈 필수값인 결재자(approver_id) 원본 데이터 보존
-            request.getCurrTotalLeaveDays() != null ? request.getCurrTotalLeaveDays() : employee.getCurrTotalLeaveDays()
+           // request.getCurrTotalLeaveDays() != null ? request.getCurrTotalLeaveDays() : employee.getCurrTotalLeaveDays()
+            employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate) 
+            
         );
     }
     

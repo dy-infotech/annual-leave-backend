@@ -150,12 +150,11 @@ public class Employee extends BaseEntity {
     // 관리자용 사원 정보 수정 메서드
     public void updateInfoByAdmin(String name, String email, String department, String team, String position, LocalDate hireDate, Float currTotalLeaveDays) {
         this.name = name;
-        this.email = email;             // 👈 필드 바인딩 추가
+        this.email = email;             
         this.department = department;
         this.team = team;
         this.position = position;
-        this.hireDate = hireDate;       // 👈 필드 바인딩 추가
-       // this.approverId = approverId;
+        this.hireDate = hireDate;        
         this.currTotalLeaveDays = currTotalLeaveDays;
     }
 }
