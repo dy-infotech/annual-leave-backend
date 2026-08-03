@@ -292,27 +292,33 @@ public class AuthService {
     
     @Transactional
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
-        // 1. employeeNumber(=사번)로 직원 조회
+        // employeeNumber(=사번)로 직원 조회
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber())
                 .orElseThrow(() -> {
                 	log.error("사번이 존재하지 않습니다. employeeNumber: " + request.getEmployeeNumber());
                 	return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
                 });
         
-        // 2. 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
+        // 사용 등록 여부 확인
+        if (employee.getPassword() == null) {
+			log.error("사용 등록이 되지 않은 사원입니다. employeeNumber: " + request.getEmployeeNumber());
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용 등록이 되지 않은 사원입니다.");
+		}
+        
+        // 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
         validateLogin(employee, request.getPassword());
 
-        // 3. 현재 연도 연차일수 계산 및 설정
+        // 현재 연도 연차일수 계산 및 설정
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
         
-        // 4. 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
-        //    (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
+        // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
+        // (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
         teamService.refreshApproverIds(employee);
         
-        // 5. JWT 발급
+        // JWT 발급
         SingleEmployeeRoleResolver roleResolver = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId());
         Role role = roleResolver.resolveRole();
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
