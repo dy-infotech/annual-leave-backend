@@ -25,6 +25,7 @@ public final class PendingLeaveRequestDto {
         private LocalDate endDate;
         private Float useDays;
         private LocalDateTime createdAt;
+        private String leaveType;
 
         public static PendingLeaveRequestResponse from(LeaveRequest leaveRequest) {
             return PendingLeaveRequestResponse.builder()
@@ -37,6 +38,7 @@ public final class PendingLeaveRequestDto {
                     .endDate(leaveRequest.getEndDate())
                     .useDays(leaveRequest.getUseDays())
                     .createdAt(leaveRequest.getCreatedAudit().getCreatedAt())
+                    .leaveType(leaveRequest.getLeaveType())
                     .build();
         }
     }
