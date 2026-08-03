@@ -4,8 +4,10 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -61,6 +63,19 @@ public class LeaveRequestController {
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
     ) {
         return leaveRequestService.searchLeaveRequests(condition);
+    }
+
+    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
+    @GetMapping("/{requestId}")
+    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
+            @PathVariable Long requestId,
+            @AuthenticationPrincipal Long employeeId,
+            Authentication authentication) {
+
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(auth -> "ROLE_ADMIN".equals(auth.getAuthority()));
+
+        return leaveRequestService.getLeaveRequestDetail(requestId, employeeId, isAdmin);
     }
 
     @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 조회한다.")
