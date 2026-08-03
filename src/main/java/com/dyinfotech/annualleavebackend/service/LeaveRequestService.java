@@ -123,7 +123,7 @@ public class LeaveRequestService {
         Set<Long> resolvedApproverIds = teamService.refreshApproverIds(employee);
         if (!resolvedApproverIds.isEmpty()) {
             notificationService.sendNotificationToTeams(resolvedApproverIds,
-                    employee.getEmployeeNumber() + "님의 휴가 신청",
+                    employee.getName() + "님의 휴가 신청",
                     "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
         }
 
