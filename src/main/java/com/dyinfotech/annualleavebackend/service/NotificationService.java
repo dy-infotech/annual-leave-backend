@@ -4,6 +4,9 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +25,8 @@ public class NotificationService {
     private final FcmService fcmService;
     
     private final Clock clock;
+	
+	private final ScheduledExecutorService retryExecutor;
     
     private static final int MAX_RETRY_COUNT = 3;
     
@@ -103,10 +108,18 @@ public class NotificationService {
 //		}
 //	}
 	
+	private CompletableFuture<Void> delay(long millis) {
+	    CompletableFuture<Void> future = new CompletableFuture<>();
+
+	    retryExecutor.schedule(() -> future.complete(null), millis, TimeUnit.MILLISECONDS);
+
+	    return future;
+	}
+	
 	@Transactional
 	public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
 		// DB에 토큰이 있으면 소유자 변경 처리
-		tokenRepository.findByToken(fcmToken)
+		tokenRepository.findByToken(fcmToken)	// Topic은 migrate(), 토큰 소유자는 updateTokenAndTouch()에서 처리하도록 순서를 맞춤
 						.ifPresent(existingToken -> syncExistingToken(existingToken, employeeId, fcmToken));
 		
 		// DB에 토큰이 없으면 새로운 토큰 생성
@@ -128,10 +141,11 @@ public class NotificationService {
 	                if (result == TopicSyncResult.SUCCESS || retryCount >= MAX_RETRY_COUNT) {
 	                    return CompletableFuture.completedFuture(result);
 	                }
-
+	                
 	                log.warn("FCM subscribe retry. retry={}/{}, token={}, employeeId={}", retryCount, MAX_RETRY_COUNT, token, employeeId);
 	                
-	                return subscribeRetry(token, employeeId, retryCount + 1);
+	                return delay(100L << (retryCount - 1))
+	                		.thenCompose(v ->  subscribeRetry(token, employeeId, retryCount + 1));
 	            });
 	}
 
@@ -154,19 +168,14 @@ public class NotificationService {
 	private CompletableFuture<TopicSyncResult> migrate(String token, Long oldEmployeeId, Long newEmployeeId, TopicSyncResult previousResult, int retryCount) {
 		return migrateOnce(token, oldEmployeeId, newEmployeeId, previousResult)
 				.thenCompose(result -> {
-					if (result == TopicSyncResult.SUCCESS) {
-						return CompletableFuture.completedFuture(result);
-					}
-					
-					if (retryCount >= MAX_RETRY_COUNT) {
-						log.error("FCM topic migration 최종 실패. result={}, token={}", result, token);
+					if (result == TopicSyncResult.SUCCESS || retryCount >= MAX_RETRY_COUNT) {
 						return CompletableFuture.completedFuture(result);
 					}
 					
 					log.warn("FCM topic migration retry. retry={}/{}, result={}, token={}", retryCount, MAX_RETRY_COUNT, result, token);
 					
-					
-					return migrate(token, oldEmployeeId, newEmployeeId, result, retryCount + 1);
+					return delay(100L << (retryCount - 1))
+							.thenCompose(v -> migrate(token, oldEmployeeId, newEmployeeId, result, retryCount + 1));
 				});
 	}
 	

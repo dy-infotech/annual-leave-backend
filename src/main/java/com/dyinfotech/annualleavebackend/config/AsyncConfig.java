@@ -1,6 +1,9 @@
 package com.dyinfotech.annualleavebackend.config;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,6 +13,18 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @Configuration
 @EnableAsync
 public class AsyncConfig {
+	@Bean(name = "retryExecutor", destroyMethod = "shutdown")
+	ScheduledExecutorService retryExecutor() {
+	    AtomicInteger idx = new AtomicInteger();
+
+	    return Executors.newScheduledThreadPool(4, r -> {
+	        Thread t = new Thread(r);
+	        t.setName("fcm-retry-" + idx.incrementAndGet());
+	        t.setDaemon(true);
+	        return t;
+	    });
+	}
+	
 	// FcmService에서 명시한 "fcmExecutor" 빈을 정의합니다.
     @Bean(name = "fcmExecutor")
     Executor fcmExecutor() {
