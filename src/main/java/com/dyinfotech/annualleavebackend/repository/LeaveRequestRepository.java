@@ -67,12 +67,12 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 	}
 
 	// 승인 대기 상태 휴가 조회 (관리자용)
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status, Year year) {
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long projectManagerId, List<Team> teams, LeaveRequestStatus status, Year year) {
     	if (teams == null || teams.isEmpty())	return Collections.emptyList();
-    	return findByStatusAndTeamsInRange(status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
+    	return findByStatusAndTeamsInRange(projectManagerId, status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
     }
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(List<Team> teams, LeaveRequestStatus status, Clock clock) {
-    	return findByStatusOrderByCreatedAtAsc(teams, status, Year.now(clock));
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long projectManagerId, List<Team> teams, LeaveRequestStatus status, Clock clock) {
+    	return findByStatusOrderByCreatedAtAsc(projectManagerId, teams, status, Year.now(clock));
     }
 
     @Query("SELECT lr FROM LeaveRequest lr " +

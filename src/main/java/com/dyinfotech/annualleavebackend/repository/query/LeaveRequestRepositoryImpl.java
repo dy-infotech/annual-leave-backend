@@ -132,13 +132,14 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 	
 	@Override
-	public List<LeaveRequest> findByStatusAndTeamsInRange(LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange) {
+	public List<LeaveRequest> findByStatusAndTeamsInRange(Long projectManagerId, LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange) {
 	    return queryFactory.selectFrom(qLeaveRequest)
 	                        .where(
 	                            qLeaveRequest.status.eq(status),
 	                            qLeaveRequest.employee.team.in(teams),
 	                            qLeaveRequest.startDate.loe(endRange),
-	                            qLeaveRequest.endDate.goe(startRange)
+	                            qLeaveRequest.endDate.goe(startRange),
+	                            qLeaveRequest.employee.employeeId.ne(projectManagerId)
 	                        )
 	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
 	                        .fetch();

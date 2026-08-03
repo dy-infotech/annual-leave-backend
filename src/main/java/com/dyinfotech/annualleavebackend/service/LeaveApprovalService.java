@@ -62,7 +62,7 @@ public class LeaveApprovalService {
     		return Collections.emptyList();
     	}
     	
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(teams, LeaveRequestStatus.PENDING, clock)
+        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(employeeId, teams, LeaveRequestStatus.PENDING, clock)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();

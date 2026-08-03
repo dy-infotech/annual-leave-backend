@@ -23,7 +23,7 @@ public interface LeaveRequestRepositoryCustom {
     List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, LocalDate endRange, LocalDate startRange);
 
     // 승인 대기 상태 휴가 조회 (관리자용)
-    List<LeaveRequest> findByStatusAndTeamsInRange(LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange);
+    List<LeaveRequest> findByStatusAndTeamsInRange(Long projectManagerId, LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange);
     
     // 휴가 결재 승인 또는 반려 처리
     int updateLeaveRequest(
