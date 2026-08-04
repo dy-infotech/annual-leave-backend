@@ -73,100 +73,102 @@ public class EmployeeLeaveService {
     /**
      * 직원의 현재 연도 연차일수를 계산해 반환한다
      * 
-     * 계산 규칙:
-     * 1. 입사 1년 미만: 월차로 계산 (최대 11일)
-     * 2. 입사 1년 이상: 기본 연차에서 근무 연수에 따라 추가 연차 부여
+     * 근로기준법 기준:
+     * 1. 입사 1년 미만:
+     *    - 1개월 개근 시 1일 발생
+     *    - 최대 11일
+     *
+     * 2. 입사 1년 이상:
+     *    - 기본 15일
+     *    - 3년 이상부터 매 2년마다 1일 가산
+     *    - 최대 25일
+     *    
      *    - 기본 연차: basis_data seq=1 (FIRST_YEAR_LEAVE_DAYS)
-     *    - 추가 기준: basis_data seq=2 (N_YEARS_OF_ADDITIONAL_LEAVE)
+     *    - 추가 기준: basis_data seq=2 (YEARS_PER_ADDITIONAL_LEAVE)
      *    - 추가 일수: basis_data seq=3 (ADDITIONAL_LEAVE_DAYS)
-     *    - 예) N_YEARS=3이면 3년마다 ADDITIONAL_LEAVE_DAYS일 추가
+     *    - 예) YEARS_PER_ADDITIONAL_LEAVE=2이면 3년차부터 2년마다 1일씩 추가
      *    - 최대값: basis_data seq=6 (MAXIMUM_LEAVE_DAYS)
      * 
      * @param hireDate 연차를 계산할 직원의 입사일
-     * @return calculatedLeaveDays
+     * @param now 연차를 계산할 기준일 (보통 현재 날짜)
+     * @return calculatedLeaveDays 발생 연차 일수
      */
-    public float getCalculatedCurrYearLeaveDays(LocalDate hireDate) {
-        LocalDate now = LocalDate.now(clock);
-        
-        float calculatedLeaveDays;
-        // 1. 입사 1년 미만인지 판단
+    private static final int MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT = 11;	// 입사 1년 미만 근로자는 매월 개근 시 1일 발생하며 최대 11일
+    public float getCalculatedCurrYearLeaveDays(LocalDate hireDate, LocalDate now) {
+        // 1년 미만 근로자
         if (now.isBefore(hireDate.plusYears(1))) {
-            // 월차 계산: 입사월 제외, 이후 경과 월수
-            int monthlyLeaveDays = calculateMonthlyLeaveDays(hireDate, now);
-            calculatedLeaveDays = Math.min(monthlyLeaveDays, 11);
-        } else {
-            // 2. 근무 연수 계산
-            int yearsOfService = Period.between(hireDate, now).getYears();
-
-            // 3. BasisDataFactory에서 기초 데이터 조회
-            float baseLeaveDay = basisDataFactory.getAsInteger(
-                    BasisDataType.FIRST_YEAR_LEAVE_DAYS
-            ).map(Integer::floatValue).orElseThrow(() -> 
-                new IllegalArgumentException("기초 데이터에서 1년차 연차일수를 찾을 수 없습니다")
-            );
-
-            int nYearsOfAdditionalLeave = basisDataFactory.getAsInteger(
-                    BasisDataType.N_YEARS_OF_ADDITIONAL_LEAVE
-            ).orElseThrow(() -> 
-                new IllegalArgumentException("기초 데이터에서 추가연차 기준 연수를 찾을 수 없습니다")
-            );
-
-            int additionalLeaveDays = basisDataFactory.getAsInteger(
-                    BasisDataType.ADDITIONAL_LEAVE_DAYS
-            ).orElseThrow(() -> 
-                new IllegalArgumentException("기초 데이터에서 추가연차 일수를 찾을 수 없습니다")
-            );
-
-            float maximumLeaveDays = basisDataFactory.getAsInteger(
-                    BasisDataType.MAXIMUM_LEAVE_DAYS
-            ).map(Integer::floatValue).orElseThrow(() -> 
-                new IllegalArgumentException("기초 데이터에서 최대 연차일수를 찾을 수 없습니다")
-            );
-
-            // 4. 추가 연차 계산
-            // 근무 연수에서 1을 뺀 값이 nYearsOfAdditionalLeave 이상이면 추가 연차 부여
-            // 예) nYearsOfAdditionalLeave=3, yearsOfService=5 → additionalYears=4 → (4/3=1일) * additionalLeaveDays 추가
-            int additionalYears = yearsOfService - 1;
-            if (additionalYears >= nYearsOfAdditionalLeave) {
-                baseLeaveDay += (additionalYears / nYearsOfAdditionalLeave) * additionalLeaveDays;
-            }
-
-            // 5. 최대값 초과 방지
-            calculatedLeaveDays = Math.min(baseLeaveDay, maximumLeaveDays);
+            return Math.min(calculateMonthlyLeaveCount(hireDate, now), MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT);
         }
 
-        // 6. 계산된 값 반환
-        return calculatedLeaveDays;
+        // 1년 이상 근로자
+        int yearsOfService = Period.between(hireDate, now).getYears();
+        int baseLeaveDays = basisDataFactory.getAsInteger(BasisDataType.FIRST_YEAR_LEAVE_DAYS)
+							                .orElseThrow(() -> new IllegalArgumentException("기본 연차 일수를 찾을 수 없습니다"));
+
+        int yearsPerAdditionalLeave = basisDataFactory.getAsInteger(BasisDataType.YEARS_PER_ADDITIONAL_LEAVE)
+								                .orElseThrow(() -> new IllegalArgumentException("가산연차 주기를 찾을 수 없습니다"));
+
+        int additionalLeaveDays = basisDataFactory.getAsInteger(BasisDataType.ADDITIONAL_LEAVE_DAYS)
+								                .orElseThrow(() -> new IllegalArgumentException("가산연차 일수를 찾을 수 없습니다"));
+
+
+        int maximumLeaveDays = basisDataFactory.getAsInteger(BasisDataType.MAXIMUM_LEAVE_DAYS)
+							                .orElseThrow(() -> new IllegalArgumentException("최대 연차 일수를 찾을 수 없습니다"));
+        /*
+         * 가산 연차 계산
+         *
+         * 근로기준법:
+         * - 근속 3년 이상부터 매 2년마다 1일씩 가산
+         *
+         * 계산식:
+         * (근속연수 - 1) / 가산주기
+         *
+         * 예)
+         * 1년 → (1-1)/2 = 0
+         * 2년 → (2-1)/2 = 0
+         * 3년 → (3-1)/2 = 1
+         * 4년 → (4-1)/2 = 1
+         * 5년 → (5-1)/2 = 2
+         */
+        int additionalLeaveCount = (yearsOfService - 1) / yearsPerAdditionalLeave;
+        // 기본 연차 + 가산 연차를 계산하되 법정 최대 연차(25일)를 초과하지 않도록 제한
+        int calculatedLeaveDays = baseLeaveDays + additionalLeaveCount * additionalLeaveDays;
+        return Math.min(calculatedLeaveDays, maximumLeaveDays);
+    }
+    public float getCalculatedCurrYearLeaveDays(LocalDate hireDate) {
+        return getCalculatedCurrYearLeaveDays(hireDate, LocalDate.now(clock));
     }
     public float getCalculatedCurrYearLeaveDays(Employee employee) {
     	return getCalculatedCurrYearLeaveDays(employee.getHireDate());
     }
-
+    
     /**
-     * 입사일 기준으로 경과 월수를 계산한다. (입사월은 제외)
-     * 
+     * 입사일 기준으로 1개월 단위 경과 횟수를 계산한다.
+     *
+     * 입사 후 1개월이 경과한 시점부터 월차 발생 대상으로 계산한다.
+     *
      * 예) 입사: 2026-07-01, 현재: 2026-10-15
-     *    → 2026-08-01(1개월), 2026-09-01(2개월), 2026-10-01(3개월) = 3개월
-     * 
+     *     → 2026-08-01, 2026-09-01, 2026-10-01
+     *     = 3개월 경과
      * @param hireDate 입사일
      * @param now 현재 날짜
      * @return 경과 개월 수
      */
-    private int calculateMonthlyLeaveDays(LocalDate hireDate, LocalDate now) {
-        int count = 0;
-
-        for (int i = 1; i < 12; i++) {
-            LocalDate occurrenceDate = hireDate.plusMonths(i);
-
-            // 현재 날짜를 넘지 않으면 카운트 증가
-            if (!occurrenceDate.isAfter(now)) {
-                count++;
-            } else {
-                break;
-            }
-        }
-
-        return count;
+    private int calculateMonthlyLeaveCount(LocalDate hireDate, LocalDate now) {
+    	int count = 0;
+    	
+    	for (int i = 1; i <= MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT; i++) {
+    		LocalDate occurrenceDate = hireDate.plusMonths(i);
+    		
+    		// 현재 날짜를 넘지 않으면 카운트 증가
+    		if (!occurrenceDate.isAfter(now)) {
+    			count++;
+    		} else {
+    			break;
+    		}
+    	}
+    	
+    	return count;
     }
 
     public interface SingleEmployeeRoleResolver {
