@@ -68,7 +68,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
 	// 승인 대기 상태 휴가 조회 (관리자용)
     default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long excludeId, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LeaveRequestStatus status, Year year) {
-    	if (directTeams == null || directTeams.isEmpty() || childTeamProjectManagerIds == null || childTeamProjectManagerIds.isEmpty()) {
+    	if (directTeams == null || directTeams.isEmpty()) {
     		return Collections.emptyList();
     	}
     	return findByStatusAndTeamsInRange(excludeId, status, directTeams, childTeamProjectManagerIds, getEndOfYear(year), getStartOfYear(year));

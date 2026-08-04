@@ -67,8 +67,10 @@ public class LeaveApprovalService {
     		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
     	}
     	Set<Long> childTeamProjectManagerIds = accessibleTeams.stream()
-    														// 내 팀 + 하위 팀 조합에서 내 팀만 제외하면 하위 팀만 조회
-    														.filter(e -> !directTeams.contains(e.getTeam()))
+//    														// 내 팀 + 하위 팀 조합에서 내 팀만 제외하면 하위 팀만 조회
+//    														.filter(e -> !directTeams.contains(e.getTeam()))
+											    			// 최상위 팀(TeamName == ParentTeamName)과 내가 관리하는 팀을 제외하고, 하위 팀들을 반환
+															.filter(e -> !e.getTeam().equals(e.getParentTeam()) && directTeams.contains(e.getParentTeam()))
     														.map(Team::getProjectManagerId)
     												        .filter(Objects::nonNull)
     														.collect(Collectors.toSet());
