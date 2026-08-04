@@ -57,7 +57,7 @@ public class LeaveAdjustment implements HasCreatedIp, HasUpdatedAudit {
     private String createdIp;
     
     @Embedded
-    private UpdatedAudit updatedAudit;
+    private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder
     public LeaveAdjustment(Long employeeId, String year, String sign, Float leaveDays, String reason, Clock clock) {

@@ -80,7 +80,7 @@ public class LeaveRequest implements HasCreatedAudit {
     private String rejectReason;
     
     @Embedded
-    private CreatedAudit createdAudit;
+    private CreatedAudit createdAudit = new CreatedAudit();
 
     @Builder
     public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, String leaveReason) {

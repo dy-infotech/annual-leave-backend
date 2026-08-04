@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 
 @Embeddable
 @Getter
-@NoArgsConstructor(access = AccessLevel.PUBLIC) // 이미 있다면 PUBLIC이나 PACKAGE로 조정 필요
+@NoArgsConstructor(access = AccessLevel.PUBLIC)
 public class UpdatedAudit {
 
     @LastModifiedDate

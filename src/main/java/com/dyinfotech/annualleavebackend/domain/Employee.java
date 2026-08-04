@@ -94,10 +94,10 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     private Long approverId;
     
     @Embedded
-    private CreatedAudit createdAudit;
+    private CreatedAudit createdAudit = new CreatedAudit();
     
     @Embedded
-    private UpdatedAudit updatedAudit;
+    private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder
     public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {
