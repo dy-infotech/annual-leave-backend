@@ -10,7 +10,7 @@ import lombok.Getter;
 @Getter
 public enum BasisDataType {
 	FIRST_YEAR_LEAVE_DAYS				(1L, "1년차 연차일수")
-	,N_YEARS_OF_ADDITIONAL_LEAVE		(2L, "N년당 추가연차 발생")
+	,YEARS_PER_ADDITIONAL_LEAVE			(2L, "N년당 추가연차 발생")
 	,ADDITIONAL_LEAVE_DAYS				(3L, "추가연차 일수")
 	,MINIMUM_ATTENDANCE_RATE_FOR_LEAVE	(4L, "만근 출석 퍼센트")
 	,EMPLOYEE_NUMBER_PREFIX				(5L, "사번 접두사")
