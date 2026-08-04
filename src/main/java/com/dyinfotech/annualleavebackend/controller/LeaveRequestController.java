@@ -6,9 +6,7 @@ import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -72,7 +70,7 @@ public class LeaveRequestController {
 //    @GetMapping("/{requestId}")
 //    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
 //            @PathVariable Long requestId,
-//            @AuthenticationPrincipal LoginPrincipal principal,
+//            @AuthenticationPrincipal EmployeePrincipal principal,
 //            Authentication authentication) {
  // ⚙️ 수정 후 (괄호 안에 파라미터 이름을 명시적으로 추가)
     @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
