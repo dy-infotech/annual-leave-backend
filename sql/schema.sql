@@ -65,6 +65,7 @@ CREATE TABLE team (
                                parent_team        VARCHAR(30)	NOT NULL COMMENT '상위 팀',
 
                                CONSTRAINT fk_project_manager FOREIGN KEY (project_manager_id) REFERENCES employee(employee_id)
+                               CONSTRAINT uk_team_project_manager UNIQUE KEY (team, project_manager_id)
 ) COMMENT '팀 정보 (결재라인 상급자 탐색용)';
 
 

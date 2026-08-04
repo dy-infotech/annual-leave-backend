@@ -9,6 +9,7 @@ import java.util.Map;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 
 public interface LeaveRequestRepositoryCustom {
@@ -20,10 +21,17 @@ public interface LeaveRequestRepositoryCustom {
     List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate endRange, LocalDate startRange);
     
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, LocalDate endRange, LocalDate startRange);
+    List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate endRange, LocalDate startRange);
 
     // 승인 대기 상태 휴가 조회 (관리자용)
-    List<LeaveRequest> findByStatusAndTeamsInRange(Long projectManagerId, LeaveRequestStatus status, List<String> teams, LocalDate endRange, LocalDate startRange);
+    List<LeaveRequest> findByStatusAndTeamsInRange(
+    		Long excludeId, 
+    		LeaveRequestStatus status, 
+    		Collection<String> directTeams, 
+    		Collection<Long> childTeamProjectManagerIds, 
+    		LocalDate endRange, 
+    		LocalDate startRange
+    );
     
     // 휴가 결재 승인 또는 반려 처리
     int updateLeaveRequest(
@@ -41,7 +49,7 @@ public interface LeaveRequestRepositoryCustom {
             LocalDate startDate,
             LocalDate endDate,
             LeaveRequestStatus status,
-            List<String> team
+            Collection<String> team
     );
 
     // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
@@ -59,7 +67,7 @@ public interface LeaveRequestRepositoryCustom {
 			LocalDate startDate, 
 			LocalDate endDate, 
 			LeaveRequestStatus status,
-			List<String> teams
+			Collection<String> teams
 	) {
     	return searchLeaveRequests(null, startDate, endDate, status, teams);
 	}

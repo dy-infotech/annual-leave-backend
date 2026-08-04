@@ -82,15 +82,19 @@ public class DashboardService {
     }
 
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
+    	Long excludeId = employee.getEmployeeId();
     	Set<String> directTeams = new HashSet<>();
-    	Set<String> accessibleTeams = new HashSet<>();
+    	Set<Team> accessibleTeams = new HashSet<>();
     	for (Team team : employee.getTeams()) {
     		String myTeam = team.getTeam();
     		directTeams.add(myTeam);
+    		if (myTeam.equals(team.getParentTeam())) {
+    			excludeId = null;	// 최상위 팀이면 제외할 필요 없음 (스스로 승인이 가능하므로)
+    		}
     		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
     	}
     	
-    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(directTeams, accessibleTeams, clock)
+    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(excludeId, directTeams, accessibleTeams, clock)
     																	.stream()
     																	.collect(Collectors.toMap(
     																		LeaveRequestStatusCount::status,

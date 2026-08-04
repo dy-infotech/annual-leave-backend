@@ -1,15 +1,13 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.Month;
 import java.time.Year;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -33,7 +31,6 @@ import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
-import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 
 import io.jsonwebtoken.lang.Collections;
 import lombok.RequiredArgsConstructor;
@@ -57,36 +54,41 @@ public class LeaveApprovalService {
     	if (employeeList.isEmpty()) {
     		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
     	}
-    	List<Team> teams = employeeList.get(0).getTeams();
-    	if (teams.isEmpty()) {
-    		return Collections.emptyList();
-    	}
+
     	Long excludeId = employeeId;
-    	for (Team team : teams) {
-    		if (team.getProjectManagerId() == employeeId) {
-				if (team.getTeam().equals(team.getParentTeam())) {
-					excludeId = null;	// 대표이사는 제외하지 않는다.
-					break;
-				}
-				continue;
-			}
+    	Set<String> directTeams = new HashSet<>();
+    	Set<Team> accessibleTeams = new HashSet<>();
+    	for (Team team : employeeList.get(0).getTeams()) {
+    		String myTeam = team.getTeam();
+    		directTeams.add(myTeam);
+    		if (myTeam.equals(team.getParentTeam())) {
+    			excludeId = null;	// 최상위 팀이면 제외할 필요 없음 (스스로 승인이 가능하므로)
+    		}
+    		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
     	}
+    	Set<Long> childTeamProjectManagerIds = accessibleTeams.stream()
+    														// 최상위 팀(TeamName == ParentTeamName)과 내가 관리하는 팀을 제외하고, 하위 팀들을 반환
+    														.filter(e -> !e.getTeam().equals(e.getParentTeam()) && directTeams.contains(e.getParentTeam()))
+    														.map(Team::getProjectManagerId)
+    												        .filter(Objects::nonNull)
+    														.collect(Collectors.toSet());
     	
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(excludeId, teams, LeaveRequestStatus.PENDING, clock)
+        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(excludeId, directTeams, childTeamProjectManagerIds, LeaveRequestStatus.PENDING, clock)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();
     }
     
-    private List<String> getAccessibleTeams(List<Team> teams) {
+    private Set<String> getAccessibleTeams(List<Team> teams) {
     	if (teams.isEmpty()) {
-    		return Collections.emptyList();
+    		return Collections.emptySet();
     	}
     	
     	return teams.stream()
     				.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam())
     										.stream())
-    				.toList();
+    				.map(Team::getTeam)
+    				.collect(Collectors.toSet());
     }
     
     @Transactional(readOnly = true)
@@ -98,7 +100,7 @@ public class LeaveApprovalService {
     	}
     	
     	//승인권자의 팀정보
-    	List<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
+    	Set<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
     	if (accessibleTeams.isEmpty()) {
     		return Collections.emptyList();
     	}
@@ -123,7 +125,7 @@ public class LeaveApprovalService {
     	}
     	
     	//승인권자의 팀정보
-    	List<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
+    	Set<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
     	if (accessibleTeams.isEmpty()) {
     		return Collections.emptyList();
     	}

@@ -17,9 +17,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -90,8 +93,9 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Column(name = "fire_date")
     private LocalDate fireDate;
     
-    @Column(name = "approver_id", nullable = false)
-    private Long approverId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approver_id", nullable = false)
+    private Employee approver;
     
     @Embedded
     private CreatedAudit createdAudit = new CreatedAudit();
@@ -100,7 +104,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder
-    public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Long approverId) {
+    public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Employee approver) {
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
@@ -110,7 +114,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         this.currYear = currYear;
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
-        this.approverId = approverId;
+        this.approver = approver;
     }
     
     
@@ -127,8 +131,8 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         this.password = encodedPassword;
     }
 
-    public void changeApprover(Long approverId) {
-        this.approverId = approverId;
+    public void changeApprover(Employee approver) {
+        this.approver = approver;
     }
     
     public void increaseAccessCount(LocalDateTime now) {
@@ -159,6 +163,10 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
 
     public void setPrevYearLeaveDays(Float leaveDays) {
         this.prevTotalLeaveDays = leaveDays;
+    }
+    
+    public Long getApproverId() {
+        return approver != null ? approver.getEmployeeId() : null;
     }
     
     public boolean isRegisted() {

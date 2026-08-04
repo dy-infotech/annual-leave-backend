@@ -9,14 +9,25 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "team")
+@Table(
+    name = "team",
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_team_project_manager",
+            columnNames = {"team", "project_manager_id"}
+        )
+    }
+)
 @Getter
+@EqualsAndHashCode(of = "seq")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Team {
     @Id

@@ -19,6 +19,8 @@ ALTER TABLE leave_adjustment ADD COLUMN updated_ip VARCHAR(45) NOT NULL DEFAULT 
 ALTER TABLE fcm_token MODIFY COLUMN updated_at DATETIME NOT NULL COMMENT '수정 시각';
 ALTER TABLE fcm_token ADD COLUMN updated_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정 요청 IP 주소' AFTER updated_at;
 
+ALTER TABLE team ADD CONSTRAINT uk_team_project_manager UNIQUE KEY (team, project_manager_id);
+
 
 
 -- curr version data

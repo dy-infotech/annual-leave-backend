@@ -100,7 +100,7 @@ public class AuthService {
     	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	return RegisterCommonDto.RegisterCommonResponse.builder()
     													.department(Arrays.asList(DepartmentType.values()).stream().map(DepartmentType::getName).toList())
-    													.team(teamService.getSelfAndDescendants(requester.getTeam()))
+    													.team(teamService.getSelfAndDescendants(requester.getTeam()).stream().map(Team::getTeam).toList())
     													.position(Arrays.asList(PositionType.values()).stream().map(PositionType::getName).toList())
     													.build();
     }
@@ -181,7 +181,7 @@ public class AuthService {
 				.hireDate(hireDate)
 				.currYear(currentYear)
 				.currTotalLeaveDays(employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate))
-				.approverId(employeeId)
+				.approver(approver)
 				.build();
     	
     	employeeService.saveEmployee(employee);

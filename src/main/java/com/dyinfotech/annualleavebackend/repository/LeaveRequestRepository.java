@@ -56,23 +56,25 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-	default List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, Year year) {
+	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, Year year) {
 		if (directTeams == null || directTeams.isEmpty() || accessibleTeams == null || accessibleTeams.isEmpty()) {
 			return Collections.emptyList();
 		}
-		return countByStatus(directTeams, accessibleTeams, getEndOfYear(year), getStartOfYear(year));
+		return countByStatus(excludeId, directTeams, accessibleTeams, getEndOfYear(year), getStartOfYear(year));
 	}
-	default List<LeaveRequestStatusCount> countByStatus(Collection<String> directTeams, Collection<String> accessibleTeams, Clock clock) {
-		return countByStatus(directTeams, accessibleTeams, Year.now(clock));
+	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, Clock clock) {
+		return countByStatus(excludeId, directTeams, accessibleTeams, Year.now(clock));
 	}
 
 	// 승인 대기 상태 휴가 조회 (관리자용)
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long projectManagerId, List<Team> teams, LeaveRequestStatus status, Year year) {
-    	if (teams == null || teams.isEmpty())	return Collections.emptyList();
-    	return findByStatusAndTeamsInRange(projectManagerId, status, teams.stream().map(Team::getTeam).toList(), getEndOfYear(year), getStartOfYear(year));
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long excludeId, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LeaveRequestStatus status, Year year) {
+    	if (directTeams == null || directTeams.isEmpty() || childTeamProjectManagerIds == null || childTeamProjectManagerIds.isEmpty()) {
+    		return Collections.emptyList();
+    	}
+    	return findByStatusAndTeamsInRange(excludeId, status, directTeams, childTeamProjectManagerIds, getEndOfYear(year), getStartOfYear(year));
     }
-    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long projectManagerId, List<Team> teams, LeaveRequestStatus status, Clock clock) {
-    	return findByStatusOrderByCreatedAtAsc(projectManagerId, teams, status, Year.now(clock));
+    default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long excludeId, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LeaveRequestStatus status, Clock clock) {
+    	return findByStatusOrderByCreatedAtAsc(excludeId, directTeams, childTeamProjectManagerIds, status, Year.now(clock));
     }
 
     @Query("SELECT lr FROM LeaveRequest lr " +
