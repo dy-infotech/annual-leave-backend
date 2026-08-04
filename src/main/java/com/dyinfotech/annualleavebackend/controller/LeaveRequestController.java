@@ -65,12 +65,19 @@ public class LeaveRequestController {
         return leaveRequestService.searchLeaveRequests(condition);
     }
 
+//    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
+//    @GetMapping("/{requestId}")
+//    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
+//            @PathVariable Long requestId,
+//            @AuthenticationPrincipal Long employeeId,
+//            Authentication authentication) {
+ // ⚙️ 수정 후 (괄호 안에 파라미터 이름을 명시적으로 추가)
     @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
     @GetMapping("/{requestId}")
     public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
-            @PathVariable Long requestId,
+            @PathVariable("requestId") Long requestId, // 👈 ("requestId") 이름을 명시하여 URL 매핑 문제를 해결합니다.
             @AuthenticationPrincipal Long employeeId,
-            Authentication authentication) {
+            Authentication authentication) {    
 
         boolean isAdmin = authentication.getAuthorities().stream()
                 .anyMatch(auth -> "ROLE_ADMIN".equals(auth.getAuthority()));
