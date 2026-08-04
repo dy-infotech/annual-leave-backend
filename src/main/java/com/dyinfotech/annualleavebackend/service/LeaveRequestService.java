@@ -80,7 +80,7 @@ public class LeaveRequestService {
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
 
-        validateDateRange(request.getStartDate(), request.getEndDate());
+        validateDateRange(request.getStartDate(), request.getEndDate(), employee.getHireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
         validateRemainingLeave(employee, request.getUseDays());
@@ -129,12 +129,17 @@ public class LeaveRequestService {
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }
 
-    // 종료일이 시작일보다 빠르면 안 됨
-    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+    private void validateDateRange(LocalDate startDate, LocalDate endDate, LocalDate hireDate) {
         if (endDate.isBefore(startDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
-    	commonService.isValidDate(startDate, endDate);
+//    	commonService.isValidDate(startDate, endDate);
+        if (hireDate.minusYears(1).isBefore(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일이 작년 입사일보다 이전 날짜일 수 없습니다. 입사일 : " + hireDate);
+        }
+        if (hireDate.plusYears(1).isAfter(startDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "시작일이 내년 입사일보다 이후 날짜일 수 없습니다. 입사일 : " + hireDate);
+        }
     }
     
 //    // 1일과 0.5일 단위만 허용
