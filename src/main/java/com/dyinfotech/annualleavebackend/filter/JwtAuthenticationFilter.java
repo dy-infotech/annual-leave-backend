@@ -10,7 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.dyinfotech.annualleavebackend.common.security.LoginPrincipal;
+import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.common.security.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 
@@ -51,7 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             var authentication = new UsernamePasswordAuthenticationToken(
                     // 컨트롤러에서 @AuthenticationPrincipal로 꺼내 쓸 수 있음
-                    new LoginPrincipal(employeeId, role),   // 1. principal (인증된 주체)
+                    new EmployeePrincipal(employeeId, role),   // 1. principal (인증된 주체)
                     null,         // 2. credentials (비밀번호 - 이미 인증이 끝났으니 불필요)
                     authorities   // 3. authorities (부여된 권한)
             );

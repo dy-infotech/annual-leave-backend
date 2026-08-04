@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.dyinfotech.annualleavebackend.common.security.LoginPrincipal;
+import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
@@ -56,7 +56,7 @@ public class LeaveRequestController {
     @Operation(summary = "휴가 신청", description = "휴가를 신청한다.")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(@AuthenticationPrincipal LoginPrincipal principal, @Valid @RequestBody LeaveRequestDto.LeaveRequestCreateRequest request) {
+    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody LeaveRequestDto.LeaveRequestCreateRequest request) {
         return leaveRequestService.createLeaveRequest(principal.employeeId(), request);
     }
 
@@ -79,14 +79,14 @@ public class LeaveRequestController {
     @GetMapping("/{requestId}")
     public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
             @PathVariable("requestId") Long requestId, // 👈 ("requestId") 이름을 명시하여 URL 매핑 문제를 해결합니다.
-            @AuthenticationPrincipal LoginPrincipal principal) {
+            @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveRequestService.getLeaveRequestDetail(requestId, principal.employeeId(), Role.isAdmin(principal.role()));
     }
 
     @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 조회한다.")
     @GetMapping("/my")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
-            @AuthenticationPrincipal LoginPrincipal principal,
+            @AuthenticationPrincipal EmployeePrincipal principal,
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
     ) {
     	condition.setEmployeeId(principal.employeeId());
@@ -95,7 +95,7 @@ public class LeaveRequestController {
 
     @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")
     @DeleteMapping("/{requestId}")
-    public ResponseEntity<Void> cancelLeaveRequest(@AuthenticationPrincipal LoginPrincipal principal, @PathVariable("requestId") Long requestId) {
+    public ResponseEntity<Void> cancelLeaveRequest(@AuthenticationPrincipal EmployeePrincipal principal, @PathVariable("requestId") Long requestId) {
         leaveRequestService.cancel(principal.employeeId(), requestId);
         return ResponseEntity.noContent().build();
     }
