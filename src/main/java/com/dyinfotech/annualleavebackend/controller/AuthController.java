@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dyinfotech.annualleavebackend.common.security.LoginPrincipal;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
 import com.dyinfotech.annualleavebackend.dto.LogoutDto;
@@ -68,9 +69,9 @@ public class AuthController {
 
     @Operation(summary = "로그아웃", description = "FCM 토큰을 폐기한다.(DB에서 삭제, FCM 서버에서 토픽 해제)")
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal Long employeeId,
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal LoginPrincipal principal,
             							@RequestBody(required = false) LogoutDto.LogoutRequest request) {
-        authService.logout(employeeId, request == null ? null : request.getFcmToken());
+        authService.logout(principal.employeeId(), request == null ? null : request.getFcmToken());
         return ResponseEntity.ok().build();
     }
 }

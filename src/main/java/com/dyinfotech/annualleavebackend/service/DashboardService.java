@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
@@ -34,8 +35,7 @@ public class DashboardService {
 
     private final Clock clock;
     
-    public DashboardDto getDashboard(Long employeeId) {
-
+    public DashboardDto getDashboard(Long employeeId, Role role) {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         // 현재 연도 연차일수 계산
@@ -48,7 +48,7 @@ public class DashboardService {
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
 
         // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createSingleRoleResolver(employeeId).isAdmin() ? getAllEmployeeRequestSummary(employee) : null;
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createSingleRoleResolver(role).isAdmin() ? getAllEmployeeRequestSummary(employee) : null;
 
         return DashboardDto.builder()
                 .myLeaveInfoResponse(myLeaveInfo)

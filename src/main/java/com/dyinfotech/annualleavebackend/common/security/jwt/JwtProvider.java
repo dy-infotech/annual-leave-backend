@@ -1,4 +1,4 @@
-package com.dyinfotech.annualleavebackend.common.jwt;
+package com.dyinfotech.annualleavebackend.common.security.jwt;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;

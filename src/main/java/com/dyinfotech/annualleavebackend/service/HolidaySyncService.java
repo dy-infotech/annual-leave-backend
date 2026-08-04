@@ -1,17 +1,20 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
@@ -86,7 +89,7 @@ public class HolidaySyncService {
         		.retrieve()
         		.bodyToMono(String.class)
         		// XXX: With JDK HttpClient, readTimeout is only available at the HttpRequest level
-        		.timeout(Duration.ofSeconds(10L))
+        		.timeout(Duration.ofSeconds(30L))
         		.map(response -> {
         			try {
         				return parseHolidays(response);
@@ -94,11 +97,22 @@ public class HolidaySyncService {
         				throw reactor.core.Exceptions.propagate(e);
         			}
         		})
-        		.retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(1)))
-        		.onErrorResume(e -> {
-        			log.error("[공공데이터] {}년 {}월 공휴일 조회 중 에러 발생", yearStr, monthStr, e);
-                    return Mono.error(new IllegalStateException("API 호출 실패", e));
-        		});
+        		.retryWhen(Retry.fixedDelay(3, Duration.ofSeconds(1))
+        						.filter(this::isRetryable))
+        		.doOnError(e ->
+	                log.error(
+	                    "[공공데이터] {}년 {}월 공휴일 조회 실패",
+	                    yearStr,
+	                    monthStr,
+	                    e
+	                )
+	            )
+        		.onErrorMap(e -> new IllegalStateException("공휴일 API 호출 실패", e));
+    }
+    private boolean isRetryable(Throwable e) {
+        return e instanceof TimeoutException
+            || e instanceof WebClientRequestException
+            || e instanceof IOException;
     }
     
     public Mono<Void> deleteAndSaveHolidays(int year, int month, List<Holiday> holidays) {

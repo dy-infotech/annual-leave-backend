@@ -42,7 +42,7 @@ public class EmployeeService {
     private final EmployeeLeaveService employeeLeaveService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
-    public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
+    public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId, Role role) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
                 	String errorMsg = "존재하지 않는 직원입니다.";
@@ -56,8 +56,6 @@ public class EmployeeService {
                     log.error(errorMsg + " " + "employeeId: " + employeeId + ", approverId: " + employee.getApproverId());
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
-
-        Role role = employeeLeaveService.createSingleRoleResolver(employeeId).resolveRole();
         Float remainingDays = commonService.getRemainingDays(employee);
 
         return EmployeeDto.EmployeeResponse.from(employee, approver, role, remainingDays);

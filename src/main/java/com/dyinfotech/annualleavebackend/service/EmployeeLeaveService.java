@@ -207,11 +207,14 @@ public class EmployeeLeaveService {
 	public MultipleEmployeeRoleResolver createRoleResolver(Collection<Long> targetEmployeeIds) {
 		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamRepository.findAllProjectManagerIdsByEmployeeIds(targetEmployeeIds)));
 	}
+	public SingleEmployeeRoleResolver createSingleRoleResolver(Role role) {
+		return new SingleEmployeeRoleResolverImpl(Role.isAdmin(role));
+	}
 	public SingleEmployeeRoleResolver createSingleRoleResolver(Long employeeId) {
 		return new SingleEmployeeRoleResolverImpl(teamRepository.existsByProjectManager_EmployeeId(employeeId));
 	}
     private static Role convertRole(boolean isAdmin) {
-    	return isAdmin ? Role.ADMIN : Role.EMPLOYEE;
+    	return isAdmin ? Role.getAdminRole() : Role.EMPLOYEE;
     }
     
     public float getAdjustedLeaveDays(Long employeeId, String year) {

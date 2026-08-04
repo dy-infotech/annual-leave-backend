@@ -284,7 +284,6 @@ public class LeaveRequestService {
 
     @Transactional(readOnly = true)
     public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(Long requestId, Long currentEmployeeId, boolean isAdmin) {
-
         LeaveRequest leaveRequest = leaveRequestRepository.findDetailById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("휴가 신청을 찾을 수 없습니다. requestId: " + requestId));
 

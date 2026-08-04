@@ -1,4 +1,4 @@
-package com.dyinfotech.annualleavebackend.config;
+package com.dyinfotech.annualleavebackend.filter;
 
 import java.io.IOException;
 import java.util.List;
@@ -10,7 +10,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import com.dyinfotech.annualleavebackend.common.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.common.security.LoginPrincipal;
+import com.dyinfotech.annualleavebackend.common.security.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 
 import jakarta.servlet.FilterChain;
@@ -34,22 +35,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null && jwtProvider.validateToken(token)) {
             Long employeeId = jwtProvider.getEmployeeId(token);
-            String role = jwtProvider.getRole(token);
+            String roleData = jwtProvider.getRole(token);
             
             // Role 검증 (XXX: 테스트 필요)
-            if (role == null || role.isBlank() || (!Role.ADMIN.name().equals(role) && !Role.EMPLOYEE.name().equals(role))) {
-                log.warn("[인증 실패] 위변조되지 않은 토큰이나 Role 클레임이 누락되었습니다. employeeId: {}", employeeId);
+            Role role = Role.getRole(roleData);
+            if (role == null) {
+            	log.warn("[인증 실패] 유효하지 않은 Role입니다. employeeId: {}, role: {}", employeeId, roleData);
                 
                 // 다음 필터로 넘기지 않고(filterChain.doFilter 생략) 즉시 클라이언트에게 에러를 응답합니다.
                 sendUnauthorizedResponse(response, "유효하지 않은 토큰 권한 정보입니다.");
-                return; 
+                return;
             }
             
-            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            var authorities = List.of(new SimpleGrantedAuthority(role.authority()));
 
             var authentication = new UsernamePasswordAuthenticationToken(
                     // 컨트롤러에서 @AuthenticationPrincipal로 꺼내 쓸 수 있음
-                    employeeId,   // 1. principal (인증된 주체)
+                    new LoginPrincipal(employeeId, role),   // 1. principal (인증된 주체)
                     null,         // 2. credentials (비밀번호 - 이미 인증이 끝났으니 불필요)
                     authorities   // 3. authorities (부여된 권한)
             );
