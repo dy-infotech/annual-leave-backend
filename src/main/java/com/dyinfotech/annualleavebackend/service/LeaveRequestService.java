@@ -134,11 +134,17 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
 //    	commonService.isValidDate(startDate, endDate);
-        if (hireDate.minusYears(1).isBefore(endDate)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일이 작년 입사일보다 이전 날짜일 수 없습니다. 입사일 : " + hireDate);
+        LocalDate today = LocalDate.now(clock);
+        LocalDate leaveResetDate = hireDate.withYear(today.getYear());
+        if (leaveResetDate.isAfter(today)) {
+            leaveResetDate = leaveResetDate.minusYears(1);
         }
-        if (hireDate.plusYears(1).isAfter(startDate)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "시작일이 내년 입사일보다 이후 날짜일 수 없습니다. 입사일 : " + hireDate);
+
+        LocalDate leaveStartDate = leaveResetDate;
+        LocalDate leaveEndDate = leaveResetDate.plusYears(1).minusDays(1);
+
+        if (startDate.isBefore(leaveStartDate) || endDate.isAfter(leaveEndDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "휴가 신청 가능 기간을 벗어났습니다. 가능 기간 : " + leaveStartDate + " ~ " + leaveEndDate);
         }
     }
     
