@@ -48,7 +48,7 @@ VALUES
 	(YEAR(SYSDATE()), 4, 3, '80.0', '만근 출석 퍼센트'),
 	(YEAR(SYSDATE()), 5, 5, 'A#{YEAR}', '사번 접두사'),
 	(YEAR(SYSDATE()), 6, 1, '25', '최대 연차일수'),
-	(YEAR(SYSDATE()), 7, 5, 'http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService', '한국천문연구원_특일 정보 API 서비스 URL'),
+	(YEAR(SYSDATE()), 7, 5, 'https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService', '한국천문연구원_특일 정보 API 서비스 URL'),
 	(YEAR(SYSDATE()), 8, 5, 'getRestDeInfo', '한국천문연구원_특일 정보 API 공휴일 요청 주소'),
 	(YEAR(SYSDATE()), 9, 1, '30', '로그인 실패 최대 횟수'),
 	(YEAR(SYSDATE()), 10, 1, '24', '로그인 실패 잠금 해제까지 남은 시각')
