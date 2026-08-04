@@ -64,8 +64,9 @@ public class LeaveRequestService {
         }
     	
     	Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-
-        String currentYear = String.valueOf(LocalDate.now(clock).getYear());
+    	
+    	LocalDate today = LocalDate.now(clock);
+        String currentYear = String.valueOf(today.getYear());
         // 현재 연도를 currYear에 설정
         if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
 			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
@@ -80,7 +81,7 @@ public class LeaveRequestService {
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
 
-        validateDateRange(request.getStartDate(), request.getEndDate(), employee.getHireDate());
+        validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
         validateRemainingLeave(employee, request.getUseDays());
@@ -129,12 +130,11 @@ public class LeaveRequestService {
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }
 
-    private void validateDateRange(LocalDate startDate, LocalDate endDate, LocalDate hireDate) {
+    private void validateDateRange(LocalDate startDate, LocalDate endDate, LocalDate today, LocalDate hireDate) {
         if (endDate.isBefore(startDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
 //    	commonService.isValidDate(startDate, endDate);
-        LocalDate today = LocalDate.now(clock);
         LocalDate leaveResetDate = hireDate.withYear(today.getYear());
         if (leaveResetDate.isAfter(today)) {
             leaveResetDate = leaveResetDate.minusYears(1);
