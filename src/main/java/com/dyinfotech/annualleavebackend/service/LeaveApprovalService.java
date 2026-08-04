@@ -61,8 +61,18 @@ public class LeaveApprovalService {
     	if (teams.isEmpty()) {
     		return Collections.emptyList();
     	}
+    	Long excludeId = employeeId;
+    	for (Team team : teams) {
+    		if (team.getProjectManagerId() == employeeId) {
+				if (team.getTeam().equals(team.getParentTeam())) {
+					excludeId = null;	// 대표이사는 제외하지 않는다.
+					break;
+				}
+				continue;
+			}
+    	}
     	
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(employeeId, teams, LeaveRequestStatus.PENDING, clock)
+        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(excludeId, teams, LeaveRequestStatus.PENDING, clock)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();

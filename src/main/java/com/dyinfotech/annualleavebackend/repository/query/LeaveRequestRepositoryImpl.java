@@ -139,7 +139,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	                            qLeaveRequest.employee.team.in(teams),
 	                            qLeaveRequest.startDate.loe(endRange),
 	                            qLeaveRequest.endDate.goe(startRange),
-	                            qLeaveRequest.employee.employeeId.ne(projectManagerId)
+	                            projectManagerId == null ? null : qLeaveRequest.employee.employeeId.ne(projectManagerId)
 	                        )
 	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
 	                        .fetch();
