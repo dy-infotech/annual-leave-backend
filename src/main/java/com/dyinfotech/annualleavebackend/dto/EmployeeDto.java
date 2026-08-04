@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
@@ -52,6 +53,7 @@ public final class EmployeeDto {
         private String approverName;
         private String approverPosition;
         private String approverDepartment;
+        private LocalDateTime createdAt;
         private Boolean isRegisted;
 
         public static EmployeeResponse from(Employee employee, Employee approver, Role role, Float remainingLeaveDays) {
@@ -71,6 +73,7 @@ public final class EmployeeDto {
                     .approverPosition(approver.getPosition())
                     .approverDepartment(approver.getDepartment())
                     .isRegisted(employee.isRegisted())
+                    .createdAt(employee.getCreatedAudit().getCreatedAt())
                     .build();
         }
     }
