@@ -7,6 +7,8 @@ import java.util.List;
 
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
+import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
@@ -176,7 +178,31 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     
     public boolean canMakeAdmin() {
     	// 사장만 인사권을 가지고 있으며, 관리자(PM)를 등록할 수 있음
-    	return PositionType.CEO.equals(PositionType.getType(this.position));
+    	return PositionType.isCEO(PositionType.getType(this.position));
+    }
+    
+    public int getManageTypeByDepartmentAndPosition(DepartmentType type, PositionType position) {
+    	int manageType = 0;
+    	DepartmentType department = DepartmentType.getType(this.department);
+    	DepartmentType parent = DepartmentType.getParentDepartmentType();
+    	PositionType myPosition = PositionType.getType(this.position);
+    	// 대표이사 부서에 등록할 경우
+    	if (parent.equals(type)) {
+    		// 대표이사 부서의 대표이사만 등록 가능
+    		if (parent.equals(department) && PositionType.isCEO(myPosition)) {
+    			manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
+    		}
+    	} else if (department != null && department.equals(type)) {
+        	// 대표이사 부서가 아니면 같은 부서일 때만 등록 가능
+    		manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
+    	}
+    	
+    	// 나보다 낮은 직급일 때 등록 가능
+    	if (myPosition != null && myPosition.compareTo(position) > 0) {
+    		manageType = ManageType.IS_VALID_POSITION.addFlag(manageType);
+    	}
+    	
+    	return manageType;
     }
     
     // 관리자용 사원 정보 수정 메서드

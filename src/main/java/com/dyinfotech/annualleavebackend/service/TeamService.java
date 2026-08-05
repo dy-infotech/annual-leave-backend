@@ -197,8 +197,8 @@ public class TeamService {
 		// 신규 팀인 경우
 		if (targetTeamList.isEmpty()) {
 			// 대표이사만 생성 가능
-			if (PositionType.CEO.equals(approverPosition)) {
-				return new AbstractMap.SimpleEntry<>(ManageType.IS_NEW_TEAM.getAppliedCode(manageType), "");
+			if (PositionType.isCEO(approverPosition)) {
+				return new AbstractMap.SimpleEntry<>(ManageType.IS_NEW_TEAM.addFlag(manageType), "");
 			} else {
 				return new AbstractMap.SimpleEntry<>(manageType, String.join(",", approverTeamList.stream().map(Team::getTeam).toList()));
 			}
@@ -209,7 +209,7 @@ public class TeamService {
 	    List<String> ancestors = getAllAncestors(targetTeam); 							// targetTeam의 모든 상위 계보
 	    
 	    if (ancestors.stream().anyMatch(managedTeamNames::contains)) {					// targetTeam과 상위 팀들 내에 내가 PM인 팀이 있는가
-	        manageType = ManageType.IS_TEAM_MANAGER.getAppliedCode(manageType);			// 상위 팀의 PM도 하위 팀의 관리자로 인정
+	        manageType = ManageType.IS_TEAM_MANAGER.addFlag(manageType);				// 상위 팀의 PM도 하위 팀의 관리자로 인정
 	    }
 	    
 	    return new AbstractMap.SimpleEntry<>(manageType, String.join(",", managedTeamNames));
