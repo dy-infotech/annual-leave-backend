@@ -102,6 +102,10 @@ public final class EmployeeDto {
 
         // --- 이래 필드들은 플러터 상세 화면에서 수정 요청을 같이 보내지 않는다면 제외하거나, 
         // --- 프론트엔드 데이터 구조와 맞춰야 합니다. (선택사항)
+        
+        // 플러터가 보내주는 'ADMIN' / 'EMPLOYEE' 문자열을 바인딩받을 변수 생성
+        private String role; 
+
         private String team;
         
         private String targetTeamForRoleSwap;
@@ -111,5 +115,9 @@ public final class EmployeeDto {
         private Long approverId; 
 
         private Float currTotalLeaveDays; 
+
+
     }
+    
 }
+

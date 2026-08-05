@@ -10,6 +10,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
+import com.dyinfotech.annualleavebackend.common.type.Role;
+
+
 import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
@@ -28,6 +31,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient; 
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -78,6 +82,10 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Column(name = "email", length = 100)
     private String email;
     
+    // 💡 [수정] @Transient를 붙여 실제 MySQL DB 테이블을 변경하지 않고 메모리 상에서만 활용하도록 차단막 설정
+    @Transient 
+    private Role role = Role.EMPLOYEE; 
+    
     @Column(name = "curr_year", nullable = false, length = 4)
     private String currYear;
 
@@ -106,14 +114,16 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Embedded
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
-    @Builder
-    public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Employee approver) {
+    @Builder 
+      public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Employee approver) {
+    		   
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
         this.team = team;
         this.position = position;
         this.email = email;
+        this.role = role != null ? role : Role.EMPLOYEE; 
         this.currYear = currYear;
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
@@ -203,8 +213,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     	}
     	
     	return manageType;
-    }
-    
+    } 
     // 관리자용 사원 정보 수정 메서드
     public void updateInfoByAdmin(String name, String email, String department, String team, String position, LocalDate hireDate, Float currTotalLeaveDays) {
         this.name = name;
@@ -214,5 +223,9 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         this.position = position;
         this.hireDate = hireDate;        
         this.currTotalLeaveDays = currTotalLeaveDays;
+    }
+ // 📄 Employee.java 파일 최하단에 선언
+    public void changeRole(Role role) {
+        this.role = role; 
     }
 }
