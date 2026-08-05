@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -36,10 +38,11 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class EmployeeService {
 
-    private final CommonService commonService;
+	private final CommonService commonService;
+    private final EmployeeLeaveService employeeLeaveService;
+    private final TeamRepository teamRepository;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmployeeLeaveService employeeLeaveService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
     public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId, Role role) {
@@ -181,15 +184,43 @@ public class EmployeeService {
     // 사원 정보가 수정되면 캐시를 전체 초기화하여 데이터 정합성을 유지합니다.
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
     public void updateEmployeeByAdmin(String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
-        // 1. 사번으로 기존 직원 엔티티 조회
+        // 사번으로 기존 직원 엔티티 조회
         Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
                 .orElseThrow(() -> {
                     String errorMsg = "존재하지 않는 직원입니다.";
                     log.error(errorMsg + " employeeNumber: " + employeeNumber);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
+    	
+        // 관리 팀 변경 요청시 처리
+    	String targetTeam = request.getTargetTeamForRoleSwap();
+    	if (targetTeam != null && !targetTeam.isBlank()) {
+			// 해당 팀명으로 관리중인 팀이 존재한다면 탐색
+    		Team teamEntity = null;
+    		for (Team team : employee.getTeams()) {
+    			if (team.getTeam().equals(targetTeam)) {
+    				teamEntity = team;
+    				break;
+    			}
+    		}
+    		
+    		if (teamEntity != null) {
+    			// 관리자 -> 멤버
+    			teamRepository.delete(teamEntity);
+    		} else {
+    			// 멤버 -> 관리자
+    			Team team = teamRepository.findFirstByTeamOrderBySeqAsc(targetTeam);
+    			if (team != null) {
+    				teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
+    			} else {
+                    String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
+                    log.error(errorMsg + " employeeNumber: " + employeeNumber);
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+    			}
+    		}
+    	}
 
-        // 2. [입사일 가공 처리] 엔티티의 LocalDate 규격에 맞게 파싱 진행 (String 수용)
+        // [입사일 가공 처리] 엔티티의 LocalDate 규격에 맞게 파싱 진행 (String 수용)
         java.time.LocalDate parsedHireDate = null;
         if (request.getHireDate() != null) {
             String hireDateStr = String.valueOf(request.getHireDate()).trim();
@@ -203,7 +234,7 @@ public class EmployeeService {
             parsedHireDate = employee.getHireDate();
         }
 
-        // 3. [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
+        // [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
         // request.getTeam()이 비어 있다면 기존 엔티티의 team 정보를 그대로 보존합니다.
         String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
                 ? request.getTeam() 
@@ -211,7 +242,7 @@ public class EmployeeService {
 
     	LocalDate hireDate = LocalDate.parse(request.getHireDate());
     	
-        // 4. [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
+        // [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
         employee.updateInfoByAdmin(
             request.getName() != null ? request.getName() : employee.getName(),
             request.getEmail() != null ? request.getEmail() : employee.getEmail(),

@@ -2,9 +2,11 @@ package com.dyinfotech.annualleavebackend.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Team;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -43,10 +45,11 @@ public final class EmployeeDto {
         private String name;
         private String department;
         private String team; // 💡 1. 팀(Team) 필드 선언 추가
+        private List<String> teamList;
         private String position;
         private String email;
         private LocalDate hireDate;
-        private String role;
+//        private String role;
         private Float currTotalLeaveDays;   // 이번 연도 총 연차 일수
         private Float remainingLeaveDays;   // 남은 연차 일수
         private String approverNumber;
@@ -61,11 +64,12 @@ public final class EmployeeDto {
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .department(employee.getDepartment())
-                    .team(employee.getTeam()) // 💡 2. 엔티티에서 팀(Team) 데이터를 꺼내와 빌더에 바인딩
+                    .team(employee.getTeam())
+                    .teamList(employee.getTeams().stream().map(Team::getTeam).toList())
                     .position(employee.getPosition())
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
-                    .role(role.name())
+//                    .role(role.name())
                     .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
                     .remainingLeaveDays(remainingLeaveDays)
                     .approverNumber(approver.getEmployeeNumber())
@@ -97,7 +101,9 @@ public final class EmployeeDto {
 
         // --- 이래 필드들은 플러터 상세 화면에서 수정 요청을 같이 보내지 않는다면 제외하거나, 
         // --- 프론트엔드 데이터 구조와 맞춰야 합니다. (선택사항)
-        private String team; 
+        private String team;
+        
+        private String targetTeamForRoleSwap;
 
         private String position;
 
