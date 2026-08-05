@@ -115,11 +115,11 @@ public class AuthService {
     public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
     	// 현재 승인자 직급과 신청받은 직급을 비교
     	Employee approver = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-    	PositionType approverrPosition = PositionType.getType(approver.getPosition());
+    	PositionType approverPosition = PositionType.getType(approver.getPosition());
     	PositionType targetPosition = PositionType.getType(request.getPosition());
-    	if (approverrPosition == null || targetPosition == null || approverrPosition.ordinal() <= targetPosition.ordinal()) {
+    	if (approverPosition == null || targetPosition == null || approverPosition.ordinal() <= targetPosition.ordinal()) {
     		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
-    		String detailMsg = "approverId : " + employeeId + "approverrPosition : " + approverrPosition + ", targetPosition: " + targetPosition;
+    		String detailMsg = "approverId : " + employeeId + "approverrPosition : " + approverPosition + ", targetPosition: " + targetPosition;
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
     	}
@@ -145,17 +145,17 @@ public class AuthService {
     	// 팀의 관리자로 등록되는 건지 확인
     	boolean makeAdminAccount = false;
     	if (Role.ADMIN.equals(request.getRole())) {
-    		if (PositionType.CEO.equals(approverrPosition)) {
+    		if (approver.canMakeAdmin()) {
     			makeAdminAccount = true;
     		} else {
         		String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";
-        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + approverrPosition.getName();
+        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + approverPosition.getName();
         		log.error(errorMsg + " " + detailMsg);
     			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     		}
     	} else if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
     		String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
-    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + approverrPosition.getName();
+    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + approverPosition.getName();
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}

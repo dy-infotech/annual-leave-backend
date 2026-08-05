@@ -197,8 +197,7 @@ public class EmployeeService {
     	String targetTeam = request.getTargetTeamForRoleSwap();
     	if (targetTeam != null && !targetTeam.isBlank()) {
     		// 사장 이외 요청 거부 (사원 등록 시 조건과 일치)
-			PositionType requesterPosition = PositionType.getType(employee.getPosition());
-			if (!PositionType.CEO.equals(requesterPosition)) {
+			if (!employee.canMakeAdmin()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다.");
 			}
 			

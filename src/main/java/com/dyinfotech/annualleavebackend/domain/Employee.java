@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
@@ -171,6 +172,10 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     
     public boolean isRegisted() {
     	return this.password != null && !this.password.isBlank();
+    }
+    
+    public boolean canMakeAdmin() {
+    	return PositionType.CEO.equals(PositionType.getType(this.position));
     }
     
     // 관리자용 사원 정보 수정 메서드
