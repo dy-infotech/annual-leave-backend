@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
@@ -195,6 +196,12 @@ public class EmployeeService {
         // 관리 팀 변경 요청시 처리
     	String targetTeam = request.getTargetTeamForRoleSwap();
     	if (targetTeam != null && !targetTeam.isBlank()) {
+    		// 사장 이외 요청 거부 (사원 등록 시 조건과 일치)
+			PositionType requesterPosition = PositionType.getType(employee.getPosition());
+			if (!PositionType.CEO.equals(requesterPosition)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다.");
+			}
+			
 			// 해당 팀명으로 관리중인 팀이 존재한다면 탐색
     		Team teamEntity = null;
     		for (Team team : employee.getTeams()) {
@@ -215,7 +222,7 @@ public class EmployeeService {
     			} else {
                     String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
                     log.error(errorMsg + " employeeNumber: " + employeeNumber);
-                    throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
     			}
     		}
     	}
