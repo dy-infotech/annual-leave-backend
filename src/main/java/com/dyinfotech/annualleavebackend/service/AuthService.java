@@ -34,7 +34,6 @@ import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
-import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
@@ -101,9 +100,10 @@ public class AuthService {
     													.department(Arrays.asList(DepartmentType.values()).stream()
     																										.map(DepartmentType::getName)
     																										.toList())
-    													.team(teamService.getSelfAndDescendants(requester.getTeam()).stream()
-    																												.map(Team::getTeam)
-    																												.toList())
+    													.accessibleTeam(requester.getTeams().stream()
+		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam()).stream())
+		    																				.map(Team::getTeam)
+		    																				.toList())
     													.position(Arrays.asList(PositionType.values()).stream()
     																									.filter(e -> e.ordinal() < requesterPosition.ordinal())
     																									.map(PositionType::getName)

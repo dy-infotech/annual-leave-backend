@@ -19,9 +19,9 @@ public final class RegisterCommonDto {
     @Getter
     @Builder
     public static class RegisterCommonResponse {
-        private Collection<String> department;	// 부서
-        private Collection<String> team;		// 팀
-        private Collection<String> position;	// 직급
+        private Collection<String> department;		// 부서
+        private Collection<String> accessibleTeam;	// 관리 대상 팀
+        private Collection<String> position;		// 직급
     }
 
 }
