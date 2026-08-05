@@ -27,14 +27,15 @@ public class LeaveRequestDetailDto {
         private final LocalDate endDate;
         private final Float useDays;
         private final LeaveRequestStatus status;
-        private final String leaveReason; // 권한 없으면 null
+        private final String leaveReason; // 권한 없으면 null 
+        private final LocalDateTime managedAt; // 휴가 신청일
 
         // 결재자 정보 (미배정 시 null)
         private final String approverNumber;
         private final String approverName;
         private final String approverPosition;
         private final String approverDepartment;
-        private final LocalDateTime managedAt;
+        private LocalDateTime createdAt; // 결재일
 
         /**
          * @param canViewReason 사유 조회 권한 (본인 또는 관리자)
@@ -55,13 +56,14 @@ public class LeaveRequestDetailDto {
                     .endDate(lr.getEndDate())
                     .useDays(lr.getUseDays())
                     .status(lr.getStatus())
-                    .leaveReason(canViewReason ? lr.getLeaveReason() : null)
+                    .leaveReason(canViewReason ? lr.getLeaveReason() : null) 
+                    .managedAt(lr.getManagedAt())  // 휴가 신청일
                     // 결재자
                     .approverNumber(mgr != null ? mgr.getEmployeeNumber() : null)
                     .approverName(mgr != null ? mgr.getName() : null)
                     .approverPosition(mgr != null ? mgr.getPosition() : null)
                     .approverDepartment(mgr != null ? mgr.getDepartment() : null)
-                    .managedAt(lr.getManagedAt())
+                    .createdAt(lr.getCreatedAudit().getCreatedAt()) // 결재일
                     .build();
         }
     }
