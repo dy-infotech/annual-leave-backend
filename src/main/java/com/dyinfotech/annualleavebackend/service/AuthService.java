@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -103,7 +104,7 @@ public class AuthService {
     													.accessibleTeam(requester.getTeams().stream()
 		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam()).stream())
 		    																				.map(Team::getTeam)
-		    																				.toList())
+		    																				.collect(Collectors.toSet()))
     													.position(Arrays.asList(PositionType.values()).stream()
     																									.filter(e -> e.ordinal() < requesterPosition.ordinal())
     																									.map(PositionType::getName)
