@@ -7,6 +7,7 @@ import java.time.Year;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
+import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
@@ -101,7 +103,8 @@ public class EmployeeLeaveService {
     	LocalDate nextYearDateFromHireDate = hireDate.plusYears(1);
     	// 근속연수 계산 기준 날짜
         LocalDate serviceStartDate = hireDate;
-    	if (CommonConfig.USE_FISCAL_YEAR_LEAVE_POLICY) {
+		if (basisDataFactory.getAsBoolean(BasisDataType.USE_FISCAL_YEAR_LEAVE_POLICY)
+		        			.orElse(CommonConfig.USE_FISCAL_YEAR_LEAVE_POLICY)) {
     		// 회계연도 정책:
     		// - 입사 다음 해 1월 1일부터 연차 부여
     		// - 근속연수는 입사연도 1월 1일 기준으로 계산
