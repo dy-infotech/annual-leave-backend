@@ -49,7 +49,8 @@ public final class EmployeeDto {
         private String position;
         private String email;
         private LocalDate hireDate;
-//        private String role;
+        @Deprecated
+        private String role;
         private Float currTotalLeaveDays;   // 이번 연도 총 연차 일수
         private Float remainingLeaveDays;   // 남은 연차 일수
         private String approverNumber;
@@ -69,7 +70,7 @@ public final class EmployeeDto {
                     .position(employee.getPosition())
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
-//                    .role(role.name())
+                    .role(role.name())
                     .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
                     .remainingLeaveDays(remainingLeaveDays)
                     .approverNumber(approver.getEmployeeNumber())
