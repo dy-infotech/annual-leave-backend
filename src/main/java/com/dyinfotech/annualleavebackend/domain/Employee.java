@@ -224,7 +224,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         this.hireDate = hireDate;        
         this.currTotalLeaveDays = currTotalLeaveDays;
     }
- // 📄 Employee.java 파일 최하단에 선언
+ 
     public void changeRole(Role role) {
         this.role = role; 
     }
