@@ -49,7 +49,8 @@ public interface LeaveRequestRepositoryCustom {
             LocalDate startDate,
             LocalDate endDate,
             LeaveRequestStatus status,
-            Collection<String> team
+            Collection<String> team,
+            String searchEmployeeParam
     );
 
     // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함
@@ -59,7 +60,7 @@ public interface LeaveRequestRepositoryCustom {
             LocalDate endDate,
             LeaveRequestStatus status
     ) {
-    	return searchLeaveRequests(employeeId, startDate, endDate, status, null);
+    	return searchLeaveRequests(employeeId, startDate, endDate, status, null, null);
     }
     
     // 팀 배열(타겟팀 하위 전체 팀 목록)에 포함된 모든 요청 목록정보를 조회
@@ -69,6 +70,19 @@ public interface LeaveRequestRepositoryCustom {
 			LeaveRequestStatus status,
 			Collection<String> teams
 	) {
-    	return searchLeaveRequests(null, startDate, endDate, status, teams);
+    	return searchLeaveRequests(null, startDate, endDate, status, teams, null);
 	}
+	
+	// 사번 또는 사원명 조회조건 추가
+	default List<LeaveRequest> searchLeaveRequests(
+			LocalDate startDate, 
+			LocalDate endDate, 
+			LeaveRequestStatus status,
+			Collection<String> teams,
+			String employeeParam
+	) {
+    	return searchLeaveRequests(null, startDate, endDate, status, teams, employeeParam);
+	}
+	
+	
 }

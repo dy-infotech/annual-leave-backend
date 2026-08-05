@@ -94,7 +94,7 @@ public class LeaveApprovalService {
     }
     
     @Transactional(readOnly = true)
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(Long employeeId, String team) {
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(Long employeeId, String team, String employeeParam) {
     	//승인권자 정보
     	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
     	if (employeeList.isEmpty()) {
@@ -106,25 +106,27 @@ public class LeaveApprovalService {
     	if (accessibleTeams.isEmpty()) {
     		return Collections.emptyList();
     	}
-    	Year year = Year.now(clock);
     	
-    	//대표이사 계정: 팀별 목록 선택 시 팀정보 유효성 확인 
+    	//대표이사 계정: 팀별 목록 조회 시 팀정보 유효성 확인 
     	if (team != null && !team.isBlank() && accessibleTeams.contains(team)) {
     		accessibleTeams = Set.of(team);
     	}
+    	
+    	Year year = Year.now(clock);
     	
         return leaveRequestRepository.searchLeaveRequests(
         		DateUtils.getFirstDayOfYear(year), 
         		DateUtils.getLastDayOfYear(year),
         		LeaveRequestStatus.APPROVED,
-        		accessibleTeams
+        		accessibleTeams,
+        		employeeParam
         		)
         		.stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }
     
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(Long employeeId, String team) {
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(Long employeeId, String team, String employeeParam) {
     	//승인권자 정보
     	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
     	if (employeeList.isEmpty()) {
@@ -136,17 +138,20 @@ public class LeaveApprovalService {
     	if (accessibleTeams.isEmpty()) {
     		return Collections.emptyList();
     	}
-    	Year year = Year.now(clock);
     	
+    	//대표이사 계정: 팀별 목록 조회 시 팀정보 유효성 확인 
     	if (team != null && !team.isBlank() && accessibleTeams.contains(team)) {
     		accessibleTeams = Set.of(team);
     	}
+    	
+    	Year year = Year.now(clock);
     	
         return leaveRequestRepository.searchLeaveRequests(
         		DateUtils.getFirstDayOfYear(year), 
         		DateUtils.getLastDayOfYear(year),
         		LeaveRequestStatus.REJECTED,
-        		accessibleTeams
+        		accessibleTeams,
+        		employeeParam
         		)
         		.stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
