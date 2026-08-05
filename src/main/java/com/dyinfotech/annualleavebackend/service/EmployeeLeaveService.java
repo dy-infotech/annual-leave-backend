@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
+import java.time.Year;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,7 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
+import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
@@ -95,13 +97,25 @@ public class EmployeeLeaveService {
      */
     private static final int MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT = 11;	// 입사 1년 미만 근로자는 매월 개근 시 1일 발생하며 최대 11일
     public float getCalculatedCurrYearLeaveDays(LocalDate hireDate, LocalDate now) {
-        // 1년 미만 근로자
-        if (now.isBefore(hireDate.plusYears(1))) {
+    	// 입사 1년 미만 여부를 판단하는 기준 날짜
+    	LocalDate nextYearDateFromHireDate = hireDate.plusYears(1);
+    	// 근속연수 계산 기준 날짜
+        LocalDate serviceStartDate = hireDate;
+    	if (CommonConfig.USE_FISCAL_YEAR_LEAVE_POLICY) {
+    		// 회계연도 정책:
+    		// - 입사 다음 해 1월 1일부터 연차 부여
+    		// - 근속연수는 입사연도 1월 1일 기준으로 계산
+    		nextYearDateFromHireDate = Year.of(hireDate.getYear() + 1).atDay(1);
+        	serviceStartDate = Year.of(hireDate.getYear()).atDay(1);
+    	}
+    	
+        // 입사 1년 미만 근로자
+        if (now.isBefore(nextYearDateFromHireDate)) {
             return Math.min(calculateMonthlyLeaveCount(hireDate, now), MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT);
         }
 
-        // 1년 이상 근로자
-        int yearsOfService = Period.between(hireDate, now).getYears();
+        // 입사 1년 이상 근로자
+        int yearsOfService = Period.between(serviceStartDate, now).getYears();
         int baseLeaveDays = basisDataFactory.getAsInteger(BasisDataType.FIRST_YEAR_LEAVE_DAYS)
 							                .orElseThrow(() -> new IllegalArgumentException("기본 연차 일수를 찾을 수 없습니다"));
 

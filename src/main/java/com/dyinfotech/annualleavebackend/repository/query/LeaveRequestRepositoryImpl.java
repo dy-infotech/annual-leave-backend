@@ -190,7 +190,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequest> searchLeaveRequests(Long employeeId, LocalDate startDate, LocalDate endDate, LeaveRequestStatus status, Collection<String> teams) {
+	public List<LeaveRequest> searchLeaveRequests(Long employeeId, LocalDate startDate, LocalDate endDate, LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam) {
 		BooleanBuilder builder = new BooleanBuilder();
 
         if (employeeId != null) {
@@ -211,6 +211,13 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 
 	    if (teams != null && !teams.isEmpty()) {
 	        builder.and(qLeaveRequest.employee.team.in(teams));
+	    }
+	    
+	    if (searchEmployeeParam != null && !searchEmployeeParam.trim().isEmpty()) {
+	        builder.and(
+	            qLeaveRequest.employee.employeeNumber.containsIgnoreCase(searchEmployeeParam)
+	                .or(qLeaveRequest.employee.name.containsIgnoreCase(searchEmployeeParam))
+	        );
 	    }
 	    
         return queryFactory.selectFrom(qLeaveRequest)

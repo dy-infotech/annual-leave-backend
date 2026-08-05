@@ -18,6 +18,7 @@ public class CommonConfig {
 	// 일일 소정 근로시간은 8시간으로 간주한다. DB에서도 float 단위로 구현되어 있고, 2의 n승 분의 1 구조이기 때문에 부동 소수점을 유지했으므로 하드코딩한다.
 	public static final int DAILY_STANDARD_WORKING_HOURS = 8;
 	public static final int DAILY_STANDARD_WORKING_MINUTES = DAILY_STANDARD_WORKING_HOURS * (int) Duration.ofHours(1).toMinutes();
+	public static final boolean USE_FISCAL_YEAR_LEAVE_POLICY = true;
 	
     @Bean
     WebClient.Builder webClientBuilder() {
