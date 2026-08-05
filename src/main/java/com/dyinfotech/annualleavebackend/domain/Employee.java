@@ -175,6 +175,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     }
     
     public boolean canMakeAdmin() {
+    	// 사장만 인사권을 가지고 있으며, 관리자(PM)를 등록할 수 있음
     	return PositionType.CEO.equals(PositionType.getType(this.position));
     }
     
