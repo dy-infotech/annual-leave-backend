@@ -248,7 +248,7 @@ public class EmployeeService {
         String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
                 ? request.getTeam() 
                 : employee.getTeam();
-    	
+        
         // [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
         employee.updateInfoByAdmin(
             request.getName() != null ? request.getName() : employee.getName(),
@@ -257,7 +257,8 @@ public class EmployeeService {
             finalTeam,                 // 👈 덮어쓰기가 방지된 안전한 팀 값 전달
             request.getPosition() != null ? request.getPosition() : employee.getPosition(),
             request.getHireDate(),
-            employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate()) 
+            request.getFireDate(),
+            employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
     }
 //    @Transactional

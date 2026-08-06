@@ -115,7 +115,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder 
-      public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Employee approver) {
+      public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
     		   
         this.employeeNumber = employeeNumber;
         this.name = name;
@@ -127,6 +127,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         this.currYear = currYear;
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
+        this.fireDate = fireDate;
         this.approver = approver;
     }
     
@@ -215,15 +216,26 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     	return manageType;
     } 
     // 관리자용 사원 정보 수정 메서드
-    public void updateInfoByAdmin(String name, String email, String department, String team, String position, LocalDate hireDate, Float currTotalLeaveDays) {
+    public void updateInfoByAdmin(
+        String name, 
+        String email, 
+        String department, 
+        String team, 
+        String position, 
+        LocalDate hireDate, 
+        LocalDate fireDate,
+        Float currTotalLeaveDays
+    ) {
         this.name = name;
         this.email = email;             
         this.department = department;
         this.team = team;
         this.position = position;
-        this.hireDate = hireDate;        
+        this.hireDate = hireDate;     
+        this.fireDate = fireDate;    
         this.currTotalLeaveDays = currTotalLeaveDays;
     }
+
  
     public void changeRole(Role role) {
         this.role = role; 

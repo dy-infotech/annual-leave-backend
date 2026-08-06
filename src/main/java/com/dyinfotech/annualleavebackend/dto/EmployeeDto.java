@@ -51,6 +51,7 @@ public final class EmployeeDto {
         private String position;
         private String email;
         private LocalDate hireDate;
+        private LocalDate fireDate;
         @Deprecated
         private String role;
         private Float currTotalLeaveDays;   // 이번 연도 총 연차 일수
@@ -72,6 +73,7 @@ public final class EmployeeDto {
                     .position(employee.getPosition())
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
+                    .fireDate(employee.getFireDate())
                     .role(role.name())
                     .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
                     .remainingLeaveDays(remainingLeaveDays)
@@ -99,14 +101,14 @@ public final class EmployeeDto {
         private String department;
 
         @NotNull(message = "입사일은 필수입니다.")
-        private LocalDate hireDate;
-
+        private LocalDate hireDate; 
+        private LocalDate fireDate;
+        
         private String team;
         
         private Collection<String> targetTeamsForRoleSwap;
 
         private String position;
-
     }
     
 }
