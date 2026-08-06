@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.dto;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.common.type.Role;
@@ -108,7 +109,7 @@ public final class EmployeeDto {
 
         private String team;
         
-        private List<String> targetTeamsForRoleSwap;
+        private Collection<String> targetTeamsForRoleSwap;
 
         private String position;
 
