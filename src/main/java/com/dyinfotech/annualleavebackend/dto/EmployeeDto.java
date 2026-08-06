@@ -108,7 +108,7 @@ public final class EmployeeDto {
 
         private String team;
         
-        private String targetTeamForRoleSwap;
+        private List<String> targetTeamsForRoleSwap;
 
         private String position;
 
