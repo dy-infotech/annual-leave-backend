@@ -168,7 +168,7 @@ public class EmployeeService {
     	return employeeRepository.findEmailsByName(name);
     }
     
-    public List<String> findEmailsByEmployeeNumber(String employeeNumber) {
+    public String findEmailsByEmployeeNumber(String employeeNumber) {
     	return employeeRepository.findEmailsByEmployeeNumber(employeeNumber);
     }
     

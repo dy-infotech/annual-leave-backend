@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -35,6 +36,7 @@ import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
+import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
@@ -68,16 +70,6 @@ public class AuthService {
     private final TeamService teamService;
     
     private final Clock clock;
-    
-    private final Cache<String, List<String>> emailByNameCache = Caffeine.newBuilder()
-													                    .maximumSize(20_000)
-													                    .expireAfterWrite(Duration.ofHours(1))
-													                    .build();
-
-    private final Cache<String, List<String>> emailByEmployeeNumberCache = Caffeine.newBuilder()
-																                    .maximumSize(20_000)
-																                    .expireAfterWrite(Duration.ofHours(1))
-																                    .build();
     
     private final JavaMailSender mailSender; // 이메일 발송 객체 추가
     @Value("${spring.mail.username}")
@@ -364,12 +356,13 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public EmailResponse findEmails(FindDataDto.FindEmailByIdRequest request) {
-        return createEmailResponse(emailByNameCache.get(request.getName(), name -> employeeService.findEmailsByName(name)));
+        return createEmailResponse(CacheConfig.EMAIL_BY_NAME_CACHE.get(request.getName(), name -> employeeService.findEmailsByName(name)));
     }
 
     @Transactional(readOnly = true)
     public EmailResponse findEmails(FindDataDto.FindEmailByEmployeeNumberRequest request) {
-        return createEmailResponse(emailByEmployeeNumberCache.get(request.getEmployeeNumber(), number -> employeeService.findEmailsByEmployeeNumber(number)));
+        return createEmailResponse(CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(request.getEmployeeNumber(), 
+        																		number -> employeeService.findEmailsByEmployeeNumber(number)));
     }
 
     private EmailResponse createEmailResponse(List<String> emails) {
@@ -380,6 +373,9 @@ public class AuthService {
 						                              .toList()
 						                )
 						                .build();
+    }
+    private EmailResponse createEmailResponse(String email) {
+    	return createEmailResponse(Collections.singletonList(email));
     }
     
     private void sendMail(String to, String subject, String text) throws MailException {
@@ -395,11 +391,11 @@ public class AuthService {
     @Transactional(readOnly = true)
     public void findId(FindDataDto.FindIdRequest request) {
         // 성함과 이메일로 회원 조회
-    	List<String> emailList = emailByNameCache.get(request.getName(), employeeService::findEmailsByName)
-	    										.stream()
-	    										.filter(email -> MaskingUtils.maskEmail(email).equals(request.getEmail()) || 
-	    														email.equals(request.getEmail()))
-	    										.toList();
+    	List<String> emailList = CacheConfig.EMAIL_BY_NAME_CACHE.get(request.getName(), employeeService::findEmailsByName)
+					    										.stream()
+					    										.filter(email -> MaskingUtils.maskEmail(email).equals(request.getEmail()) || 
+					    														email.equals(request.getEmail()))
+					    										.toList();
     	if (emailList.isEmpty()) {
         	throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
     	}
@@ -437,13 +433,7 @@ public class AuthService {
     @Transactional
     public void forgotPassword(FindDataDto.FindPasswordRequest request) {
         // 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생)
-    	String realEmail = null;
-    	for (String email : emailByEmployeeNumberCache.get(request.getEmployeeNumber(), employeeService::findEmailsByEmployeeNumber)) {
-    		if (email.equals(request.getEmail())) {
-    			realEmail = email;
-    			break;
-    		}
-    	}
+    	String realEmail = CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(request.getEmployeeNumber(), employeeService::findEmailsByEmployeeNumber);
     	Entry<HttpStatus, String> emptyUserErrorEntry = new java.util.AbstractMap.SimpleEntry<>(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
     	if (realEmail == null) {
     		throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
