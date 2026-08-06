@@ -10,6 +10,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -96,26 +97,14 @@ public final class EmployeeDto {
         @NotBlank(message = "부서는 필수입니다.")
         private String department;
 
-        // LocalDate 타입으로 직접 받거나, 포맷팅 문제가 염려된다면 String으로 받아 서비스 레이어에서 변환합니다.
-        // 플러터 텍스트컨트롤러에서 yyyy-MM-dd 문자열로 넘어오므로 LocalDate가 안전하게 매핑됩니다.
-        private String hireDate; // 💡 플러터 입사일 컨트롤러 값 바인딩용 추가
-
-        // --- 이래 필드들은 플러터 상세 화면에서 수정 요청을 같이 보내지 않는다면 제외하거나, 
-        // --- 프론트엔드 데이터 구조와 맞춰야 합니다. (선택사항)
-        
-        // 플러터가 보내주는 'ADMIN' / 'EMPLOYEE' 문자열을 바인딩받을 변수 생성
-        private String role; 
+        @NotNull(message = "입사일은 필수입니다.")
+        private LocalDate hireDate;
 
         private String team;
         
         private List<String> targetTeamsForRoleSwap;
 
         private String position;
-
-        private Long approverId; 
-
-        private Float currTotalLeaveDays; 
-
 
     }
     

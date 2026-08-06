@@ -243,27 +243,11 @@ public class EmployeeService {
     		}
     	}
 
-        // [입사일 가공 처리] 엔티티의 LocalDate 규격에 맞게 파싱 진행 (String 수용)
-        java.time.LocalDate parsedHireDate = null;
-        if (request.getHireDate() != null) {
-            String hireDateStr = String.valueOf(request.getHireDate()).trim();
-            if (!hireDateStr.isEmpty() && !hireDateStr.equals("null")) {
-                // yyyy-MM-dd 형태의 앞 10자리만 안전하게 잘라내어 파싱합니다.
-                parsedHireDate = java.time.LocalDate.parse(hireDateStr.substring(0, 10));
-            }
-        }
-        // 만약 파싱에 실패했다면 기존 엔티티가 가지고 있던 원래 입사일을 유지합니다.
-        if (parsedHireDate == null) {
-            parsedHireDate = employee.getHireDate();
-        }
-
         // [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
         // request.getTeam()이 비어 있다면 기존 엔티티의 team 정보를 그대로 보존합니다.
         String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
                 ? request.getTeam() 
                 : employee.getTeam();
-
-    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
     	
         // [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
         employee.updateInfoByAdmin(
@@ -272,11 +256,8 @@ public class EmployeeService {
             request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
             finalTeam,                 // 👈 덮어쓰기가 방지된 안전한 팀 값 전달
             request.getPosition() != null ? request.getPosition() : employee.getPosition(),
-            parsedHireDate,            // 👈 포맷 오류가 해결된 LocalDate 객체 주입
-           // employee.getApproverId(),   // 👈 필수값인 결재자(approver_id) 원본 데이터 보존
-           // request.getCurrTotalLeaveDays() != null ? request.getCurrTotalLeaveDays() : employee.getCurrTotalLeaveDays()
-            employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate) 
-            
+            request.getHireDate(),
+            employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate()) 
         );
     }
 //    @Transactional
