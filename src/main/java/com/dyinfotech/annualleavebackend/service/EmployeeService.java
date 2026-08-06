@@ -202,7 +202,7 @@ public class EmployeeService {
                 });
     	
         // 관리 팀 변경 요청시 처리
-    	List<String> targetTeams = request.getTargetTeamsForRoleSwap();
+    	Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
     	if (targetTeams == null || targetTeams.isEmpty()) {
     		targetTeams = Collections.emptyList();
     	} else {
