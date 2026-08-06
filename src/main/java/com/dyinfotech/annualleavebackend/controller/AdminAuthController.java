@@ -30,6 +30,7 @@ public class AdminAuthController {
     @Operation(summary = "FCM 토큰 등록", description = "로그인 시 FCM 토큰 발급에 의한 병목때문에 별도로 처리한다.")
     @PostMapping("/sync-fcm-token")
     public ResponseEntity<Void> syncFcmToken(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody FcmTokenDto.FcmTokenRequest request) {
+    	authService.checkAdmin(principal.employeeId());
     	authService.syncFcmToken(principal.employeeId(), request);
     	return ResponseEntity.ok().build();
     }
@@ -37,13 +38,15 @@ public class AdminAuthController {
     @Operation(summary = "부서, 팀, 직급 조회", description = "신규 사원 등록 시 로그인한 관리자가 부여 가능한 부서, 팀, 직급을 조회한다.")
     @GetMapping("/common")
     public ResponseEntity<RegisterCommonDto.RegisterCommonResponse> getCommonData(@AuthenticationPrincipal EmployeePrincipal principal) {
+    	authService.checkAdmin(principal.employeeId());
     	return ResponseEntity.ok(authService.getCommonData(principal.employeeId()));
     }
 
     @Operation(summary = "사원 등록", description = "관리자가 신규 사원의 로그인 계정 정보를 등록한다.")
     @PostMapping("/register")
     public ResponseEntity<RegisterDto.RegisterResponse> signUp(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody RegisterDto.RegisterRequest request) {
-        return ResponseEntity.ok(authService.registerEmployee(principal.employeeId(), request));
+    	authService.checkAdmin(principal.employeeId());
+    	return ResponseEntity.ok(authService.registerEmployee(principal.employeeId(), request));
     }
 
 }

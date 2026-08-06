@@ -32,7 +32,10 @@ public enum PositionType {
 		this.name = name;
 	}
 	
-	public static PositionType getType(String name) {
+	public static final PositionType getType(String name) {
 		return nameToEnumMap.get(name);
+	}
+	public static final boolean isCEO(PositionType position) {
+		return CEO.equals(position);
 	}
 }

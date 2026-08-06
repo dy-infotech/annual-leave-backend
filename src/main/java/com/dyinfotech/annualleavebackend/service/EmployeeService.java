@@ -1,9 +1,11 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,9 +20,11 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -36,10 +40,12 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class EmployeeService {
 
-    private final CommonService commonService;
+	private final TeamService teamService;
+	private final CommonService commonService;
+    private final EmployeeLeaveService employeeLeaveService;
+    private final TeamRepository teamRepository;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
-    private final EmployeeLeaveService employeeLeaveService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
     public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId, Role role) {
@@ -84,7 +90,6 @@ public class EmployeeService {
         return responses;
     }
 
-    
     @Transactional
     @Caching(evict = {
     	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
@@ -180,52 +185,154 @@ public class EmployeeService {
     @Transactional
     // 사원 정보가 수정되면 캐시를 전체 초기화하여 데이터 정합성을 유지합니다.
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
-    public void updateEmployeeByAdmin(String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
-        // 1. 사번으로 기존 직원 엔티티 조회
+    public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
+    	// 수정 승인자 정보 조회
+    	Employee approver = employeeRepository.findById(approverId)
+                .orElseThrow(() -> {
+                    String errorMsg = "존재하지 않는 관리자입니다.";
+                    log.error(errorMsg + " employeeId: " + approverId);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
+    	// 사번으로 기존 직원 엔티티 조회
         Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
                 .orElseThrow(() -> {
                     String errorMsg = "존재하지 않는 직원입니다.";
                     log.error(errorMsg + " employeeNumber: " + employeeNumber);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
+    	
+        // 관리 팀 변경 요청시 처리
+    	Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
+    	if (targetTeams == null || targetTeams.isEmpty()) {
+    		targetTeams = Collections.emptyList();
+    	} else {
+    		// 사장 이외 요청 거부 (사원 등록 시 조건과 일치)
+    		if (!approver.canMakeAdmin()) {
+    			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다.");
+    		}
+    	}
+    	for (String targetTeam : targetTeams) {
+    		// 해당 팀명으로 관리중인 팀이 존재한다면 탐색
+    		Team teamEntity = null;
+    		for (Team team : employee.getTeams()) {
+    			if (team.getTeam().equals(targetTeam)) {
+    				teamEntity = team;
+    				break;
+    			}
+    		}
+    		
+    		if (teamEntity != null) {
+    			// 관리자 -> 멤버
+    			teamRepository.delete(teamEntity);
+    		} else {
+    			// 멤버 -> 관리자
+    			approver.getTeams()
+    					.stream()
+    					.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam()).stream())
+    					.filter(e -> e.getTeam().equals(targetTeam))
+    					.findAny()
+    					.ifPresentOrElse(team -> {
+				    						teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
+				    					},
+    									() -> {
+				    						String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
+				    	    				log.error(errorMsg + " employeeNumber: " + employeeNumber);
+				    	    				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    									}
+    					);
+    		}
+    	}
 
-        // 2. [입사일 가공 처리] 엔티티의 LocalDate 규격에 맞게 파싱 진행 (String 수용)
-        java.time.LocalDate parsedHireDate = null;
-        if (request.getHireDate() != null) {
-            String hireDateStr = String.valueOf(request.getHireDate()).trim();
-            if (!hireDateStr.isEmpty() && !hireDateStr.equals("null")) {
-                // yyyy-MM-dd 형태의 앞 10자리만 안전하게 잘라내어 파싱합니다.
-                parsedHireDate = java.time.LocalDate.parse(hireDateStr.substring(0, 10));
-            }
-        }
-        // 만약 파싱에 실패했다면 기존 엔티티가 가지고 있던 원래 입사일을 유지합니다.
-        if (parsedHireDate == null) {
-            parsedHireDate = employee.getHireDate();
-        }
-
-        // 3. [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
+        // [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
         // request.getTeam()이 비어 있다면 기존 엔티티의 team 정보를 그대로 보존합니다.
         String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
                 ? request.getTeam() 
                 : employee.getTeam();
-
-    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
-    	
-        // 4. [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
+        
+        // [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
         employee.updateInfoByAdmin(
             request.getName() != null ? request.getName() : employee.getName(),
             request.getEmail() != null ? request.getEmail() : employee.getEmail(),
             request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
             finalTeam,                 // 👈 덮어쓰기가 방지된 안전한 팀 값 전달
             request.getPosition() != null ? request.getPosition() : employee.getPosition(),
-            parsedHireDate,            // 👈 포맷 오류가 해결된 LocalDate 객체 주입
-           // employee.getApproverId(),   // 👈 필수값인 결재자(approver_id) 원본 데이터 보존
-           // request.getCurrTotalLeaveDays() != null ? request.getCurrTotalLeaveDays() : employee.getCurrTotalLeaveDays()
-            employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate) 
-            
+            request.getHireDate(),
+            request.getFireDate(),
+            employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
     }
-    
-    
+//    @Transactional
+//    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+//    public void updateEmployeeByAdmin(String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
+//        // 1. 사번으로 수정 대상 사원 조회
+//        Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
+//                .orElseThrow(() -> {
+//                    String errorMsg = "존재하지 않는 직원입니다.";
+//                    log.error(errorMsg + " employeeNumber: " + employeeNumber);
+//                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+//                });
+//
+//        // [팀 정보 누락 방어]
+//        String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
+//                ? request.getTeam().trim() 
+//                : employee.getTeam();
+//
+//        // 2. 💡 [권한 및 팀 동기화 마감] 프론트엔드에서 보낸 최신 권한 상태 변환 및 주입
+//        if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
+//            try {
+//                Role targetRole = Role.valueOf(request.getRole().trim().toUpperCase());
+//
+//                // B. list 리솔버가 참조하는 team 테이블과의 연동 동기화 처리
+//                if (targetRole == Role.ADMIN) {
+//                    // [멤버 -> 관리자]: team 테이블에서 해당 팀을 찾아 이 직원을 project_manager_id로 매핑 강제 등록
+//                    Team team = teamRepository.findFirstByTeamOrderBySeqAsc(finalTeam);
+//                    if (team != null) {
+//                        // 이미 등록되어 있지 않은 경우에만 중복 방지 저장
+//                        boolean isAlreadyPm = employee.getTeams().stream().anyMatch(t -> t.getTeam().equals(finalTeam));
+//                        if (!isAlreadyPm) {
+//                            teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
+//                            log.info("▶ [JPA 연동] 사원 {}의 Role 리솔버 통과를 위해 team 테이블 PM 매핑 인서트 완료", employeeNumber);
+//                        }
+//                    }
+//                } else if (targetRole == Role.EMPLOYEE) {
+//                    // [관리자 -> 멤버]: 이 사원이 팀장으로 매핑된 레코드 관계를 team 테이블에서 강제 삭제
+//                    for (Team team : new ArrayList<>(employee.getTeams())) {
+//                        if (team.getTeam().equals(finalTeam)) {
+//                            teamRepository.delete(team);
+//                            log.info("▶ [JPA 연동] 사원 {}의 관리자 해제를 위해 team 테이블 PM 매핑 딜리트 완료", employeeNumber);
+//                        }
+//                    }
+//                }
+//            } catch (IllegalArgumentException e) {
+//                log.warn("🚨 올바르지 않은 Role 규격이 전송되었습니다: " + request.getRole());
+//            }
+//        }
+//
+//        // 3. 입사일 가공 처리 로직 (기존 안정 버전 유지)
+//        java.time.LocalDate parsedHireDate = null;
+//        if (request.getHireDate() != null) {
+//            String hireDateStr = String.valueOf(request.getHireDate()).trim();
+//            if (!hireDateStr.isEmpty() && !hireDateStr.equals("null")) {
+//                parsedHireDate = java.time.LocalDate.parse(hireDateStr.substring(0, 10));
+//            }
+//        }
+//        if (parsedHireDate == null) {
+//            parsedHireDate = employee.getHireDate();
+//        }
+//
+//        java.time.LocalDate hireDate = parsedHireDate;
+//    	
+//        // 4. 엔티티 나머지 필드 일괄 업데이트 완료
+//        employee.updateInfoByAdmin(
+//            request.getName() != null ? request.getName() : employee.getName(),
+//            request.getEmail() != null ? request.getEmail() : employee.getEmail(),
+//            request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
+//            finalTeam,                 
+//            request.getPosition() != null ? request.getPosition() : employee.getPosition(),
+//            parsedHireDate,            
+//            employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate) 
+//        );
+//    }
+
     
 }
