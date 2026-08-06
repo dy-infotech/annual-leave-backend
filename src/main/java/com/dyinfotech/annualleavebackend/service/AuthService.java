@@ -83,6 +83,12 @@ public class AuthService {
     @Value("${spring.mail.username}")
     private String mailFrom;
     
+    public void checkAdmin(Long employeeId) {
+    	if (!teamService.isTeamManager(employeeId)) {
+    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인가되지 않은 사용자입니다. 다시 로그인해주세요.");
+    	}
+    }
+    
     @Transactional
     public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
 		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
