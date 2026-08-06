@@ -13,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -34,7 +35,6 @@ import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
-import com.dyinfotech.annualleavebackend.domain.BasisData;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
@@ -83,6 +83,12 @@ public class AuthService {
     @Value("${spring.mail.username}")
     private String mailFrom;
     
+    public void checkAdmin(Long employeeId) {
+    	if (!teamService.isTeamManager(employeeId)) {
+    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인가되지 않은 사용자입니다. 다시 로그인해주세요.");
+    	}
+    }
+    
     @Transactional
     public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
 		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
@@ -101,9 +107,10 @@ public class AuthService {
     													.department(Arrays.asList(DepartmentType.values()).stream()
     																										.map(DepartmentType::getName)
     																										.toList())
-    													.team(teamService.getSelfAndDescendants(requester.getTeam()).stream()
-    																												.map(Team::getTeam)
-    																												.toList())
+    													.accessibleTeam(requester.getTeams().stream()
+		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam()).stream())
+		    																				.map(Team::getTeam)
+		    																				.collect(Collectors.toSet()))
     													.position(Arrays.asList(PositionType.values()).stream()
     																									.filter(e -> e.ordinal() < requesterPosition.ordinal())
     																									.map(PositionType::getName)
@@ -113,29 +120,48 @@ public class AuthService {
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
+    	// 사번 채번용 접두사 정보 검증 (서버 데이터)
+    	LocalDate now = LocalDate.now(clock);
+    	String currentYear = String.valueOf(now.getYear());
+    	String prefix = basisDataFactory.getAsString(BasisDataType.EMPLOYEE_NUMBER_PREFIX)
+    									.orElseThrow(() -> {
+    										String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType." + BasisDataType.EMPLOYEE_NUMBER_PREFIX;
+    							    		log.error(errorMsg);
+    										return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
+    									})
+    									.replace("#{YEAR}", currentYear);
+    	
     	// 현재 승인자 직급과 신청받은 직급을 비교
-    	Employee approver = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-    	PositionType approverrPosition = PositionType.getType(approver.getPosition());
+    	Employee approver = employeeRepository.findById(employeeId)
+    											.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	
+    	// 부서와 직급 검증
+    	DepartmentType department = DepartmentType.getType(request.getDepartment());
     	PositionType targetPosition = PositionType.getType(request.getPosition());
-    	if (approverrPosition == null || targetPosition == null || approverrPosition.ordinal() <= targetPosition.ordinal()) {
+    	int validationResult = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
+    	if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
+    		String errorMsg;
+    		String detailMsg = "approverId: " + employeeId + "approverDepartment: " + approver.getDepartment() + ", requestedDepartment: " + department;
+    		DepartmentType parent = DepartmentType.getParentDepartmentType();
+    		if (parent.equals(department)) {
+    			errorMsg = parent.getName() + " 부서는 " + PositionType.CEO.getName() + "만 등록할 수 있습니다.";
+    			detailMsg += ", approverPosition: " + approver.getPosition();
+    		} else {
+    			errorMsg = "승인자의 부서와 동일한 부서만 선택할 수 있습니다.";
+    		}
+    		log.error(errorMsg + " " + detailMsg);
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    	}
+    	if (!ManageType.IS_VALID_POSITION.contains(validationResult)) {
     		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
-    		String detailMsg = "approverId : " + employeeId + "approverrPosition : " + approverrPosition + ", targetPosition: " + targetPosition;
+    		String detailMsg = "approverId: " + employeeId + "approverPosition: " + approver.getPosition() + ", targetPosition: " + targetPosition;
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
     	}
     	
-    	// 사번 채번
-    	LocalDate now = LocalDate.now(clock);
-    	Optional<BasisData> employeeNumberPrefix = basisDataFactory.get(BasisDataType.EMPLOYEE_NUMBER_PREFIX);
-    	if (employeeNumberPrefix.isEmpty()) {
-    		String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType.EMPlOYEE_NUMBER_PREFIX";
-    		log.error(errorMsg);
-			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
-		}
-    	
     	// 팀 정보와 관리자 매칭
     	Entry<Integer, String> teamData = teamService.getTeamManagerData(request.getTeam(), approver);
-    	if (teamData.getKey() == 0) {
+    	if (!ManageType.IS_TEAM_MANAGER.contains(teamData.getKey()) && !ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
     		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
     		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverTeam=[" + teamData.getValue() + "]";
     		log.error(errorMsg + " " + detailMsg);
@@ -144,24 +170,22 @@ public class AuthService {
     	
     	// 팀의 관리자로 등록되는 건지 확인
     	boolean makeAdminAccount = false;
-    	if (Role.ADMIN.equals(request.getRole())) {
-    		if (PositionType.CEO.equals(approverrPosition)) {
+    	if (Role.isAdmin(request.getRole())) {
+    		if (approver.canMakeAdmin()) {
     			makeAdminAccount = true;
     		} else {
         		String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";
-        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + approverrPosition.getName();
+        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + approver.getPosition();
         		log.error(errorMsg + " " + detailMsg);
     			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     		}
-    	} else if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
+    	} else if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
     		String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
-    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + approverrPosition.getName();
+    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + approver.getPosition();
     		log.error(errorMsg + " " + detailMsg);
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}
 
-    	String currentYear = String.valueOf(now.getYear());
-    	String prefix = employeeNumberPrefix.get().getData().replace("#{YEAR}", currentYear);
     	Optional<Employee> lastPrefixEmployee = employeeService.findByPrefixEmployeeNumber(prefix);
     	
     	// 사번 설정
@@ -193,7 +217,7 @@ public class AuthService {
     	employeeService.saveEmployee(employee);
     	
     	// 신규 팀이 만들어져야 한다면
-    	if (ManageType.IS_NEW_TEAM.hasCode(teamData.getKey())) {
+    	if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
     		teamService.saveTeam(Team.builder()
 									.team(request.getTeam())
 									.projectManager(employee)

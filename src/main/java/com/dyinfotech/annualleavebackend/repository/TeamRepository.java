@@ -9,5 +9,6 @@ import com.dyinfotech.annualleavebackend.repository.query.TeamRepositoryCustom;
 
 public interface TeamRepository extends JpaRepository<Team, Long>, TeamRepositoryCustom {
 	boolean existsByProjectManager_EmployeeId(Long projectManagerId);
+	Team findFirstByTeamOrderBySeqAsc(String team);
     List<Team> findAllByTeamOrderBySeqAsc(String team);
 }

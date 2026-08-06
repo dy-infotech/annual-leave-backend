@@ -7,6 +7,12 @@ import java.util.List;
 
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
+import com.dyinfotech.annualleavebackend.common.type.ManageType;
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
+import com.dyinfotech.annualleavebackend.common.type.Role;
+
+
 import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
@@ -25,6 +31,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient; 
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -75,6 +82,10 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Column(name = "email", length = 100)
     private String email;
     
+    // 💡 [수정] @Transient를 붙여 실제 MySQL DB 테이블을 변경하지 않고 메모리 상에서만 활용하도록 차단막 설정
+    @Transient 
+    private Role role = Role.EMPLOYEE; 
+    
     @Column(name = "curr_year", nullable = false, length = 4)
     private String currYear;
 
@@ -103,17 +114,20 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Embedded
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
-    @Builder
-    public Employee(String employeeNumber, String name, String department, String team, String position, String email, String currYear, Float currTotalLeaveDays, LocalDate hireDate, Employee approver) {
+    @Builder 
+      public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
+    		   
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
         this.team = team;
         this.position = position;
         this.email = email;
+        this.role = role != null ? role : Role.EMPLOYEE; 
         this.currYear = currYear;
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
+        this.fireDate = fireDate;
         this.approver = approver;
     }
     
@@ -173,14 +187,57 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     	return this.password != null && !this.password.isBlank();
     }
     
+    public boolean canMakeAdmin() {
+    	// 사장만 인사권을 가지고 있으며, 관리자(PM)를 등록할 수 있음
+    	return PositionType.isCEO(PositionType.getType(this.position));
+    }
+    
+    public int getManageTypeByDepartmentAndPosition(DepartmentType type, PositionType position) {
+    	int manageType = 0;
+    	DepartmentType department = DepartmentType.getType(this.department);
+    	DepartmentType parent = DepartmentType.getParentDepartmentType();
+    	PositionType myPosition = PositionType.getType(this.position);
+    	// 대표이사 부서에 등록할 경우
+    	if (parent.equals(type)) {
+    		// 대표이사 부서의 대표이사만 등록 가능
+    		if (parent.equals(department) && PositionType.isCEO(myPosition)) {
+    			manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
+    		}
+    	} else if (department != null && department.equals(type)) {
+        	// 대표이사 부서가 아니면 같은 부서일 때만 등록 가능
+    		manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
+    	}
+    	
+    	// 나보다 낮은 직급일 때 등록 가능
+    	if (myPosition != null && myPosition.compareTo(position) > 0) {
+    		manageType = ManageType.IS_VALID_POSITION.addFlag(manageType);
+    	}
+    	
+    	return manageType;
+    } 
     // 관리자용 사원 정보 수정 메서드
-    public void updateInfoByAdmin(String name, String email, String department, String team, String position, LocalDate hireDate, Float currTotalLeaveDays) {
+    public void updateInfoByAdmin(
+        String name, 
+        String email, 
+        String department, 
+        String team, 
+        String position, 
+        LocalDate hireDate, 
+        LocalDate fireDate,
+        Float currTotalLeaveDays
+    ) {
         this.name = name;
         this.email = email;             
         this.department = department;
         this.team = team;
         this.position = position;
-        this.hireDate = hireDate;        
+        this.hireDate = hireDate;     
+        this.fireDate = fireDate;    
         this.currTotalLeaveDays = currTotalLeaveDays;
+    }
+
+ 
+    public void changeRole(Role role) {
+        this.role = role; 
     }
 }

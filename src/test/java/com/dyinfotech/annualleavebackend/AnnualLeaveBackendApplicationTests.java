@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService;
 
 @SpringBootTest
@@ -85,6 +86,12 @@ class AnnualLeaveBackendApplicationTests {
 
         // 15 + ((3 - 1) / 2 * 1) = 16
 	    assertEquals(16, result);
+	    
+	    hireDate = hireDate.plusMonths(2);
+	    result = employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate, now);
+	    
+	    // 회계연도 규칙대로면 hireDate가 1월 1일로 보정되기 때문에 3년차로 인정받아서 16, 입사일 기준 계산 규칙이면 만 3년이 충족되지 않았으므로 15.
+	    assertEquals(CommonConfig.USE_FISCAL_YEAR_LEAVE_POLICY ? 16 : 15, result);
     }
 
     @Test

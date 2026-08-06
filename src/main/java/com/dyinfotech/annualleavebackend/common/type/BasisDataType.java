@@ -19,6 +19,7 @@ public enum BasisDataType {
 	,KASI_HOLIDAY_REQUEST_ADDRESS		(8L, "한국천문연구원_특일 정보 API 공휴일 요청 주소")
 	,LOGIN_FAIL_MAX_COUNT				(9L, "로그인 실패 최대 횟수")
 	,LOGIN_UNBLOCK_HOUR					(10L,"로그인 실패 잠금 해제까지 남은 시각")
+	,USE_FISCAL_YEAR_LEAVE_POLICY		(11L,"회계연도 정책 사용 여부")
 	;
 	
 	private final long code;
