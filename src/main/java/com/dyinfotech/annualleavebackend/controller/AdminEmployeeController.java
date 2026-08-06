@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
@@ -35,11 +37,12 @@ public class AdminEmployeeController {
     
     @PutMapping("/{employeeNumber}") 
     public ResponseEntity<Void> updateEmployeeByAdmin(
+    		@AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("employeeNumber") String employeeNumber, // 👈 명시적으로 경로 변수 매핑 지정
             @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
         
         // 서비스 메서드 호출
-        employeeService.updateEmployeeByAdmin(employeeNumber, request);
+        employeeService.updateEmployeeByAdmin(principal.employeeId(), employeeNumber, request);
         
         return ResponseEntity.ok().build(); // 200 OK 빈 바디 반환
     }

@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 @Transactional(readOnly = true)
 public class EmployeeService {
 
+	private final TeamService teamService;
 	private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
     private final TeamRepository teamRepository;
@@ -184,8 +185,15 @@ public class EmployeeService {
     @Transactional
     // 사원 정보가 수정되면 캐시를 전체 초기화하여 데이터 정합성을 유지합니다.
     @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
-    public void updateEmployeeByAdmin(String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
-        // 사번으로 기존 직원 엔티티 조회
+    public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
+    	// 수정 승인자 정보 조회
+    	Employee approver = employeeRepository.findById(approverId)
+                .orElseThrow(() -> {
+                    String errorMsg = "존재하지 않는 관리자입니다.";
+                    log.error(errorMsg + " employeeId: " + approverId);
+                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
+                });
+    	// 사번으로 기존 직원 엔티티 조회
         Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
                 .orElseThrow(() -> {
                     String errorMsg = "존재하지 않는 직원입니다.";
@@ -199,7 +207,7 @@ public class EmployeeService {
     		targetTeams = Collections.emptyList();
     	} else {
     		// 사장 이외 요청 거부 (사원 등록 시 조건과 일치)
-    		if (!employee.canMakeAdmin()) {
+    		if (!approver.canMakeAdmin()) {
     			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다.");
     		}
     	}
@@ -218,14 +226,20 @@ public class EmployeeService {
     			teamRepository.delete(teamEntity);
     		} else {
     			// 멤버 -> 관리자
-    			Team team = teamRepository.findFirstByTeamOrderBySeqAsc(targetTeam);
-    			if (team != null) {
-    				teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
-    			} else {
-    				String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
-    				log.error(errorMsg + " employeeNumber: " + employeeNumber);
-    				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
-    			}
+    			approver.getTeams()
+    					.stream()
+    					.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam()).stream())
+    					.filter(e -> e.getTeam().equals(targetTeam))
+    					.findAny()
+    					.ifPresentOrElse(team -> {
+				    						teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
+				    					},
+    									() -> {
+				    						String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
+				    	    				log.error(errorMsg + " employeeNumber: " + employeeNumber);
+				    	    				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    									}
+    					);
     		}
     	}
 
