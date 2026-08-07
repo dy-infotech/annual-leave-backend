@@ -8,6 +8,7 @@ import java.util.List;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -63,18 +64,18 @@ public final class EmployeeDto {
         private LocalDateTime createdAt;
         private Boolean isRegisted;
 
-        public static EmployeeResponse from(Employee employee, Employee approver, Role role, Float remainingLeaveDays) {
+        public static EmployeeResponse from(Employee employee, Employee approver, EmployeeAuthorityResolver authorityResolver, Float remainingLeaveDays) {
             return EmployeeResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .department(employee.getDepartment())
                     .team(employee.getTeam())
-                    .teamList(employee.getTeams().stream().map(Team::getTeam).toList())
+                    .teamList(authorityResolver.getManagedTeams(employee.getEmployeeId()).stream().map(Team::getTeam).toList())
                     .position(employee.getPosition())
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
                     .fireDate(employee.getFireDate())
-                    .role(role.name())
+                    .role(authorityResolver.resolveRole(employee.getEmployeeId()).name())
                     .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
                     .remainingLeaveDays(remainingLeaveDays)
                     .approverNumber(approver.getEmployeeNumber())

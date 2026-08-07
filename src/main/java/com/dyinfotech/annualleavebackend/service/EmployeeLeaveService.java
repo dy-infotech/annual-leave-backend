@@ -5,9 +5,11 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.time.Year;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,9 +20,9 @@ import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
-import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -186,47 +188,41 @@ public class EmployeeLeaveService {
     	return count;
     }
 
-    public interface SingleEmployeeRoleResolver {
-    	boolean isAdmin();
-    	default Role resolveRole() {
-    		return EmployeeLeaveService.convertRole(isAdmin());
-    	}
-    }
-	public interface MultipleEmployeeRoleResolver {
+	public interface EmployeeAuthorityResolver {
 		boolean isAdmin(Long employeeId);
+		Collection<Team> getManagedTeams(Long employeeId);
 		default Role resolveRole(Long employeeId) {
 			return EmployeeLeaveService.convertRole(isAdmin(employeeId));
 		}
 	}
-	@RequiredArgsConstructor
-	private static class SingleEmployeeRoleResolverImpl implements SingleEmployeeRoleResolver {
-		private final boolean admin;
-
-		@Override
-		public boolean isAdmin() {
-			return admin;
+	private static class EmployeeAuthorityResolverImpl implements EmployeeAuthorityResolver {
+		private final Map<Long, Set<Team>> managedTeams;
+		
+		public EmployeeAuthorityResolverImpl(Collection<Team> teams) {
+			this.managedTeams = teams.stream()
+							            .collect(Collectors.groupingBy(Team::getProjectManagerId, Collectors.toSet()));
 		}
-	}
-	@RequiredArgsConstructor
-	private static class MultipleEmployeeRoleResolverImpl implements MultipleEmployeeRoleResolver {
-		private final Set<Long> projectManagerIds;
-
+		
+		@Override
+		public Collection<Team> getManagedTeams(Long employeeId) {
+			return managedTeams.getOrDefault(employeeId, Collections.emptySet());
+		}
+		
 		@Override
 		public boolean isAdmin(Long employeeId) {
-			return projectManagerIds.contains(employeeId);
+			return managedTeams.containsKey(employeeId);
 		}
 	}
-	public MultipleEmployeeRoleResolver createRoleResolver() {
-		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamService.findAllProjectManagerIds()));
+	public EmployeeAuthorityResolver createAuthorityResolver() {
+		return new EmployeeAuthorityResolverImpl(Set.copyOf(teamService.findAll()));
 	}
-	public MultipleEmployeeRoleResolver createRoleResolver(Collection<Long> targetEmployeeIds) {
-		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamService.findAllProjectManagerIds(targetEmployeeIds)));
+	public EmployeeAuthorityResolver createAuthorityResolver(Set<Long> targetEmployeeIds) {
+		return new EmployeeAuthorityResolverImpl(teamService.findAll().stream()
+																		.filter(e -> targetEmployeeIds.contains(e.getProjectManagerId()))
+																		.collect(Collectors.toSet()));
 	}
-	public SingleEmployeeRoleResolver createSingleRoleResolver(Role role) {
-		return new SingleEmployeeRoleResolverImpl(Role.isAdmin(role));
-	}
-	public SingleEmployeeRoleResolver createSingleRoleResolver(Long employeeId) {
-		return new SingleEmployeeRoleResolverImpl(teamService.existsByProjectManager_EmployeeId(employeeId));
+	public EmployeeAuthorityResolver createAuthorityResolver(Long employeeId) {
+		return createAuthorityResolver(Set.of(employeeId));
 	}
     private static Role convertRole(boolean isAdmin) {
     	return isAdmin ? Role.getAdminRole() : Role.EMPLOYEE;

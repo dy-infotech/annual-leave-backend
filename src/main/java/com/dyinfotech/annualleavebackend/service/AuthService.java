@@ -1,7 +1,6 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -48,9 +47,7 @@ import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
-import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.SingleEmployeeRoleResolver;
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -340,8 +337,8 @@ public class AuthService {
         validateLogin(employee, request.getPassword());
         
         // JWT 발급
-        SingleEmployeeRoleResolver roleResolver = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId());
-        Role role = roleResolver.resolveRole();
+        EmployeeAuthorityResolver roleResolver = employeeLeaveService.createAuthorityResolver(employee.getEmployeeId());
+        Role role = roleResolver.resolveRole(employee.getEmployeeId());
         String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
 
         return SignInDto.SignInResponse.builder()

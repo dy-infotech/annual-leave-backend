@@ -1,7 +1,5 @@
 package com.dyinfotech.annualleavebackend.service;
 
-import com.dyinfotech.annualleavebackend.repository.TeamRepository;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -9,6 +7,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -16,20 +15,19 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
-import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
-import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.MultipleEmployeeRoleResolver;
+import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +46,7 @@ public class EmployeeService {
     private final PasswordEncoder passwordEncoder;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
-    public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId, Role role) {
+    public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
                 	String errorMsg = "존재하지 않는 직원입니다.";
@@ -64,27 +62,28 @@ public class EmployeeService {
                 });
         Float remainingDays = commonService.getRemainingDays(employee);
 
-        return EmployeeDto.EmployeeResponse.from(employee, approver, role, remainingDays);
+        return EmployeeDto.EmployeeResponse.from(employee, approver, employeeLeaveService.createAuthorityResolver(employeeId), remainingDays);
     }
     
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
     	List<Employee> employees;
-    	MultipleEmployeeRoleResolver roleResolver;
+    	EmployeeAuthorityResolver roleResolver;
     	// XXX: 주석 처리된 부분은 remainingLeaveDays가 필요할 경우에만 사용. 현재는 필요하지 않다고 판단함.
     	if (searchParam == null || searchParam.isBlank()) {
     		employees = employeeRepository.findAllEmployees();
-    		roleResolver = employeeLeaveService.createRoleResolver();
+    		roleResolver = employeeLeaveService.createAuthorityResolver();
     	} else {
     		employees = employeeRepository.findAllEmployees(searchParam);
-    		Collection<Long> employeeIds = employees.stream().map(Employee::getEmployeeId).toList();
-    		roleResolver = employeeLeaveService.createRoleResolver(employeeIds);
+    		roleResolver = employeeLeaveService.createAuthorityResolver(employees.stream()
+    																			.map(Employee::getEmployeeId)
+    																			.collect(Collectors.toSet()));
     	}
     	Map<Long, Float> remainingLeaveDaysMap = commonService.getRemainingDays(employees);
     	
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
             // XXX: approver 데이터 필요 없어서 뺐음.
-			responses.add(EmployeeResponse.from(employee, employee, roleResolver.resolveRole(employee.getEmployeeId()), remainingLeaveDaysMap.get(employee.getEmployeeId())));
+			responses.add(EmployeeResponse.from(employee, employee, roleResolver, remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
 
         return responses;

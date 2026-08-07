@@ -9,8 +9,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -30,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class TeamService {
+	private final CacheManager cacheManager;
 	private final TeamRepository teamRepository;
 	
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "#a0")
@@ -37,9 +42,34 @@ public class TeamService {
 		return teamRepository.findAllByTeamOrderBySeqAsc(team);
 	}
 	
-	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'total'")
+	private static final String KEY_TOTAL = "total";
+	private final Lock teamCacheLock = new ReentrantLock();
+	// 동일 클래스 내부 호출(self-invocation)에서는 Spring AOP 프록시를 거치지 않아 @Cacheable이 동작하지 않는다.
+	// 따라서 내부 호출에서도 동일한 캐시를 사용할 수 있도록 캐시 조회/저장을 직접 수행하고,
+	// 캐시 미존재 시 중복 조회를 방지하기 위해 동시성 제어를 적용한다.
+	@SuppressWarnings("unchecked")
 	public List<Team> findAll() {
-		return teamRepository.findAll();
+	    Cache cache = cacheManager.getCache(CacheConfig.CACHE_TEAMS);
+
+	    List<Team> teams = cache.get(KEY_TOTAL, List.class);
+
+	    if (teams != null) {
+	        return teams;
+	    }
+
+	    teamCacheLock.lock();
+	    try {
+	        teams = cache.get(KEY_TOTAL, List.class);
+
+	        if (teams == null) {
+	            teams = teamRepository.findAll();
+	            cache.put(KEY_TOTAL, teams);
+	        }
+
+	        return teams;
+	    } finally {
+	        teamCacheLock.unlock();
+	    }
 	}
 	
 	public Set<Long> findAllProjectManagerIds() {
