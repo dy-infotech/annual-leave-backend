@@ -280,6 +280,8 @@ public class EmployeeService {
             request.getFireDate(),
             employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
+        
+        teamService.invalidateCache();
     }
 //    @Transactional
 //    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
