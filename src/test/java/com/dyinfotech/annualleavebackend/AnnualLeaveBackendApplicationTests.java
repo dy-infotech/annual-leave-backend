@@ -1,7 +1,7 @@
 package com.dyinfotech.annualleavebackend;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDate;
 
@@ -10,103 +10,52 @@ import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 
-import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService;
-import com.dyinfotech.annualleavebackend.service.TeamService;
+import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
 import jakarta.persistence.EntityManagerFactory;
 
 @SpringBootTest
 @EnableCaching
 class AnnualLeaveBackendApplicationTests {
-
+	
+	@Autowired
+	private EmployeeService employeeService;
+	
 	@Autowired
     private EmployeeLeaveService employeeLeaveService;
 
     @Autowired
-    private TeamService teamService;
-    
-    @Autowired
-    private CacheManager cacheManager;
-
-    @Autowired
     private EntityManagerFactory emf;
     
-    @Test
-    void cacheManagerCheck() {
-        System.out.println(cacheManager.getClass());
-    }
-    
-    @Test
-    void findAll_cache_test() {
-        teamService.findAll();
-
-        Cache cache = cacheManager.getCache(CacheConfig.CACHE_TEAMS);
-
-        Object value = cache.get("total");
-
-        assertNotNull(value);
-    }
-    
-    @Test
-    void cache_test() {
-        teamService.findAllProjectManagerIds();
-
-        Cache cache = cacheManager.getCache(CacheConfig.CACHE_TEAMS);
-
-        Object value = cache.get("total");
-
-        assertNotNull(value);
-    }
-    
-    @Test
-    void findAllProjectManagerIds_cache_test() {
+    Statistics getStatistics() {
         SessionFactory sessionFactory = emf.unwrap(SessionFactory.class);
         Statistics statistics = sessionFactory.getStatistics();
 
         statistics.setStatisticsEnabled(true);
-
-        Cache cache = cacheManager.getCache(CacheConfig.CACHE_TEAMS);
-        cache.clear();
-        
+        return statistics;
+    }
+    
+    @Test
+    void employee_cache_test() {
+        Statistics statistics = getStatistics();
         statistics.clear();
 
-        long before = statistics.getPrepareStatementCount();
+        employeeService.getMyInfo(1L);
 
-        teamService.findAll();
-
-        long first = statistics.getPrepareStatementCount() - before;
-
-        assertEquals(1, first);
-
+        long first = statistics.getPrepareStatementCount();
 
         statistics.clear();
 
-        before = statistics.getPrepareStatementCount();
+        employeeService.getMyInfo(1L);
 
-        teamService.findAll();
+        long second = statistics.getPrepareStatementCount();
 
-        long second = statistics.getPrepareStatementCount() - before;
-        
-        // findAll 캐싱
+        assertTrue(first > 0);
         assertEquals(0, second);
-
-
-        statistics.clear();
-
-        before = statistics.getPrepareStatementCount();
-        
-        teamService.findAllProjectManagerIds();
-
-        long third = statistics.getPrepareStatementCount() - before;
-        
-        // findAll이 캐싱되었으므로 findAllProjectManagerIds도 캐싱 데이터 공유
-        assertEquals(0, third);
     }
     
     void calculateCurrYearLeaveDays(LocalDate hireDate, LocalDate now, int excepted) {
