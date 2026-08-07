@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
+import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
@@ -45,7 +46,10 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 					                .where(
 					                    qLeaveRequest.employee.employeeId.eq(employeeId),
 					                    qLeaveRequest.status.in(status),
-					                    qLeaveRequest.startDate.between(startRange, endRange)
+					                    qLeaveRequest.startDate.between(startRange, endRange),
+					                    qLeaveRequest.leaveType.notIn(List.of(LeaveType.ALTERNATIVE.name(), 
+					                    									LeaveType.FAMILY.name(), 
+					                    									LeaveType.PARENTAL.name()))
 					                )
 					                .fetchOne();
 
