@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +40,28 @@ public class TeamService {
 	@Cacheable(value = CacheConfig.CACHE_TEAMS, key = "'total'")
 	public List<Team> findAll() {
 		return teamRepository.findAll();
+	}
+	
+	public Set<Long> findAllProjectManagerIds() {
+        return findAll().stream()
+                .map(team -> team.getProjectManager().getEmployeeId())
+                .collect(Collectors.toSet());
+    }
+	
+	public Set<Long> findAllProjectManagerIds(Collection<Long> employeeIds) {
+		if (employeeIds == null || employeeIds.isEmpty()) {
+            return Set.of();
+        }
+
+        return findAll().stream()
+                .map(Team::getProjectManager)
+                .map(Employee::getEmployeeId)
+                .filter(employeeIds::contains)
+                .collect(Collectors.toSet());
+    }
+	
+	public boolean existsByProjectManager_EmployeeId(Long projectManagerId) {
+		return teamRepository.existsByProjectManager_EmployeeId(projectManagerId);
 	}
 	/**
 	 * 기준 팀부터 시작하여 자기 자신과 모든 하위 팀 목록을 재귀적으로 수집합니다 (DFS).
