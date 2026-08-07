@@ -23,7 +23,7 @@ public interface EmployeeRepositoryCustom {
 	// 이름으로 이메일 조회
     List<String> findEmailsByName(String name);
     // 사원명으로 이메일 조회
-    List<String> findEmailsByEmployeeNumber(String employeeName);
+    String findEmailsByEmployeeNumber(String employeeName);
     // 이름과 이메일로 사번과 이메일 조회
     List<EmployeeNumberEmail> findEmployeeNumberAndEmailByNameAndEmailIn(String name, List<String> emailList);
 }
