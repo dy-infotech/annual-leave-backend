@@ -49,7 +49,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 
     // 특정 상태의 내 요청 개수
     default List<LeaveRequestStatusCount> countByStatus(Long employeeId, Year year) {
-    	return countByStatus(employeeId, getEndOfYear(year), getStartOfYear(year));
+    	return countByStatus(employeeId, getStartOfYear(year), getEndOfYear(year));
     }
     default List<LeaveRequestStatusCount> countByStatus(Long employeeId, Clock clock) {
     	return countByStatus(employeeId, Year.now(clock));
@@ -60,7 +60,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
 		if (directTeams == null || directTeams.isEmpty() || accessibleTeams == null || accessibleTeams.isEmpty()) {
 			return Collections.emptyList();
 		}
-		return countByStatus(excludeId, directTeams, accessibleTeams, getEndOfYear(year), getStartOfYear(year));
+		return countByStatus(excludeId, directTeams, accessibleTeams, getStartOfYear(year), getEndOfYear(year));
 	}
 	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, Clock clock) {
 		return countByStatus(excludeId, directTeams, accessibleTeams, Year.now(clock));
@@ -71,7 +71,7 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     	if (directTeams == null || directTeams.isEmpty()) {
     		return Collections.emptyList();
     	}
-    	return findByStatusAndTeamsInRange(excludeId, status, directTeams, childTeamProjectManagerIds, getEndOfYear(year), getStartOfYear(year));
+    	return findByStatusAndTeamsInRange(excludeId, status, directTeams, childTeamProjectManagerIds, getStartOfYear(year), getEndOfYear(year));
     }
     default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long excludeId, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LeaveRequestStatus status, Clock clock) {
     	return findByStatusOrderByCreatedAtAsc(excludeId, directTeams, childTeamProjectManagerIds, status, Year.now(clock));

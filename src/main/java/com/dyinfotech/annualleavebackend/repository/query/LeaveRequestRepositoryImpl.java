@@ -37,16 +37,34 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	private final EntityManager entityManager;
 
     private static final QLeaveRequest qLeaveRequest = QLeaveRequest.leaveRequest;
+	
+	private BooleanExpression overlap(LocalDate startDate, LocalDate endDate) {
+	    if (startDate == null && endDate == null) {
+	        return null;
+	    }
+
+	    BooleanExpression condition = null;
+
+	    if (startDate != null) {
+	        condition = qLeaveRequest.endDate.goe(startDate);
+	    }
+
+	    if (endDate != null) {
+	        BooleanExpression endCondition = qLeaveRequest.startDate.loe(endDate);
+	        condition = condition == null ? endCondition : condition.and(endCondition);
+	    }
+
+	    return condition;
+	}
 
 	@Override
-	public float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startRange,
-			LocalDate endRange) {
+	public float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate) {
 		Float result = queryFactory.select(qLeaveRequest.useDays.sum())
 					                .from(qLeaveRequest)
 					                .where(
 					                    qLeaveRequest.employee.employeeId.eq(employeeId),
 					                    qLeaveRequest.status.in(status),
-					                    qLeaveRequest.startDate.between(startRange, endRange),
+					                    qLeaveRequest.startDate.between(startDate, endDate),
 					                    qLeaveRequest.leaveType.notIn(List.of(LeaveType.ALTERNATIVE.name(), 
 					                    									LeaveType.FAMILY.name(), 
 					                    									LeaveType.PARENTAL.name()))
@@ -58,7 +76,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	
 	@Override
 	public Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status,
-	                                           LocalDate startRange, LocalDate endRange) {
+	                                           LocalDate startDate, LocalDate endDate) {
 	    NumberExpression<Float> sumUseDays = qLeaveRequest.useDays.sum();
 
 	    Map<Long, Float> result = queryFactory.select(
@@ -69,7 +87,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 									            .where(
 									                qLeaveRequest.employee.employeeId.in(employeeIds),
 									                qLeaveRequest.status.in(status),
-									                qLeaveRequest.startDate.between(startRange, endRange)
+									                qLeaveRequest.startDate.between(startDate, endDate)
 									            )
 									            .groupBy(qLeaveRequest.employee.employeeId)
 									            .fetch()
@@ -88,7 +106,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate endRange, LocalDate startRange) {
+	public List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate startDate, LocalDate endDate) {
 		return queryFactory.select(
 			                    Projections.constructor(
 			                        LeaveRequestStatusCount.class,
@@ -99,15 +117,16 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 			                .from(qLeaveRequest)
 			                .where(
 			                    qLeaveRequest.employee.employeeId.eq(employeeId),
-			                    qLeaveRequest.startDate.loe(endRange),
-			                    qLeaveRequest.endDate.goe(startRange)
+//			                    qLeaveRequest.startDate.loe(endDate),
+//			                    qLeaveRequest.endDate.goe(startDate)
+				                overlap(startDate, endDate)
 			                )
 			                .groupBy(qLeaveRequest.status)
 			                .fetch();
 	}
 
 	@Override
-	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate endRange, LocalDate startRange) {
+	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate startDate, LocalDate endDate) {
 		Set<Long> childTeamProjectManagerIds = new HashSet<>();
 		Set<String> accessibleTeamNames = new HashSet<>();
 		for (Team team : accessibleTeams) {
@@ -143,15 +162,16 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				            .from(qLeaveRequest)
 				            .where(
 				                teamCondition,
-				                qLeaveRequest.startDate.loe(endRange),
-				                qLeaveRequest.endDate.goe(startRange)
+//				                qLeaveRequest.startDate.loe(endDate),
+//				                qLeaveRequest.endDate.goe(startDate)
+				                overlap(startDate, endDate)
 				            )
 				            .groupBy(qLeaveRequest.status)
 				            .fetch();
 	}
 	
 	@Override
-	public List<LeaveRequest> findByStatusAndTeamsInRange(Long excludeId, LeaveRequestStatus status, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LocalDate endRange, LocalDate startRange) {
+	public List<LeaveRequest> findByStatusAndTeamsInRange(Long excludeId, LeaveRequestStatus status, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LocalDate startDate, LocalDate endDate) {
 		BooleanExpression targetCondition = qLeaveRequest.employee.team.in(directTeams);
 		if (excludeId != null) {
 		    targetCondition = targetCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
@@ -164,8 +184,9 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	                        .where(
 	                            qLeaveRequest.status.eq(status),
 	                            targetCondition,
-	                            qLeaveRequest.startDate.loe(endRange),
-	                            qLeaveRequest.endDate.goe(startRange)
+//	                            qLeaveRequest.startDate.loe(endDate),
+//	                            qLeaveRequest.endDate.goe(startDate)
+				                overlap(startDate, endDate)
 	                        )
 	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
 	                        .fetch();
@@ -201,14 +222,6 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
             builder.and(qLeaveRequest.employee.employeeId.eq(employeeId));
         }
 
-	    if (startDate != null) {
-	        builder.and(qLeaveRequest.startDate.goe(startDate));
-	    }
-
-	    if (endDate != null) {
-	        builder.and(qLeaveRequest.endDate.loe(endDate));
-	    }
-
 	    if (status != null) {
 	        builder.and(qLeaveRequest.status.eq(status));
 	    }
@@ -226,7 +239,8 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    
         return queryFactory.selectFrom(qLeaveRequest)
         					.join(qLeaveRequest.employee).fetchJoin()
-			                .where(builder)
+			                .where(builder,
+			                		overlap(startDate, endDate))
 			                .orderBy(qLeaveRequest.createdAudit.createdAt.desc())
 			                .fetch();
 	}
