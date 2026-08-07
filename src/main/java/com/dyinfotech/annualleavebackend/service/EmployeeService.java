@@ -183,7 +183,10 @@ public class EmployeeService {
     
     
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+    @Caching(evict = {
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true),
+    	    @CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+    })
     public void saveEmployee(Employee employee) {
     	employeeRepository.save(employee);
     }
@@ -191,7 +194,10 @@ public class EmployeeService {
     
     @Transactional
     // 사원 정보가 수정되면 캐시를 전체 초기화하여 데이터 정합성을 유지합니다.
-    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+    @Caching(evict = {
+    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true),
+    	    @CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+    })
     public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
     	// 수정 승인자 정보 조회
     	Employee approver = employeeRepository.findById(approverId)

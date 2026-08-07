@@ -11,8 +11,11 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 
 @Configuration
 @EnableCaching
@@ -21,7 +24,8 @@ public class CacheConfig {
 	// 어노테이션에서 사용할 상수를 선언 (컴파일 타임 상수)
     public static final String CACHE_HOLIDAYS = "holidays";
     public static final String CACHE_EMPLOYEES = "employees";
-    public static final String CACHE_TEAMS = "teams";
+    public static final String CACHE_TEAM_MANAGEMENT_DATA = "teamManagementData";
+    public static final String TEAM_TOTAL_KEY = "total";
 
     
     public static final Cache<String, List<String>> EMAIL_BY_NAME_CACHE = Caffeine.newBuilder()
@@ -53,16 +57,30 @@ public class CacheConfig {
 	            .maximumSize(1000)
 	            .build());
 
-	    // 3. 팀 캐시 설정 (24시간 만료)
-	    CaffeineCache teamCache = new CaffeineCache(CACHE_TEAMS, 
+	    // 3. 팀 관리 캐시 설정 (24시간 만료)
+	    CaffeineCache teamManagementCache = new CaffeineCache(CACHE_TEAM_MANAGEMENT_DATA, 
 	        Caffeine.newBuilder()
 	            .expireAfterWrite(24, TimeUnit.HOURS)
-	            .maximumSize(20)
+	            .maximumSize(1000)
 	            .build());
 
 	    // 생성한 캐시들을 리스트로 묶어서 매니저에 등록
-	    cacheManager.setCaches(List.of(holidaysCache, userCache, teamCache));
+	    cacheManager.setCaches(List.of(holidaysCache, userCache, teamManagementCache));
 	    
 	    return cacheManager;
+	}
+	
+	@Bean("teamLoadingCache")
+	LoadingCache<String, List<Team>> teamLoadingCache(TeamRepository teamRepository) {
+	    return Caffeine.newBuilder()
+			            .maximumSize(100)
+			            .expireAfterWrite(24, TimeUnit.HOURS)
+			            .build(key -> {
+			                if (TEAM_TOTAL_KEY.equals(key)) {
+			                    return teamRepository.findAll();
+			                }
+		
+			                return teamRepository.findAllByTeamOrderBySeqAsc(key);
+			            });
 	}
 }
