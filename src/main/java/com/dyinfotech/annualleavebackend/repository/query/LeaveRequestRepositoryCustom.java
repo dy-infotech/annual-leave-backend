@@ -14,14 +14,14 @@ import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatu
 
 public interface LeaveRequestRepositoryCustom {
 	// 승인된 요청의 사용일수 합계 (잔여 연차 계산용)
-	float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startRange, LocalDate endRange);
-	Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status, LocalDate startRange, LocalDate endRange);
+	float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate);
+	Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate);
 
 	// 특정 상태의 내 요청 개수
-    List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate endRange, LocalDate startRange);
+    List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate startDate, LocalDate endDate);
     
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate endRange, LocalDate startRange);
+    List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate startDate, LocalDate endDate);
 
     // 승인 대기 상태 휴가 조회 (관리자용)
     List<LeaveRequest> findByStatusAndTeamsInRange(
@@ -29,8 +29,8 @@ public interface LeaveRequestRepositoryCustom {
     		LeaveRequestStatus status, 
     		Collection<String> directTeams, 
     		Collection<Long> childTeamProjectManagerIds, 
-    		LocalDate endRange, 
-    		LocalDate startRange
+    		LocalDate startRange,
+    		LocalDate endRange
     );
     
     // 휴가 결재 승인 또는 반려 처리
