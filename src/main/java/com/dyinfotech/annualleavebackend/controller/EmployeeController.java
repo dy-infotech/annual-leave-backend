@@ -28,7 +28,7 @@ public class EmployeeController {
     @Operation(summary = "내 정보 조회", description = "로그인과 동시에 로그인한 사용자 정보 조회한다.")
     @GetMapping("/me")
     public EmployeeDto.EmployeeResponse getMyInfo(@AuthenticationPrincipal EmployeePrincipal principal) {
-        return employeeService.getMyInfo(principal.employeeId(), principal.role());
+        return employeeService.getMyInfo(principal.employeeId());
     }
 
     @Operation(summary = "이메일 변경", description = "로그인한 사용자가 이메일 변경을 위해 사용한다.")

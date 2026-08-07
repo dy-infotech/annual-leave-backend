@@ -48,7 +48,7 @@ public class DashboardService {
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
 
         // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createSingleRoleResolver(role).isAdmin() ? getAllEmployeeRequestSummary(employee) : null;
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createAuthorityResolver(employeeId).isAdmin(employeeId) ? getAllEmployeeRequestSummary(employee) : null;
 
         return DashboardDto.builder()
                 .myLeaveInfoResponse(myLeaveInfo)
