@@ -41,7 +41,7 @@ public class CommonService {
 	}
 
 	public float getRemainingDays(Employee employee) {
-		float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
+		float usedDays = leaveRequestRepository.sumRequestedUseDays(employee.getEmployeeId(), clock);
 		return getRemainingDays(employee, employee.getCurrTotalLeaveDays(), usedDays);
 	}
 	
@@ -49,7 +49,7 @@ public class CommonService {
 		List<Long> employeeIds = employees.stream()
 										.map(Employee::getEmployeeId)
 										.toList();
-		Map<Long, Float> usedLeaveDaysByEmployee = leaveRequestRepository.sumApprovedUseDays(employeeIds, clock);
+		Map<Long, Float> usedLeaveDaysByEmployee = leaveRequestRepository.sumRequestedUseDays(employeeIds, clock);
 		Map<Long, Float> adjustedLeaveDaysByEmployee = employeeLeaveService.getAdjustedLeaveDays(employeeIds, Year.now(clock).toString());
 		
 		return employees.stream()

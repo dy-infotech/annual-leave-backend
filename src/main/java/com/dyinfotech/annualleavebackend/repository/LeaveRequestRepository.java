@@ -34,17 +34,17 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     
 
     // 승인된 요청의 사용일수 합계 (잔여 연차 계산용)
-    default float sumApprovedUseDays(Long employeeId, Year year) {
-    	return sumApprovedUseDays(employeeId, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
+    default float sumRequestedUseDays(Long employeeId, Year year) {
+    	return sumRequestedUseDays(employeeId, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
     }
-    default float sumApprovedUseDays(Long employeeId, Clock clock) {
-    	return sumApprovedUseDays(employeeId, Year.now(clock));
+    default float sumRequestedUseDays(Long employeeId, Clock clock) {
+    	return sumRequestedUseDays(employeeId, Year.now(clock));
     }
-    default Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, Year year) {
-    	return sumApprovedUseDays(employeeIds, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
+    default Map<Long, Float> sumRequestedUseDays(Collection<Long> employeeIds, Year year) {
+    	return sumRequestedUseDays(employeeIds, List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING), getStartOfYear(year), getEndOfYear(year));
     }
-    default Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, Clock clock) {
-    	return sumApprovedUseDays(employeeIds, Year.now(clock));
+    default Map<Long, Float> sumRequestedUseDays(Collection<Long> employeeIds, Clock clock) {
+    	return sumRequestedUseDays(employeeIds, Year.now(clock));
     }
 
     // 특정 상태의 내 요청 개수
