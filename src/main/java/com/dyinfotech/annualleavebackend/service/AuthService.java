@@ -163,7 +163,7 @@ public class AuthService {
     	// 팀의 관리자로 등록되는 건지 확인
     	boolean makeAdminAccount = false;
     	if (Role.isAdmin(request.getRole())) {
-    		if (approver.canMakeAdmin()) {
+    		if (approver.hasPersonnelAuthority()) {
     			makeAdminAccount = true;
     		} else {
         		String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";

@@ -191,7 +191,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     	return this.password != null && !this.password.isBlank();
     }
     
-    public boolean canMakeAdmin() {
+    public boolean hasPersonnelAuthority() {
     	// 사장만 인사권을 가지고 있으며, 관리자(PM)를 등록할 수 있음
     	return PositionType.isCEO(PositionType.getType(this.position));
     }

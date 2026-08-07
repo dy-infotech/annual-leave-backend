@@ -201,6 +201,10 @@ public class EmployeeService {
                     log.error(errorMsg + " employeeId: " + approverId);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
+    	// 인사권자가 아닌 경우 거부 처리 (현재는 사장만 가능)
+    	if (!approver.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인사권을 가진 관리자가 아닙니다.");
+    	}
     	// 사번으로 기존 직원 엔티티 조회
         Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
                 .orElseThrow(() -> {
@@ -208,14 +212,17 @@ public class EmployeeService {
                     log.error(errorMsg + " employeeNumber: " + employeeNumber);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
-    	
+        // 내 정보 수정 시 에러 처리 (나보다 낮은 직급만 설정할 수 있는 이유는 타인에 대한 정보 변경만 고려했기 때문이다.)
+    	if (employee.getEmployeeId() == approver.getEmployeeId()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "자신에 대한 정보는 내 정보에서 수정해야 합니다.");
+    	}
         // 관리 팀 변경 요청시 처리
     	Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
     	if (targetTeams == null || targetTeams.isEmpty()) {
     		targetTeams = Collections.emptyList();
     	} else {
     		// 사장 이외 요청 거부 (사원 등록 시 조건과 일치)
-    		if (!approver.canMakeAdmin()) {
+    		if (!approver.hasPersonnelAuthority()) {
     			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다.");
     		}
     	}
