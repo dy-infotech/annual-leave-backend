@@ -31,6 +31,7 @@ public class DashboardService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final TeamService teamService;
     private final CommonService commonService;
+    private final EmployeeService employeeService;
     private final EmployeeLeaveService employeeLeaveService;
 
     private final Clock clock;
@@ -38,8 +39,11 @@ public class DashboardService {
     public DashboardDto getDashboard(Long employeeId, Role role) {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
-        // 현재 연도 연차일수 계산
+        // 현재 연도 연차일수 계산 및 설정
         float currYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+        if (employee.getCurrTotalLeaveDays() != currYearLeaveDays) {
+        	employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), currYearLeaveDays);
+        }
 
         // 1. 내 휴가 정보
         DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee, currYearLeaveDays);
