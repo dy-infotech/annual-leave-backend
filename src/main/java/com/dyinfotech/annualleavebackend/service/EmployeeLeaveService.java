@@ -36,7 +36,7 @@ public class EmployeeLeaveService {
 
     private final BasisDataFactory basisDataFactory;
     private final LeaveAdjustmentRepository leaveAdjustmentRepository;
-    private final TeamRepository teamRepository;
+    private final TeamService teamService;
     // XXX: EmployeeService가 EmployeeLeaveService를 참조하고 있다. 상호 참조 이슈를 방지하기 위해 EmployeeRepository를 사용하도록 허용한다
     private final EmployeeRepository employeeRepository;
     
@@ -217,16 +217,16 @@ public class EmployeeLeaveService {
 		}
 	}
 	public MultipleEmployeeRoleResolver createRoleResolver() {
-		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamRepository.findAllProjectManagerIds()));
+		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamService.findAllProjectManagerIds()));
 	}
 	public MultipleEmployeeRoleResolver createRoleResolver(Collection<Long> targetEmployeeIds) {
-		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamRepository.findAllProjectManagerIdsByEmployeeIds(targetEmployeeIds)));
+		return new MultipleEmployeeRoleResolverImpl(Set.copyOf(teamService.findAllProjectManagerIds(targetEmployeeIds)));
 	}
 	public SingleEmployeeRoleResolver createSingleRoleResolver(Role role) {
 		return new SingleEmployeeRoleResolverImpl(Role.isAdmin(role));
 	}
 	public SingleEmployeeRoleResolver createSingleRoleResolver(Long employeeId) {
-		return new SingleEmployeeRoleResolverImpl(teamRepository.existsByProjectManager_EmployeeId(employeeId));
+		return new SingleEmployeeRoleResolverImpl(teamService.existsByProjectManager_EmployeeId(employeeId));
 	}
     private static Role convertRole(boolean isAdmin) {
     	return isAdmin ? Role.getAdminRole() : Role.EMPLOYEE;

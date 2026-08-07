@@ -80,11 +80,11 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
     
     @Override
-    public List<String> findEmailsByEmployeeNumber(String employeeName) {
+    public String findEmailsByEmployeeNumber(String employeeName) {
         return queryFactory.select(qEmployee.email)
         					.from(qEmployee)
 							.where(qEmployee.employeeNumber.eq(employeeName))
-							.fetch();
+							.fetchOne();
     }
 
 	@Override

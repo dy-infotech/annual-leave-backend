@@ -132,12 +132,10 @@ public class EmployeeService {
         employee.changePassword(encodedNewPassword);
     }
 	// 로그인 실패시 접근 횟수 추가
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void increaseAccessCount(Long employeeId, LocalDateTime now) {
 		employeeRepository.increaseAccessCount(employeeId, now);
 	}
 	// 로그인 성공시 또는 접근 차단 시간 초과시 접근 횟수 초기화
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void resetAccessCount(Long employeeId, LocalDateTime now) {
     	employeeRepository.resetAccessCount(employeeId, now);
     }
@@ -168,7 +166,7 @@ public class EmployeeService {
     	return employeeRepository.findEmailsByName(name);
     }
     
-    public List<String> findEmailsByEmployeeNumber(String employeeNumber) {
+    public String findEmailsByEmployeeNumber(String employeeNumber) {
     	return employeeRepository.findEmailsByEmployeeNumber(employeeNumber);
     }
     

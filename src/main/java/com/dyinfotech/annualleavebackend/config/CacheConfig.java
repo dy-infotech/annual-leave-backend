@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.config;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -10,6 +11,7 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 
 @Configuration
@@ -20,6 +22,18 @@ public class CacheConfig {
     public static final String CACHE_HOLIDAYS = "holidays";
     public static final String CACHE_EMPLOYEES = "employees";
     public static final String CACHE_TEAMS = "teams";
+
+    
+    public static final Cache<String, List<String>> EMAIL_BY_NAME_CACHE = Caffeine.newBuilder()
+																                    .maximumSize(20_000)
+																                    .expireAfterWrite(Duration.ofHours(1))
+																                    .build();
+
+    public static final Cache<String, String> EMAIL_BY_EMPLOYEE_NUMBER_CACHE = Caffeine.newBuilder()
+																		               .maximumSize(20_000)
+																		               .expireAfterWrite(Duration.ofHours(1))
+																		               .build();
+    
 	
 	@Bean
 	CacheManager cacheManager() {

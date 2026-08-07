@@ -11,8 +11,7 @@ import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
-
-
+import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
@@ -115,20 +114,20 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder 
-      public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
-    		   
+    public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
         this.team = team;
         this.position = position;
-        this.email = email;
         this.role = role != null ? role : Role.EMPLOYEE; 
         this.currYear = currYear;
         this.currTotalLeaveDays = currTotalLeaveDays;
         this.hireDate = hireDate;
         this.fireDate = fireDate;
         this.approver = approver;
+        
+        changeEmail(email);
     }
     
     
@@ -161,6 +160,11 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     
     public void changeEmail(String email) {
     	this.email = email;
+    	
+    	// 이름은 중복될 수 있으므로 아예 만료시킨다
+    	CacheConfig.EMAIL_BY_NAME_CACHE.invalidate(name);
+    	// 사번은 중복될 수 없으므로 업데이트한다
+    	CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.put(employeeNumber, email);
     }
     
     public void setCurrYear(String year) {
@@ -227,13 +231,14 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         Float currTotalLeaveDays
     ) {
         this.name = name;
-        this.email = email;             
         this.department = department;
         this.team = team;
         this.position = position;
         this.hireDate = hireDate;     
         this.fireDate = fireDate;    
         this.currTotalLeaveDays = currTotalLeaveDays;
+        
+        changeEmail(email);
     }
 
  
