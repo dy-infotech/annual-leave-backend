@@ -303,18 +303,18 @@ public class AuthService {
         	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccessCount());
         	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         } else {
-        	employee.initAccessCount(now);
+        	employeeService.resetAccessCount(employee.getEmployeeId(), now);
         }
         
         // 로그인 성공 && 기존이 평문이었던 경우: BCrypt로 암호화하여 DB 업데이트 (마이그레이션)
         if (!isBcrypt && passwordEncoder instanceof BCryptPasswordEncoder) {
-        	employee.changePassword(passwordEncoder.encode(password));
+        	employeeService.updatePassword(employee.getEmployeeId(), passwordEncoder.encode(password));
         }
         
         // 현재 연도 연차일수 계산 및 설정
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
-        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
-        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
+        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {
+        	employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), calculatedCurrYearLeaveDays);
         }
         
         // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트

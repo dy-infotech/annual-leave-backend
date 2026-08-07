@@ -141,6 +141,14 @@ public class EmployeeService {
     public void resetAccessCount(Long employeeId, LocalDateTime now) {
     	employeeRepository.resetAccessCount(employeeId, now);
     }
+    // 로그인 성공시 평문 패스워드 암호화
+    public void updatePassword(Long employeeId, String password) {
+        employeeRepository.updatePassword(employeeId, password);
+    }
+    // 로그인 성공시 올해 총 연차 수 업데이트
+    public void updateCurrTotalLeaveDays(Long employeeId, float days) {
+        employeeRepository.updateCurrTotalLeaveDays(employeeId, days);
+    }
     
     public Optional<Employee> findByPrefixEmployeeNumber(String prefix) {	// 신규 사번 등록 실패도 있으므로 캐싱 미처리
     	return employeeRepository.findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(prefix);
