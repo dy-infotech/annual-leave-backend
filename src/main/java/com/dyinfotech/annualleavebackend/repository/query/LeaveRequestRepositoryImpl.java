@@ -87,7 +87,10 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 									            .where(
 									                qLeaveRequest.employee.employeeId.in(employeeIds),
 									                qLeaveRequest.status.in(status),
-									                qLeaveRequest.startDate.between(startDate, endDate)
+									                qLeaveRequest.startDate.between(startDate, endDate),
+								                    qLeaveRequest.leaveType.notIn(List.of(LeaveType.ALTERNATIVE.name(), 
+								                    									LeaveType.FAMILY.name(), 
+								                    									LeaveType.PARENTAL.name()))
 									            )
 									            .groupBy(qLeaveRequest.employee.employeeId)
 									            .fetch()
