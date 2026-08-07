@@ -318,7 +318,12 @@ public class TeamService {
 		invalidateCache();
 	}
 	
-	public void invalidateCache() {
+	public void deleteTeam(Team team) {
+		teamRepository.delete(team);
+		invalidateCache();
+	}
+	
+	private void invalidateCache() {
 		teamCache.invalidateAll();
 	}
 }

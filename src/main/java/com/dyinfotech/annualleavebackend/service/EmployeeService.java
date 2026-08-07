@@ -41,7 +41,6 @@ public class EmployeeService {
 	private final TeamService teamService;
 	private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
-    private final TeamRepository teamRepository;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
     
@@ -243,7 +242,7 @@ public class EmployeeService {
     		
     		if (teamEntity != null) {
     			// 관리자 -> 멤버
-    			teamRepository.delete(teamEntity);
+    			teamService.deleteTeam(teamEntity);
     		} else {
     			// 멤버 -> 관리자
     			approver.getTeams()
@@ -252,7 +251,7 @@ public class EmployeeService {
     					.filter(e -> e.getTeam().equals(targetTeam))
     					.findAny()
     					.ifPresentOrElse(team -> {
-				    						teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
+				    						teamService.saveTeam(new Team(team.getTeam(), employee, team.getParentTeam()));
 				    					},
     									() -> {
 				    						String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
@@ -281,7 +280,6 @@ public class EmployeeService {
             employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
         
-        teamService.invalidateCache();
     }
 //    @Transactional
 //    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
