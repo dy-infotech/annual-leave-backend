@@ -72,6 +72,22 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
     
     @Override
+    public long updatePassword(Long employeeId, String password) {
+        return queryFactory.update(qEmployee)
+			                .set(qEmployee.password, password)
+			                .where(qEmployee.employeeId.eq(employeeId))
+			                .execute();
+    }
+    
+    @Override
+    public long updateCurrTotalLeaveDays(Long employeeId, float days) {
+        return queryFactory.update(qEmployee)
+			                .set(qEmployee.currTotalLeaveDays, days)
+			                .where(qEmployee.employeeId.eq(employeeId))
+			                .execute();
+    }
+    
+    @Override
     public List<String> findEmailsByName(String name) {
     	return queryFactory.select(qEmployee.email)
     						.from(qEmployee)
