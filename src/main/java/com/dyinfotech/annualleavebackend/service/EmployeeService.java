@@ -132,10 +132,12 @@ public class EmployeeService {
         employee.changePassword(encodedNewPassword);
     }
 	// 로그인 실패시 접근 횟수 추가
+    @Transactional
     public void increaseAccessCount(Long employeeId, LocalDateTime now) {
 		employeeRepository.increaseAccessCount(employeeId, now);
 	}
 	// 로그인 성공시 또는 접근 차단 시간 초과시 접근 횟수 초기화
+    @Transactional
     public void resetAccessCount(Long employeeId, LocalDateTime now) {
     	employeeRepository.resetAccessCount(employeeId, now);
     }
