@@ -13,7 +13,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 
 public interface LeaveRequestRepositoryCustom {
-	// 승인된 요청의 사용일수 합계 (잔여 연차 계산용)
+	// 승인 또는 신청한 요청의 사용일수 합계 (잔여 연차 계산용)
 	float sumRequestedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate);
 	Map<Long, Float> sumRequestedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate);
 
