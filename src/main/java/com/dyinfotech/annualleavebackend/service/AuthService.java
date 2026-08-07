@@ -265,6 +265,7 @@ public class AuthService {
 
     private static final Pattern BCRYPT_PATTERN = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
     private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    @Transactional
     public void validateLogin(Employee employee, String password) throws ResponseStatusException {
         // 로그인 실패 최대 횟수 제한
         int loginFailMaxCount = basisDataFactory.getAsInteger(BasisDataType.LOGIN_FAIL_MAX_COUNT).orElse(30);
@@ -310,9 +311,18 @@ public class AuthService {
         if (!isBcrypt && passwordEncoder instanceof BCryptPasswordEncoder) {
         	employee.changePassword(passwordEncoder.encode(password));
         }
+        
+        // 현재 연도 연차일수 계산 및 설정
+        float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
+        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
+        }
+        
+        // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
+        // (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
+        teamService.refreshApproverIds(employee);
     }
     
-    @Transactional
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
         // employeeNumber(=사번)로 직원 조회
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber())
@@ -329,16 +339,6 @@ public class AuthService {
         
         // 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
         validateLogin(employee, request.getPassword());
-
-        // 현재 연도 연차일수 계산 및 설정
-        float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
-        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {        	
-        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
-        }
-        
-        // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
-        // (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
-        teamService.refreshApproverIds(employee);
         
         // JWT 발급
         SingleEmployeeRoleResolver roleResolver = employeeLeaveService.createSingleRoleResolver(employee.getEmployeeId());
