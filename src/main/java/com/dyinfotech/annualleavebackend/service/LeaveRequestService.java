@@ -247,7 +247,7 @@ public class LeaveRequestService {
     // 잔여 휴가 수를 초과하지 않는지 체크
     private void validateRemainingLeave(Employee employee, Float useDays) {
     	// 사용한 휴가 수
-        float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
+        float usedDays = leaveRequestRepository.sumRequestedUseDays(employee.getEmployeeId(), clock);
         // 남은 휴가 수 = 현재 총 휴가 수 + 조정된 휴가 수 - 사용한 휴가 수
         float remainingDays = commonService.getRemainingDays(employee, usedDays);
 

@@ -62,7 +62,7 @@ public class DashboardService {
     }
 
     private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee, float currTotalLeaveDays) {
-        float usedDays = leaveRequestRepository.sumApprovedUseDays(employee.getEmployeeId(), clock);
+        float usedDays = leaveRequestRepository.sumRequestedUseDays(employee.getEmployeeId(), clock);
         float remainingLeaveDays = commonService.getRemainingDays(employee, currTotalLeaveDays, usedDays);
 
         return DashboardDto.MyLeaveInfoResponse.builder()

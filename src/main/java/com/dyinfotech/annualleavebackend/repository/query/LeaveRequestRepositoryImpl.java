@@ -56,18 +56,24 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 
 	    return condition;
 	}
+	
+	private BooleanExpression annualLeaveUsageCondition(Collection<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate) {
+	    return qLeaveRequest.status.in(status)
+	            .and(qLeaveRequest.startDate.between(startDate, endDate))
+	            .and(qLeaveRequest.leaveType.notIn(
+	                    LeaveType.ALTERNATIVE.name(),
+	                    LeaveType.FAMILY.name(),
+	                    LeaveType.PARENTAL.name()
+	            ));
+	}
 
 	@Override
-	public float sumApprovedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate) {
+	public float sumRequestedUseDays(Long employeeId, List<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate) {
 		Float result = queryFactory.select(qLeaveRequest.useDays.sum())
 					                .from(qLeaveRequest)
 					                .where(
 					                    qLeaveRequest.employee.employeeId.eq(employeeId),
-					                    qLeaveRequest.status.in(status),
-					                    qLeaveRequest.startDate.between(startDate, endDate),
-					                    qLeaveRequest.leaveType.notIn(List.of(LeaveType.ALTERNATIVE.name(), 
-					                    									LeaveType.FAMILY.name(), 
-					                    									LeaveType.PARENTAL.name()))
+					                    annualLeaveUsageCondition(status, startDate, endDate)
 					                )
 					                .fetchOne();
 
@@ -75,7 +81,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 	
 	@Override
-	public Map<Long, Float> sumApprovedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status,
+	public Map<Long, Float> sumRequestedUseDays(Collection<Long> employeeIds, List<LeaveRequestStatus> status,
 	                                           LocalDate startDate, LocalDate endDate) {
 	    NumberExpression<Float> sumUseDays = qLeaveRequest.useDays.sum();
 
@@ -86,11 +92,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 									            .from(qLeaveRequest)
 									            .where(
 									                qLeaveRequest.employee.employeeId.in(employeeIds),
-									                qLeaveRequest.status.in(status),
-									                qLeaveRequest.startDate.between(startDate, endDate),
-								                    qLeaveRequest.leaveType.notIn(List.of(LeaveType.ALTERNATIVE.name(), 
-								                    									LeaveType.FAMILY.name(), 
-								                    									LeaveType.PARENTAL.name()))
+								                    annualLeaveUsageCondition(status, startDate, endDate)
 									            )
 									            .groupBy(qLeaveRequest.employee.employeeId)
 									            .fetch()
