@@ -315,6 +315,15 @@ public class TeamService {
 	@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
 	public void saveTeam(Team team) {
 		teamRepository.save(team);
+		invalidateCache();
+	}
+	
+	public void deleteTeam(Team team) {
+		teamRepository.delete(team);
+		invalidateCache();
+	}
+	
+	private void invalidateCache() {
 		teamCache.invalidateAll();
 	}
 }

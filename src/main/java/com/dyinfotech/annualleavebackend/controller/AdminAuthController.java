@@ -45,7 +45,7 @@ public class AdminAuthController {
     @Operation(summary = "사원 등록", description = "관리자가 신규 사원의 로그인 계정 정보를 등록한다.")
     @PostMapping("/register")
     public ResponseEntity<RegisterDto.RegisterResponse> signUp(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody RegisterDto.RegisterRequest request) {
-    	authService.checkAdmin(principal.employeeId());
+    	//authService.checkAdmin(principal.employeeId());
     	return ResponseEntity.ok(authService.registerEmployee(principal.employeeId(), request));
     }
 

@@ -112,13 +112,13 @@ public class AuthService {
     	// 사번 채번용 접두사 정보 검증 (서버 데이터)
     	LocalDate now = LocalDate.now(clock);
     	String currentYear = String.valueOf(now.getYear());
-    	String prefix = basisDataFactory.getAsString(BasisDataType.EMPLOYEE_NUMBER_PREFIX)
-    									.orElseThrow(() -> {
-    										String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType." + BasisDataType.EMPLOYEE_NUMBER_PREFIX;
-    							    		log.error(errorMsg);
-    										return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
-    									})
-    									.replace("#{YEAR}", currentYear);
+//    	String prefix = basisDataFactory.getAsString(BasisDataType.EMPLOYEE_NUMBER_PREFIX)
+//    									.orElseThrow(() -> {
+//    										String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType." + BasisDataType.EMPLOYEE_NUMBER_PREFIX;
+//    							    		log.error(errorMsg);
+//    										return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
+//    									})
+//    									.replace("#{YEAR}", currentYear);
     	
     	// 현재 승인자 직급과 신청받은 직급을 비교
     	Employee approver = employeeRepository.findById(employeeId)
@@ -175,23 +175,23 @@ public class AuthService {
 			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
     	}
 
-    	Optional<Employee> lastPrefixEmployee = employeeService.findByPrefixEmployeeNumber(prefix);
+  //  	Optional<Employee> lastPrefixEmployee = employeeService.findByPrefixEmployeeNumber(prefix);
     	
-    	// 사번 설정
-    	String formatString = "%03d";
-    	String employeeNumber = null;
-    	if (lastPrefixEmployee.isPresent()) {
-			String lastEmployeeNumber = lastPrefixEmployee.get().getEmployeeNumber();
-			int lastNumber = Integer.parseInt(lastEmployeeNumber.substring(prefix.length()));
-			employeeNumber = prefix + String.format(formatString, lastNumber + 1);
-		} else {
-			employeeNumber = prefix + String.format(formatString, 1);
-		}
-    	
+//    	// 사번 설정
+//    	String formatString = "%03d";
+//    	String employeeNumber = null;
+//    	if (lastPrefixEmployee.isPresent()) {
+//			String lastEmployeeNumber = lastPrefixEmployee.get().getEmployeeNumber();
+//			int lastNumber = Integer.parseInt(lastEmployeeNumber.substring(prefix.length()));
+//			employeeNumber = prefix + String.format(formatString, lastNumber + 1);
+//		} else {
+//			employeeNumber = prefix + String.format(formatString, 1);
+//		}
+//    	
     	// 근로자 정보 등록
     	LocalDate hireDate = LocalDate.parse(request.getHireDate());
     	Employee employee = Employee.builder()
-				.employeeNumber(employeeNumber)
+				.employeeNumber(request.getEmployeeNumber())
 				.name(request.getName())
 				.department(request.getDepartment())
 				.team(request.getTeam())
