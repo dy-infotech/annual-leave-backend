@@ -14,7 +14,10 @@ public final class RegisterDto {
     @Getter
     @NoArgsConstructor
     public static class RegisterRequest {
-
+    	// 260810 추가
+        @NotBlank(message = "사번을 입력해 주세요.")
+        private String employeeNumber;
+        
         @NotBlank(message = "이름을 입력해 주세요.")
         private String name;
 

@@ -20,6 +20,7 @@ public class LeaveRequestDetailDto {
         private final String employeeName;
         private final String position;
         private final String department;
+        private final String team;
 
         // 휴가 정보
         private final String leaveType;
@@ -50,6 +51,7 @@ public class LeaveRequestDetailDto {
                     .employeeName(emp.getName())
                     .position(emp.getPosition())
                     .department(emp.getDepartment())
+                    .team(emp.getTeam())
                     // 휴가 정보
                     .leaveType(lr.getLeaveType())
                     .startDate(lr.getStartDate())

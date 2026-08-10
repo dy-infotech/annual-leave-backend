@@ -45,6 +45,7 @@ public final class LeaveRequestListDto {
         private String employeeNumber;
         private String position;
         private String department;
+        private String team;
         private LocalDateTime requestedAt;   // 휴가 신청일
         private String leaveType;		// 휴가 종류 ({@link LeaveType})
         private LocalDate startDate;    // 휴가 기간 시작
@@ -60,6 +61,7 @@ public final class LeaveRequestListDto {
                     .employeeNumber(leaveRequest.getEmployee().getEmployeeNumber())
                     .position(leaveRequest.getEmployee().getPosition())
                     .department(leaveRequest.getEmployee().getDepartment())
+                    .team(leaveRequest.getEmployee().getTeam())
                     .requestedAt(leaveRequest.getCreatedAudit().getCreatedAt())
                     .leaveType(leaveRequest.getLeaveType())
                     .startDate(leaveRequest.getStartDate())
