@@ -217,9 +217,9 @@ public class EmployeeService {
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
         // 내 정보 수정 시 에러 처리 (나보다 낮은 직급만 설정할 수 있는 이유는 타인에 대한 정보 변경만 고려했기 때문이다.)
-    	if (employee.getEmployeeId() == approver.getEmployeeId()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "자신에 대한 정보는 내 정보에서 수정해야 합니다.");
-    	}
+//    	if (employee.getEmployeeId() == approver.getEmployeeId()) {
+//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "자신에 대한 정보는 내 정보에서 수정해야 합니다.");
+//    	}
         // 관리 팀 변경 요청시 처리
     	Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
     	if (targetTeams == null || targetTeams.isEmpty()) {
