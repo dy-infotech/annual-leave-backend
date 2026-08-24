@@ -140,10 +140,12 @@ public class EmployeeService {
     	employeeRepository.resetAccessCount(employeeId, now);
     }
     // 로그인 성공시 평문 패스워드 암호화
+    @Transactional
     public void updatePassword(Long employeeId, String password) {
         employeeRepository.updatePassword(employeeId, password);
     }
     // 로그인 성공시 올해 총 연차 수 업데이트
+    @Transactional
     public void updateCurrTotalLeaveDays(Long employeeId, float days) {
         employeeRepository.updateCurrTotalLeaveDays(employeeId, days);
     }
