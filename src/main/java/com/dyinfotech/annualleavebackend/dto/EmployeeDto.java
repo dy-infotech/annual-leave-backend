@@ -6,7 +6,6 @@ import java.util.Collection;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
 import jakarta.validation.constraints.Email;
@@ -68,8 +67,8 @@ public final class EmployeeDto {
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .department(employee.getDepartment())
-                    .team(employee.getTeam())
-                    .teamList(authorityResolver.getManagedTeams(employee.getEmployeeId()).stream().map(Team::getTeam).toList())
+                    .team(employee.getTeam().getTeamName())
+                    .teamList(authorityResolver.getManagedTeams(employee.getEmployeeId()).stream().map(e -> e.getTeam().getTeamName()).toList())
                     .position(employee.getPosition())
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())

@@ -38,6 +38,7 @@ import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto; // 추가됨
 import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
@@ -97,8 +98,8 @@ public class AuthService {
     																										.map(DepartmentType::getName)
     																										.toList())
     													.accessibleTeam(requester.getTeams().stream()
-		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam()).stream())
-		    																				.map(Team::getTeam)
+		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam().getTeamName()).stream())
+		    																				.map(e -> e.getTeam().getTeamName())
 		    																				.collect(Collectors.toSet()))
     													.position(Arrays.asList(PositionType.values()).stream()
     																									.filter(e -> e.ordinal() < requesterPosition.ordinal())
@@ -188,13 +189,31 @@ public class AuthService {
 //			employeeNumber = prefix + String.format(formatString, 1);
 //		}
 //    	
+    	
+    	Team team;
+    	// 신규 팀이 만들어져야 한다면
+    	if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
+    		team = Team.builder()
+		        			.teamName(request.getTeam())
+		        			.enabled(Boolean.TRUE)
+		        			.build();
+    		teamService.saveTeam(team);
+    	} else {
+    		team = teamService.findByTeamName(request.getTeam())
+    							.orElseThrow(() -> {
+									String errorMsg = "팀 정보가 없습니다. teamName: " + request.getTeam();
+						    		log.error(errorMsg);
+									return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+								});
+    	}
+    	
     	// 근로자 정보 등록
     	LocalDate hireDate = LocalDate.parse(request.getHireDate());
     	Employee employee = Employee.builder()
 				.employeeNumber(request.getEmployeeNumber())
 				.name(request.getName())
 				.department(request.getDepartment())
-				.team(request.getTeam())
+				.team(team)
 				.position(request.getPosition())
 				.email(request.getEmail())
 				.hireDate(hireDate)
@@ -203,12 +222,11 @@ public class AuthService {
 				.approver(approver)
 				.build();
     	
-    	employeeService.saveEmployee(employee);
-    	
+
     	// 신규 팀이 만들어져야 한다면
     	if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
-    		teamService.saveTeam(Team.builder()
-									.team(request.getTeam())
+    		teamService.saveTeam(TeamManager.builder()
+									.team(team)
 									.projectManager(employee)
 									// XXX: 대표이사만 등록 가능하므로 대표이사 팀을 넣으면 될 것 같다. 차후에 문제가 생기면 getParentTeam으로 수정.
 									.parentTeam(approver.getTeam())
@@ -216,13 +234,15 @@ public class AuthService {
     	}
     	// 신규 팀은 아니지만 관리자로 등록되어야 한다면
     	else if (makeAdminAccount) {
-    		teamService.saveTeam(Team.builder()
-									.team(request.getTeam())
+    		teamService.saveTeam(TeamManager.builder()
+									.team(team)
 									.projectManager(employee)
 									// XXX: getTeamManagerData 호출될 때 해당 팀이 존재하는 걸 확인했으므로 get(0)으로 처리한다.
 									.parentTeam(teamService.findAllByTeam(request.getTeam()).get(0).getParentTeam())
 									.build());
     	}
+    	
+    	employeeService.saveEmployee(employee);
     	
         return RegisterDto.RegisterResponse.builder()
                 .employeeId(employee.getEmployeeId())

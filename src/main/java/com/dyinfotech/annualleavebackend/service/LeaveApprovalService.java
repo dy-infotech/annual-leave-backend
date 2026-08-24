@@ -25,7 +25,7 @@ import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
@@ -57,9 +57,9 @@ public class LeaveApprovalService {
 
     	Long excludeId = employeeId;
     	Set<String> directTeams = new HashSet<>();
-    	Set<Team> accessibleTeams = new HashSet<>();
-    	for (Team team : employeeList.get(0).getTeams()) {
-    		String myTeam = team.getTeam();
+    	Set<TeamManager> accessibleTeams = new HashSet<>();
+    	for (TeamManager team : employeeList.get(0).getTeams()) {
+    		String myTeam = team.getTeam().getTeamName();
     		directTeams.add(myTeam);
     		if (myTeam.equals(team.getParentTeam())) {
     			excludeId = null;	// 최상위 팀이면 제외할 필요 없음 (스스로 승인이 가능하므로)
@@ -71,7 +71,7 @@ public class LeaveApprovalService {
 //    														.filter(e -> !directTeams.contains(e.getTeam()))
 											    			// 최상위 팀(TeamName == ParentTeamName)과 내가 관리하는 팀을 제외하고, 하위 팀들을 반환
 															.filter(e -> !e.getTeam().equals(e.getParentTeam()) && directTeams.contains(e.getParentTeam()))
-    														.map(Team::getProjectManagerId)
+    														.map(TeamManager::getProjectManagerId)
     												        .filter(Objects::nonNull)
     														.collect(Collectors.toSet());
     	
@@ -81,15 +81,15 @@ public class LeaveApprovalService {
                 .toList();
     }
     
-    private Set<String> getAccessibleTeams(List<Team> teams) {
+    private Set<String> getAccessibleTeams(List<TeamManager> teams) {
     	if (teams.isEmpty()) {
     		return Collections.emptySet();
     	}
     	
     	return teams.stream()
-    				.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam())
+    				.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam().getTeamName())
     										.stream())
-    				.map(Team::getTeam)
+    				.map(e -> e.getTeam().getTeamName())
     				.collect(Collectors.toSet());
     }
     

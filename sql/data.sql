@@ -1,25 +1,145 @@
 -- migration for prev version tables
-ALTER TABLE employee MODIFY COLUMN accessed_at DATETIME NULL COMMENT '로그인 실패 시각';
-ALTER TABLE employee ADD COLUMN accessed_ip VARCHAR(45) NULL COMMENT '로그인 실패 IP 주소' AFTER accessed_at;
-ALTER TABLE employee MODIFY COLUMN created_at DATETIME NOT NULL COMMENT '생성 시각';
-ALTER TABLE employee ADD COLUMN created_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '생성 요청 IP 주소' AFTER created_at;
-ALTER TABLE employee MODIFY COLUMN updated_at DATETIME NOT NULL COMMENT '수정 시각';
-ALTER TABLE employee ADD COLUMN updated_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정 요청 IP 주소' AFTER updated_at;
+RENAME TABLE team TO team_legacy;
+ALTER TABLE team_legacy
+    DROP FOREIGN KEY fk_project_manager,
+    ADD CONSTRAINT fk_team_legacy_project_manager
+        FOREIGN KEY (project_manager_id)
+        REFERENCES employee(employee_id);
 
-ALTER TABLE leave_request MODIFY COLUMN managed_at DATETIME NULL COMMENT '처리 시각';
-ALTER TABLE leave_request ADD COLUMN managed_ip VARCHAR(45) NULL DEFAULT 'SYSTEM' COMMENT '처리 요청 IP 주소' AFTER managed_at;
-ALTER TABLE leave_request MODIFY COLUMN created_at DATETIME NOT NULL COMMENT '생성 시각';
-ALTER TABLE leave_request ADD COLUMN created_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '생성 요청 IP 주소' AFTER created_at;
+CREATE TABLE team (
+    team_id   BIGINT AUTO_INCREMENT PRIMARY KEY,
+    team_name VARCHAR(30) NOT NULL COMMENT '팀명',
+    enabled   TINYINT(1) NOT NULL DEFAULT TRUE COMMENT '팀 활성 여부',
 
-ALTER TABLE leave_adjustment MODIFY COLUMN created_at DATETIME NOT NULL COMMENT '생성 시각';
-ALTER TABLE leave_adjustment ADD COLUMN created_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '생성 요청 IP 주소' AFTER created_at;
-ALTER TABLE leave_adjustment MODIFY COLUMN updated_at DATETIME NOT NULL COMMENT '수정 시각';
-ALTER TABLE leave_adjustment ADD COLUMN updated_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정 요청 IP 주소' AFTER updated_at;
+    CONSTRAINT uk_team_name UNIQUE KEY (team_name)
+) COMMENT '팀 정보';
 
-ALTER TABLE fcm_token MODIFY COLUMN updated_at DATETIME NOT NULL COMMENT '수정 시각';
-ALTER TABLE fcm_token ADD COLUMN updated_ip VARCHAR(45) NOT NULL DEFAULT 'SYSTEM' COMMENT '수정 요청 IP 주소' AFTER updated_at;
+INSERT INTO team (team_name, enabled)
+SELECT DISTINCT
+       team,
+       TRUE
+FROM team_legacy;
 
-ALTER TABLE team ADD CONSTRAINT uk_team_project_manager UNIQUE KEY (team, project_manager_id);
+-- Team 이관 결과 검증
+SELECT
+    (SELECT COUNT(DISTINCT team)
+       FROM team_legacy) AS legacy_team_count,
+
+    (SELECT COUNT(*)
+       FROM team) AS migrated_team_count;
+
+ALTER TABLE employee ADD COLUMN team_id BIGINT NULL COMMENT '팀 인덱스' AFTER team;
+
+UPDATE employee e
+JOIN team t
+  ON e.team = t.team_name
+SET e.team_id = t.team_id;
+
+-- Employee Team 매핑 누락 검증. 아래 select문의 결과값이 0건이어야 함. 그 이후 추가 진행.
+SELECT
+    employee_id,
+    employee_number,
+    team
+FROM employee
+WHERE team_id IS NULL;
+
+ALTER TABLE employee MODIFY COLUMN team_id BIGINT NOT NULL COMMENT '팀 인덱스';
+ALTER TABLE employee ADD CONSTRAINT fk_employee_team FOREIGN KEY (team_id) REFERENCES team(team_id);
+ALTER TABLE employee DROP COLUMN team;
+
+CREATE TABLE team_manager (
+    team_id            BIGINT NOT NULL COMMENT '팀 인덱스',
+    project_manager_id BIGINT NOT NULL COMMENT '프로젝트 담당자',
+    parent_team_id     BIGINT NOT NULL COMMENT '상위 팀 인덱스',
+
+    PRIMARY KEY (team_id, project_manager_id),
+
+    CONSTRAINT fk_team
+        FOREIGN KEY (team_id)
+        REFERENCES team(team_id),
+
+    CONSTRAINT fk_parent_team
+        FOREIGN KEY (parent_team_id)
+        REFERENCES team(team_id),
+
+    CONSTRAINT fk_project_manager
+        FOREIGN KEY (project_manager_id)
+        REFERENCES employee(employee_id)
+) COMMENT '팀 매니저 정보 (결재라인 상급자 탐색용)';
+
+INSERT INTO team_manager (
+    team_id,
+    project_manager_id,
+    parent_team_id
+)
+SELECT
+    t.team_id,
+    tl.project_manager_id,
+    pt.team_id
+FROM team_legacy tl
+JOIN team t
+  ON t.team_name = tl.team
+JOIN team pt
+  ON pt.team_name = tl.parent_team;
+
+-- 결과값 확인. 문제 있는지 확인부터 하고 legacy 테이블 삭제할 것.
+-- 두 개수 일치해야함
+SELECT
+    (SELECT COUNT(*)
+       FROM team_legacy) AS legacy_team_manager_count,
+
+    (SELECT COUNT(*)
+       FROM team_manager) AS migrated_team_manager_count;
+-- 상세 결과 확인
+SELECT
+    tm.team_id,
+    t.team_name,
+    tm.project_manager_id,
+    e.name AS project_manager_name,
+    tm.parent_team_id,
+    pt.team_name AS parent_team_name
+FROM team_manager tm
+JOIN team t
+    ON t.team_id = tm.team_id
+JOIN employee e
+    ON e.employee_id = tm.project_manager_id
+JOIN team pt
+    ON pt.team_id = tm.parent_team_id
+ORDER BY t.team_name, e.name;
+-- Employee 전체가 Team에 정상 연결되어 있는지
+SELECT COUNT(*) AS unmapped_employee_count
+FROM employee e
+LEFT JOIN team t
+    ON t.team_id = e.team_id
+WHERE t.team_id IS NULL;
+-- TeamManager의 모든 Team FK가 정상인지
+SELECT COUNT(*) AS invalid_team_manager_team_count
+FROM team_manager tm
+LEFT JOIN team t
+    ON t.team_id = tm.team_id
+WHERE t.team_id IS NULL;
+-- TeamManager의 모든 Parent Team FK가 정상인지
+SELECT COUNT(*) AS invalid_parent_team_count
+FROM team_manager tm
+LEFT JOIN team t
+    ON t.team_id = tm.parent_team_id
+WHERE t.team_id IS NULL;
+-- TeamManager의 모든 Project Manager FK가 정상인지
+SELECT COUNT(*) AS invalid_project_manager_count
+FROM team_manager tm
+LEFT JOIN employee e
+    ON e.employee_id = tm.project_manager_id
+WHERE e.employee_id IS NULL;
+
+-- 최종 삭제
+DROP TABLE team_legacy;
+
+-- 데이터 마이그레이션시 반드시 approver_id를 not null로 설정해야 함
+UPDATE employee SET approver_id = (SELECT employee_id FROM (SELECT employee_id FROM employee WHERE name = '우동영') AS TEMP) WHERE approver_id IS NULL;
+ALTER TABLE employee MODIFY approver_id BIGINT NOT NULL;
+
+
+
 
 
 
