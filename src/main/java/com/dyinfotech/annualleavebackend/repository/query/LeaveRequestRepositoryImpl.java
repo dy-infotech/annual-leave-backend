@@ -18,7 +18,7 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
@@ -122,8 +122,6 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 			                .from(qLeaveRequest)
 			                .where(
 			                    qLeaveRequest.employee.employeeId.eq(employeeId),
-//			                    qLeaveRequest.startDate.loe(endDate),
-//			                    qLeaveRequest.endDate.goe(startDate)
 				                overlap(startDate, endDate)
 			                )
 			                .groupBy(qLeaveRequest.status)
@@ -131,17 +129,17 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate startDate, LocalDate endDate) {
+	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<TeamManager> accessibleTeams, LocalDate startDate, LocalDate endDate) {
 		Set<Long> childTeamProjectManagerIds = new HashSet<>();
 		Set<String> accessibleTeamNames = new HashSet<>();
-		for (Team team : accessibleTeams) {
-		    accessibleTeamNames.add(team.getTeam());
-		    if (directTeams.contains(team.getParentTeam()) && team.getProjectManager() != null) {
+		for (TeamManager team : accessibleTeams) {
+		    accessibleTeamNames.add(team.getTeam().getTeamName());
+		    if (directTeams.contains(team.getParentTeam().getTeamName()) && team.getProjectManager() != null) {
 		        childTeamProjectManagerIds.add(team.getProjectManager().getEmployeeId());
 		    }
 		}
 		
-		BooleanExpression directTeamCondition = qLeaveRequest.employee.team.in(directTeams);
+		BooleanExpression directTeamCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
 		if (excludeId != null) {
 			directTeamCondition = directTeamCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
 		}
@@ -153,7 +151,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 													            .and(pendingTargetCondition);
 
 		BooleanExpression processedCondition = qLeaveRequest.status.in(LeaveRequestStatus.APPROVED, LeaveRequestStatus.REJECTED)
-		        													.and(qLeaveRequest.employee.team.in(accessibleTeamNames));
+		        													.and(qLeaveRequest.employee.team.teamName.in(accessibleTeamNames));
 		
 		BooleanExpression teamCondition = pendingCondition.or(processedCondition);
 
@@ -167,8 +165,6 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				            .from(qLeaveRequest)
 				            .where(
 				                teamCondition,
-//				                qLeaveRequest.startDate.loe(endDate),
-//				                qLeaveRequest.endDate.goe(startDate)
 				                overlap(startDate, endDate)
 				            )
 				            .groupBy(qLeaveRequest.status)
@@ -177,7 +173,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	
 	@Override
 	public List<LeaveRequest> findByStatusAndTeamsInRange(Long excludeId, LeaveRequestStatus status, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LocalDate startDate, LocalDate endDate) {
-		BooleanExpression targetCondition = qLeaveRequest.employee.team.in(directTeams);
+		BooleanExpression targetCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
 		if (excludeId != null) {
 		    targetCondition = targetCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
 		}
@@ -186,11 +182,11 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 		}
 		
 		return queryFactory.selectFrom(qLeaveRequest)
+							.join(qLeaveRequest.employee).fetchJoin()
+							.join(qLeaveRequest.employee.team).fetchJoin()
 	                        .where(
 	                            qLeaveRequest.status.eq(status),
 	                            targetCondition,
-//	                            qLeaveRequest.startDate.loe(endDate),
-//	                            qLeaveRequest.endDate.goe(startDate)
 				                overlap(startDate, endDate)
 	                        )
 	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
@@ -232,7 +228,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    }
 
 	    if (teams != null && !teams.isEmpty()) {
-	        builder.and(qLeaveRequest.employee.team.in(teams));
+	        builder.and(qLeaveRequest.employee.team.teamName.in(teams));
 	    }
 	    
 	    if (searchEmployeeParam != null && !searchEmployeeParam.trim().isEmpty()) {

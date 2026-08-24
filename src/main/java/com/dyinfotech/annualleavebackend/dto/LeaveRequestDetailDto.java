@@ -51,7 +51,7 @@ public class LeaveRequestDetailDto {
                     .employeeName(emp.getName())
                     .position(emp.getPosition())
                     .department(emp.getDepartment())
-                    .team(emp.getTeam())
+                    .team(emp.getTeam().getTeamName())
                     // 휴가 정보
                     .leaveType(lr.getLeaveType())
                     .startDate(lr.getStartDate())

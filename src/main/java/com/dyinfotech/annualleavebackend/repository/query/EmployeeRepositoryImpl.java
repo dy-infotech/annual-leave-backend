@@ -23,19 +23,20 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 
     private static final QEmployee qEmployee = QEmployee.employee;
 
-	@Override
-	public List<Employee> findAllEmployees(String searchParam, String team) {
-		// TODO Auto-generated method stub
-		return queryFactory.selectFrom(qEmployee)
-			                .where(
-			                    searchCondition(searchParam),
-			                    teamCondition(team)
-			                )
-			                .orderBy(qEmployee.employeeNumber.desc())
-			                .fetch();
-	}
-	
-	private BooleanExpression searchCondition(String searchParam) {
+    @Override
+    public List<Employee> findAllEmployees(String searchParam, String team) {
+        return queryFactory
+                .selectFrom(qEmployee)
+                .join(qEmployee.team).fetchJoin()
+                .where(
+                    searchCondition(searchParam),
+                    teamCondition(team)
+                )
+                .orderBy(qEmployee.employeeNumber.desc())
+                .fetch();
+    }
+
+    private BooleanExpression searchCondition(String searchParam) {
         if (searchParam == null || searchParam.isBlank()) {
             return null;
         }
@@ -44,10 +45,9 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
                 .or(qEmployee.name.contains(searchParam));
     }
 
-
     private BooleanExpression teamCondition(String team) {
         return team != null && !team.isBlank()
-                ? qEmployee.team.eq(team)
+                ? qEmployee.team.teamName.eq(team)
                 : null;
     }
     

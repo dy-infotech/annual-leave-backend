@@ -11,9 +11,9 @@ CREATE TABLE employee (
                           accessed_ip			VARCHAR(45)		NULL COMMENT '로그인 실패 IP 주소',
                           name              	VARCHAR(50)   	NOT NULL COMMENT '성명',
                           department        	VARCHAR(50)   	NULL COMMENT '부서',
-                          team		        	VARCHAR(30) 	NOT NULL COMMENT '팀 // 배정되지 않은 경우 대표이사 팀 선택 및 approver_id도 대표이사의 id로 해야 한다',
+                          team_id		        BIGINT		 	NOT NULL COMMENT '팀 // 배정되지 않은 경우 대표이사 팀 선택 및 approver_id도 대표이사의 id로 해야 한다',
                           position          	VARCHAR(50)		NULL COMMENT '직급',
-                          email			 	    VARCHAR(100)		NULL COMMENT '이메일',
+                          email			 	    VARCHAR(100)	NULL COMMENT '이메일',
                           hire_date         	DATE        	NOT NULL COMMENT '입사일',
                           fire_date         	DATE   			NULL COMMENT '퇴사일',
 
@@ -28,6 +28,8 @@ CREATE TABLE employee (
                           updated_at        	DATETIME      	NOT NULL COMMENT '수정 시각',
                           updated_ip        	VARCHAR(45)   	NOT NULL COMMENT '수정 요청 IP 주소',
                           
+                          
+                          CONSTRAINT fk_employee_team FOREIGN KEY (team_id) REFERENCES team(team_id),
                           CONSTRAINT fk_employee_approver FOREIGN KEY (approver_id) REFERENCES employee(employee_id) ON DELETE RESTRICT
 ) COMMENT '인사정보 + 로그인 계정 + 배정 연차';
 
@@ -57,16 +59,26 @@ CREATE TABLE leave_request (
 ) COMMENT '휴가 신청 + 승인/반려 내역';
 
 
-
 CREATE TABLE team (
-                               seq                BIGINT		AUTO_INCREMENT PRIMARY KEY,
-                               team               VARCHAR(30)	NOT NULL COMMENT '팀',
-                               project_manager_id BIGINT		NOT NULL COMMENT '프로젝트 담당자',
-                               parent_team        VARCHAR(30)	NOT NULL COMMENT '상위 팀',
+                               team_id            BIGINT		AUTO_INCREMENT PRIMARY KEY,
+                               team_name          VARCHAR(30)	NOT NULL COMMENT '팀명',
+                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '팀 활성 여부',
+                              
+                               CONSTRAINT uk_team_name UNIQUE KEY (team_name) 
+) COMMENT '팀 정보';
 
-                               CONSTRAINT fk_project_manager FOREIGN KEY (project_manager_id) REFERENCES employee(employee_id),
-                               CONSTRAINT uk_team_project_manager UNIQUE KEY (team, project_manager_id)
-) COMMENT '팀 정보 (결재라인 상급자 탐색용)';
+
+
+CREATE TABLE team_manager (
+                               team_id            BIGINT		NOT NULL COMMENT '팀 인덱스',
+                               project_manager_id BIGINT		NOT NULL COMMENT '프로젝트 담당자',
+                               parent_team_id     BIGINT		NOT NULL COMMENT '상위 팀 인덱스',
+
+                               PRIMARY KEY (team_id, project_manager_id),
+                               CONSTRAINT fk_team FOREIGN KEY (team_id) REFERENCES team(team_id),
+                               CONSTRAINT fk_parent_team FOREIGN KEY (parent_team_id) REFERENCES team(team_id),
+                               CONSTRAINT fk_project_manager FOREIGN KEY (project_manager_id) REFERENCES employee(employee_id)
+) COMMENT '팀 매니저 정보 (결재라인 상급자 탐색용)';
 
 
 CREATE TABLE basis_data (

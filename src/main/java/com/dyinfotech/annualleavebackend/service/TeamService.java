@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -24,6 +25,8 @@ import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
+import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
@@ -31,19 +34,31 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 public class TeamService {
 	@Qualifier("teamLoadingCache")
 	private final LoadingCache<String, List<Team>> teamCache;
+	@Qualifier("teamManagerLoadingCache")
+	private final LoadingCache<String, List<TeamManager>> teamManagerCache;
 	private final TeamRepository teamRepository;
+	private final TeamManagerRepository teamManagerRepository;
 	
-	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, TeamRepository teamRepository) {
-        this.teamCache = teamCache;
+	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, 
+						@Qualifier("teamManagerLoadingCache") LoadingCache<String, List<TeamManager>> teamManagerCache, 
+						TeamRepository teamRepository,
+						TeamManagerRepository teamManagerRepository) {
+		this.teamCache = teamCache;
+        this.teamManagerCache = teamManagerCache;
         this.teamRepository = teamRepository;
+        this.teamManagerRepository = teamManagerRepository;
     }
 	
-	public List<Team> findAllByTeam(String team) {
-		return teamCache.get(team);
+	public Optional<Team> findByTeamName(String team) {
+		return teamCache.get(team).stream().findFirst();
 	}
 	
-	public List<Team> findAll() {
-	    return teamCache.get(CacheConfig.TEAM_TOTAL_KEY);
+	public List<TeamManager> findAllByTeam(String team) {
+		return teamManagerCache.get(team);
+	}
+	
+	public List<TeamManager> findAll() {
+	    return teamManagerCache.get(CacheConfig.TEAM_TOTAL_KEY);
 	}
 	
 	public Set<Long> findAllProjectManagerIds() {
@@ -58,14 +73,14 @@ public class TeamService {
         }
 
         return findAll().stream()
-                .map(Team::getProjectManager)
+                .map(TeamManager::getProjectManager)
                 .map(Employee::getEmployeeId)
                 .filter(employeeIds::contains)
                 .collect(Collectors.toSet());
     }
 	
 	public boolean existsByProjectManager_EmployeeId(Long projectManagerId) {
-		return teamRepository.existsByProjectManager_EmployeeId(projectManagerId);
+		return teamManagerRepository.existsByProjectManager_EmployeeId(projectManagerId);
 	}
 	/**
 	 * 기준 팀부터 시작하여 자기 자신과 모든 하위 팀 목록을 재귀적으로 수집합니다 (DFS).
@@ -75,12 +90,12 @@ public class TeamService {
 	 * @param result           수집된 팀 목록
 	 * @param visited          순환 참조 방지용 방문 기록 Set
 	 */
-	private void traverseDown(Team currentTeam,
-					        Map<String, Set<Team>> parentToChildren,
-					        Set<Team> result,
+	private void traverseDown(TeamManager currentTeam,
+					        Map<String, Set<TeamManager>> parentToChildren,
+					        Set<TeamManager> result,
 					        Set<String> visited) {
 	    // 이미 방문한 팀이면 종료
-	    if (!visited.add(currentTeam.getTeam())) {
+	    if (!visited.add(currentTeam.getTeam().getTeamName())) {
 	        return;
 	    }
 
@@ -88,10 +103,10 @@ public class TeamService {
 	    result.add(currentTeam);
 
 	    // 현재 팀의 직속 자식 조회
-	    Set<Team> children = parentToChildren.getOrDefault(currentTeam.getTeam(), Collections.emptySet());
+	    Set<TeamManager> children = parentToChildren.getOrDefault(currentTeam.getTeam(), Collections.emptySet());
 
 	    // 하위 탐색
-	    for (Team child : children) {
+	    for (TeamManager child : children) {
 	        traverseDown(child, parentToChildren, result, visited);
 	    }
 	}
@@ -101,19 +116,19 @@ public class TeamService {
 	 * @param targetTeam 시작 기준 팀명
 	 * @return 자기 자신 + 모든 하위 Team
 	 */
-	public Set<Team> getSelfAndDescendants(String targetTeam) {
-		List<Team> allTeams = findAll();
+	public Set<TeamManager> getSelfAndDescendants(String targetTeam) {
+		List<TeamManager> allTeams = findAll();
 		
 		// parentTeam -> children 구성
-		Map<String, Set<Team>> parentToChildren = new HashMap<>();
+		Map<String, Set<TeamManager>> parentToChildren = new HashMap<>();
 		
-		Team rootTeam = null;
-		for (Team team : allTeams) {
-			if (team.getTeam().equals(targetTeam)) {
+		TeamManager rootTeam = null;
+		for (TeamManager team : allTeams) {
+			if (team.getTeam().getTeamName().equals(targetTeam)) {
 				rootTeam = team;
 			}
 			
-			parentToChildren.computeIfAbsent(team.getParentTeam(), k -> new HashSet<>())
+			parentToChildren.computeIfAbsent(team.getParentTeam().getTeamName(), k -> new HashSet<>())
 							.add(team);
 		}
 		
@@ -122,75 +137,10 @@ public class TeamService {
 			return Collections.emptySet();
 		}
 		
-		Set<Team> result = new HashSet<>();
+		Set<TeamManager> result = new HashSet<>();
 		traverseDown(rootTeam, parentToChildren, result, new HashSet<>());
 		return result;
 	}
-	
-    
-//    /**
-//     * 기준 팀부터 시작하여 자기 자신과 모든 하위 팀 목록을 재귀적으로 수집합니다 (DFS).
-//     *
-//     * @param currentTeam      현재 탐색 중인 팀 이름
-//     * @param parentToChildren 부모 팀별 자식 팀 목록 Map
-//     * @param result           수집된 팀 List
-//     * @param visited          순환 참조 방지용 방문 기록 Set
-//     */
-//    private void traverseDown(String currentTeam, 
-//    		Map<String, Set<Team>> parentToChildren, 
-//    		Set<Team> result, 
-//    		Set<String> visited) {
-//    	// 이미 방문한 팀이라면 중복 추가 방지 및 순환 참조 탈출
-//    	if (!visited.add(currentTeam)) {
-//    		return;
-//    	}
-//    	
-//    	// 진입하자마자 자기 자신(부모)을 리스트에 바로 추가. 이후 자식들이 추가되는 구조로 바뀜
-//    	result.add(currentTeam);
-//    	
-//    	// 내 밑에 달린 직속 자식 팀들을 획득
-//    	Set<Team> children = parentToChildren.getOrDefault(currentTeam, Collections.emptySet());
-//    	
-//    	// 자식 팀들을 하나씩 순회하며 아래로 깊게 파고 들어감 (DFS)
-//    	for (Team child : children) {
-//    		traverseDown(child.getTeam(), parentToChildren, result, visited);
-//    	}
-//    }
-//    /**
-//     * targetTeam부터 시작하여 자기 자신과 모든 하위(자식/후손) 팀 목록을 전부 반환합니다.
-//     * @param targetTeam 시작 기준 팀 (본인)
-//     * @return 자기 자신 + 모든 하위 팀명이 담긴 리스트
-//     */
-//    public Set<String> getSelfAndDescendants(String targetTeam) {
-//    	// 1. 팀 테이블 전체 로드
-//    	List<Team> allTeams = findAll();
-//    	
-//    	// 2. 부모 팀 이름을 Key로 하고, 직속 자식 팀 리스트를 Value로 갖는 Map 구성
-//    	Map<String, Set<Team>> parentToChildren = new HashMap<>();
-//    	boolean exists = false;
-//    	
-//    	for (Team team : allTeams) {
-//    		// 시작 대상 팀(targetTeam)이 실존하는지 체크
-//    		if (!exists && team.getTeam().equals(targetTeam)) {
-//    			exists = true;
-//    		}
-//    		
-//    		// 부모 팀 이름을 Key로 하는 자식 리스트 Map 구성
-//    		parentToChildren.computeIfAbsent(team.getParentTeam(), k -> new HashSet<>())
-//    		.add(team);
-//    	}
-//    	
-//    	// 시작 팀이 테이블에 실존하는지 검증
-//    	Set<String> result = new HashSet<>();
-//    	if (!exists) {
-//    		return result; // 존재하지 않는 팀이면 빈 리스트 반환
-//    	}
-//    	
-//    	// 3. 재귀 DFS 탐색 시작 (자기 자신부터 아래로)
-//    	traverseDown(targetTeam, parentToChildren, result, new HashSet<>());
-//    	
-//    	return result;
-//    }
     
     
     /**
@@ -208,32 +158,32 @@ public class TeamService {
             ancestors.add(currentTeamName);
 
             // 상위 팀 정보 조회
-            List<Team> teamOpt = findAllByTeam(currentTeamName);
-            if (teamOpt.isEmpty()) {
+            List<TeamManager> teamManagers = findAllByTeam(currentTeamName);
+            if (teamManagers.isEmpty()) {
                 break;
             }
-            currentTeamName = teamOpt.get(0).getParentTeam();
+            currentTeamName = teamManagers.get(0).getParentTeam().getTeamName();
         }
         return ancestors;
     }
 	
-	private Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, List<Team> approverTeamList) {
+	private Map.Entry<Integer, String> getTeamManagerData(PositionType approverPosition, String targetTeam, List<TeamManager> approverTeamList) {
 		int manageType = 0;
 		
 		boolean isCEO = PositionType.isCEO(approverPosition);
-		List<Team> targetTeamList = findAllByTeam(targetTeam);
+		List<TeamManager> targetTeamList = findAllByTeam(targetTeam);
 		// 신규 팀인 경우
 		if (targetTeamList.isEmpty()) {
 			// 대표이사만 생성 가능
 			if (isCEO) {
 				return new AbstractMap.SimpleEntry<>(ManageType.IS_NEW_TEAM.addFlag(manageType), "");
 			} else {
-				return new AbstractMap.SimpleEntry<>(manageType, String.join(",", approverTeamList.stream().map(Team::getTeam).toList()));
+				return new AbstractMap.SimpleEntry<>(manageType, String.join(",", approverTeamList.stream().map(e -> e.getTeam().getTeamName()).toList()));
 			}
 		}
 		
 		// 기존 팀인 경우 (트리 탐색 적용)
-	    List<String> managedTeamNames = approverTeamList.stream().map(Team::getTeam).toList();	// 내가 PM인 팀 목록
+	    List<String> managedTeamNames = approverTeamList.stream().map(e -> e.getTeam().getTeamName()).toList();	// 내가 PM인 팀 목록
 		if (isCEO) {
 			// 대표이사는 모든 팀의 PM이다
 			return new AbstractMap.SimpleEntry<>(ManageType.IS_TEAM_MANAGER.addFlag(manageType), String.join(",", managedTeamNames));
@@ -258,31 +208,31 @@ public class TeamService {
 	}
 	
 	public boolean isTeamManager(Long employeeId) {
-		return teamRepository.existsByProjectManager_EmployeeId(employeeId);
+		return teamManagerRepository.existsByProjectManager_EmployeeId(employeeId);
 	}
 
 
 	private Set<Employee> resolveApprovers(Employee employee) {
-		List<Team> myTeam = findAllByTeam(employee.getTeam());
+		List<TeamManager> myTeam = findAllByTeam(employee.getTeam().getTeamName());
 		if (myTeam.isEmpty()) {
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}
 		
 		Set<Employee> approvers = new HashSet<>();
-		for (Team team : myTeam) {
+		for (TeamManager team : myTeam) {
 			if (employee.getEmployeeId().equals(team.getProjectManagerId())) {
-				String parent = team.getParentTeam();
+				String parent = team.getParentTeam().getTeamName();
 				if (parent == null || parent.isBlank()) {
 					return Collections.emptySet();
 				}
 				
-				List<Team> parentTeams = parent.equals(employee.getTeam()) ? myTeam : findAllByTeam(parent);
+				List<TeamManager> parentTeams = parent.equals(employee.getTeam().getTeamName()) ? myTeam : findAllByTeam(parent);
 				if (parentTeams.isEmpty()) {
 					throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다.");
 				}
 				
 				Set<Employee> parentApprovers = new HashSet<>();
-				for (Team parentTeam : parentTeams) {
+				for (TeamManager parentTeam : parentTeams) {
 					parentApprovers.add(parentTeam.getProjectManager());
 				}
 				
@@ -313,17 +263,34 @@ public class TeamService {
 	
 	@Transactional
 	@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+	public void saveTeam(TeamManager team) {
+		teamManagerRepository.save(team);
+		invalidateTeamManagerCache();
+	}
+	
+	@Transactional
 	public void saveTeam(Team team) {
 		teamRepository.save(team);
-		invalidateCache();
+		invalidateTeamCache();
 	}
 	
+	public void deleteTeam(TeamManager team) {
+		teamManagerRepository.delete(team);
+		invalidateTeamManagerCache();
+	}
+	
+	@Transactional
 	public void deleteTeam(Team team) {
-		teamRepository.delete(team);
-		invalidateCache();
+		team.disable();
+		teamRepository.flush();
+		invalidateTeamCache();
 	}
 	
-	private void invalidateCache() {
+	private void invalidateTeamCache() {
 		teamCache.invalidateAll();
+	}
+	
+	private void invalidateTeamManagerCache() {
+		teamManagerCache.invalidateAll();
 	}
 }

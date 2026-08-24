@@ -22,10 +22,10 @@ import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
-import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
@@ -232,8 +232,8 @@ public class EmployeeService {
     	}
     	for (String targetTeam : targetTeams) {
     		// 해당 팀명으로 관리중인 팀이 존재한다면 탐색
-    		Team teamEntity = null;
-    		for (Team team : employee.getTeams()) {
+    		TeamManager teamEntity = null;
+    		for (TeamManager team : employee.getTeams()) {
     			if (team.getTeam().equals(targetTeam)) {
     				teamEntity = team;
     				break;
@@ -247,11 +247,11 @@ public class EmployeeService {
     			// 멤버 -> 관리자
     			approver.getTeams()
     					.stream()
-    					.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam()).stream())
-    					.filter(e -> e.getTeam().equals(targetTeam))
+    					.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam().getTeamName()).stream())
+    					.filter(e -> e.getTeam().getTeamName().equals(targetTeam))
     					.findAny()
     					.ifPresentOrElse(team -> {
-				    						teamService.saveTeam(new Team(team.getTeam(), employee, team.getParentTeam()));
+				    						teamService.saveTeam(new TeamManager(team.getTeam(), employee, team.getParentTeam()));
 				    					},
     									() -> {
 				    						String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
@@ -264,16 +264,17 @@ public class EmployeeService {
 
         // [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
         // request.getTeam()이 비어 있다면 기존 엔티티의 team 정보를 그대로 보존합니다.
-        String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
-                ? request.getTeam() 
-                : employee.getTeam();
+    	Team finalTeam = employee.getTeam();
+    	if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
+    		finalTeam = teamService.findByTeamName(request.getTeam()).orElse(finalTeam);
+    	}
         
         // [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
         employee.updateInfoByAdmin(
             request.getName() != null ? request.getName() : employee.getName(),
             request.getEmail() != null ? request.getEmail() : employee.getEmail(),
             request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
-            finalTeam,                 // 👈 덮어쓰기가 방지된 안전한 팀 값 전달
+            finalTeam,
             request.getPosition() != null ? request.getPosition() : employee.getPosition(),
             request.getHireDate(),
             request.getFireDate(),

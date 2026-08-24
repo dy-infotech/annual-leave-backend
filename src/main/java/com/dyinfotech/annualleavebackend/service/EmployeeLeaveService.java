@@ -20,7 +20,7 @@ import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
 
@@ -190,21 +190,21 @@ public class EmployeeLeaveService {
 
 	public interface EmployeeAuthorityResolver {
 		boolean isAdmin(Long employeeId);
-		Collection<Team> getManagedTeams(Long employeeId);
+		Collection<TeamManager> getManagedTeams(Long employeeId);
 		default Role resolveRole(Long employeeId) {
 			return EmployeeLeaveService.convertRole(isAdmin(employeeId));
 		}
 	}
 	private static class EmployeeAuthorityResolverImpl implements EmployeeAuthorityResolver {
-		private final Map<Long, Set<Team>> managedTeams;
+		private final Map<Long, Set<TeamManager>> managedTeams;
 		
-		public EmployeeAuthorityResolverImpl(Collection<Team> teams) {
+		public EmployeeAuthorityResolverImpl(Collection<TeamManager> teams) {
 			this.managedTeams = teams.stream()
-							            .collect(Collectors.groupingBy(Team::getProjectManagerId, Collectors.toSet()));
+							            .collect(Collectors.groupingBy(TeamManager::getProjectManagerId, Collectors.toSet()));
 		}
 		
 		@Override
-		public Collection<Team> getManagedTeams(Long employeeId) {
+		public Collection<TeamManager> getManagedTeams(Long employeeId) {
 			return managedTeams.getOrDefault(employeeId, Collections.emptySet());
 		}
 		

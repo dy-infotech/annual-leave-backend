@@ -9,7 +9,7 @@ import java.util.Map;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 
 public interface LeaveRequestRepositoryCustom {
@@ -21,7 +21,7 @@ public interface LeaveRequestRepositoryCustom {
     List<LeaveRequestStatusCount> countByStatus(Long employeeId, LocalDate startDate, LocalDate endDate);
     
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-    List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate startDate, LocalDate endDate);
+    List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<TeamManager> accessibleTeams, LocalDate startDate, LocalDate endDate);
 
     // 승인 대기 상태 휴가 조회 (관리자용)
     List<LeaveRequest> findByStatusAndTeamsInRange(

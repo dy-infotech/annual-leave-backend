@@ -14,7 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
@@ -88,11 +88,11 @@ public class DashboardService {
     private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
     	Long excludeId = employee.getEmployeeId();
     	Set<String> directTeams = new HashSet<>();
-    	Set<Team> accessibleTeams = new HashSet<>();
-    	for (Team team : employee.getTeams()) {
-    		String myTeam = team.getTeam();
+    	Set<TeamManager> accessibleTeams = new HashSet<>();
+    	for (TeamManager team : employee.getTeams()) {
+    		String myTeam = team.getTeam().getTeamName();
     		directTeams.add(myTeam);
-    		if (myTeam.equals(team.getParentTeam())) {
+    		if (myTeam.equals(team.getParentTeam().getTeamName())) {
     			excludeId = null;	// 최상위 팀이면 제외할 필요 없음 (스스로 승인이 가능하므로)
     		}
     		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));

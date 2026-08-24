@@ -30,7 +30,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient; 
+import jakarta.persistence.Transient;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -69,11 +69,12 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Column(name = "department", length = 50)
     private String department;
     
-    @Column(name = "team", nullable = false, length = 30)
-    private String team;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false)
+    private Team team;
     
     @OneToMany(mappedBy = "projectManager")
-    private List<Team> teams = new ArrayList<>();
+    private List<TeamManager> teams = new ArrayList<>();
 
     @Column(name = "position", length = 50)
     private String position;
@@ -114,7 +115,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder 
-    public Employee(String employeeNumber, String name, String department, String team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
+    public Employee(String employeeNumber, String name, String department, Team team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
@@ -224,7 +225,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         String name, 
         String email, 
         String department, 
-        String team, 
+        Team team, 
         String position, 
         LocalDate hireDate, 
         LocalDate fireDate,

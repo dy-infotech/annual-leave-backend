@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.config;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -12,6 +13,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
+import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -24,6 +27,7 @@ public class CacheConfig {
 	// 어노테이션에서 사용할 상수를 선언 (컴파일 타임 상수)
     public static final String CACHE_HOLIDAYS = "holidays";
     public static final String CACHE_EMPLOYEES = "employees";
+    public static final String CACHE_TEAM = "team";
     public static final String CACHE_TEAM_MANAGEMENT_DATA = "teamManagementData";
     public static final String TEAM_TOTAL_KEY = "total";
 
@@ -73,14 +77,30 @@ public class CacheConfig {
 	@Bean("teamLoadingCache")
 	LoadingCache<String, List<Team>> teamLoadingCache(TeamRepository teamRepository) {
 	    return Caffeine.newBuilder()
+	            .maximumSize(100)
+	            .expireAfterWrite(24, TimeUnit.HOURS)
+	            .build(key -> {
+	                if (TEAM_TOTAL_KEY.equals(key)) {
+	                    return teamRepository.findAllByEnabledTrue();
+	                }
+	                
+	                return teamRepository.findByTeamName(key)
+				                        .map(Collections::singletonList)
+				                        .orElseGet(Collections::emptyList);
+	            });
+	}
+	
+	@Bean("teamManagerLoadingCache")
+	LoadingCache<String, List<TeamManager>> teamManagerLoadingCache(TeamManagerRepository teamManagerRepository) {
+	    return Caffeine.newBuilder()
 			            .maximumSize(100)
 			            .expireAfterWrite(24, TimeUnit.HOURS)
 			            .build(key -> {
 			                if (TEAM_TOTAL_KEY.equals(key)) {
-			                    return teamRepository.findAll();
+			                    return teamManagerRepository.findAll();
 			                }
 		
-			                return teamRepository.findAllByTeamOrderBySeqAsc(key);
+			                return teamManagerRepository.findAllByTeam_TeamNameOrderByTeam_TeamIdAsc(key);
 			            });
 	}
 }
