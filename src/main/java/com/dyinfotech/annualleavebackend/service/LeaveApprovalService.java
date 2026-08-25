@@ -61,7 +61,7 @@ public class LeaveApprovalService {
     	for (TeamManager team : employeeList.get(0).getTeams()) {
     		String myTeam = team.getTeam().getTeamName();
     		directTeams.add(myTeam);
-    		if (myTeam.equals(team.getParentTeam())) {
+    		if (myTeam.equals(team.getParentTeam().getTeamName())) {
     			excludeId = null;	// 최상위 팀이면 제외할 필요 없음 (스스로 승인이 가능하므로)
     		}
     		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
@@ -70,7 +70,7 @@ public class LeaveApprovalService {
 //    														// 내 팀 + 하위 팀 조합에서 내 팀만 제외하면 하위 팀만 조회
 //    														.filter(e -> !directTeams.contains(e.getTeam()))
 											    			// 최상위 팀(TeamName == ParentTeamName)과 내가 관리하는 팀을 제외하고, 하위 팀들을 반환
-															.filter(e -> !e.getTeam().equals(e.getParentTeam()) && directTeams.contains(e.getParentTeam()))
+															.filter(e -> !e.getTeam().equals(e.getParentTeam()) && directTeams.contains(e.getParentTeam().getTeamName()))
     														.map(TeamManager::getProjectManagerId)
     												        .filter(Objects::nonNull)
     														.collect(Collectors.toSet());
