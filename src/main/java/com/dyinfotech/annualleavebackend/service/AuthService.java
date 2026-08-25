@@ -353,6 +353,12 @@ public class AuthService {
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용 등록이 되지 않은 사원입니다.");
 		}
         
+        // 퇴직 여부 확인
+        if (employee.getFireDate() != null && employee.getFireDate().isAfter(LocalDate.now(clock))) {
+			log.error("퇴사한 사원입니다. employeeNumber: " + request.getEmployeeNumber());
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "퇴사한 사원입니다.");
+        }
+        
         // 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
         validateLogin(employee, request.getPassword());
         
