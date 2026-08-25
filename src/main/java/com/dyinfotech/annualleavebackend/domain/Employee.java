@@ -203,9 +203,11 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     	DepartmentType department = DepartmentType.getType(this.department.getDepartmentName());
     	DepartmentType parent = DepartmentType.getParentDepartmentType();
     	PositionType myPosition = PositionType.getType(this.position);
-    	// 대표이사 부서에 등록할 경우
-    	if (parent.equals(DepartmentType.getType(requestedDepartment.getDepartmentName()))) {
-    		// 대표이사 부서의 대표이사만 등록 가능
+    	if (PositionType.isCEO(myPosition)) {
+    		// 대표이사는 자유로운 선택이 가능하다
+    		manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
+    	} else if (parent.equals(DepartmentType.getType(requestedDepartment.getDepartmentName()))) {
+        	// 대표이사 부서에 등록할 경우 대표이사 부서의 대표이사만 등록 가능
     		if (parent.equals(department) && PositionType.isCEO(myPosition)) {
     			manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
     		}
