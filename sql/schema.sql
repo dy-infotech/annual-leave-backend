@@ -10,7 +10,7 @@ CREATE TABLE employee (
                           accessed_at			DATETIME		NULL COMMENT '로그인 실패 시각',
                           accessed_ip			VARCHAR(45)		NULL COMMENT '로그인 실패 IP 주소',
                           name              	VARCHAR(50)   	NOT NULL COMMENT '성명',
-                          department        	VARCHAR(50)   	NULL COMMENT '부서',
+                          department_id        	BIGINT   		NOT NULL COMMENT '부서',
                           team_id		        BIGINT		 	NOT NULL COMMENT '팀 // 배정되지 않은 경우 대표이사 팀 선택 및 approver_id도 대표이사의 id로 해야 한다',
                           position          	VARCHAR(50)		NULL COMMENT '직급',
                           email			 	    VARCHAR(100)	NULL COMMENT '이메일',
@@ -30,6 +30,7 @@ CREATE TABLE employee (
                           
                           
                           CONSTRAINT fk_employee_team FOREIGN KEY (team_id) REFERENCES team(team_id),
+                          CONSTRAINT fk_employee_department FOREIGN KEY (department_id) REFERENCES department(department_id),
                           CONSTRAINT fk_employee_approver FOREIGN KEY (approver_id) REFERENCES employee(employee_id) ON DELETE RESTRICT
 ) COMMENT '인사정보 + 로그인 계정 + 배정 연차';
 
@@ -58,11 +59,19 @@ CREATE TABLE leave_request (
                                CONSTRAINT fk_request_manager FOREIGN KEY (manager_id) REFERENCES employee(employee_id)
 ) COMMENT '휴가 신청 + 승인/반려 내역';
 
+CREATE TABLE department (
+                               department_id      BIGINT		AUTO_INCREMENT PRIMARY KEY,
+                               department_name    VARCHAR(50)	NOT NULL COMMENT '부서명',
+                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
+                              
+                               CONSTRAINT uk_department_name UNIQUE KEY (department_name) 
+) COMMENT '부서 정보';
+
 
 CREATE TABLE team (
                                team_id            BIGINT		AUTO_INCREMENT PRIMARY KEY,
                                team_name          VARCHAR(30)	NOT NULL COMMENT '팀명',
-                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '팀 활성 여부',
+                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
                               
                                CONSTRAINT uk_team_name UNIQUE KEY (team_name) 
 ) COMMENT '팀 정보';

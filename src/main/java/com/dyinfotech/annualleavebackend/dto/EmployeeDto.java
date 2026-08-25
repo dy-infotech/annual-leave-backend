@@ -66,7 +66,7 @@ public final class EmployeeDto {
             return EmployeeResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
-                    .department(employee.getDepartment())
+                    .department(employee.getDepartment().getDepartmentName())
                     .team(employee.getTeam().getTeamName())
                     .teamList(authorityResolver.getManagedTeams(employee.getEmployeeId()).stream().map(e -> e.getTeam().getTeamName()).toList())
                     .position(employee.getPosition())
@@ -79,7 +79,7 @@ public final class EmployeeDto {
                     .approverNumber(approver.getEmployeeNumber())
                     .approverName(approver.getName())
                     .approverPosition(approver.getPosition())
-                    .approverDepartment(approver.getDepartment())
+                    .approverDepartment(approver.getDepartment().getDepartmentName())
                     .isRegisted(employee.isRegisted())
                     .createdAt(employee.getCreatedAudit().getCreatedAt())
                     .build();

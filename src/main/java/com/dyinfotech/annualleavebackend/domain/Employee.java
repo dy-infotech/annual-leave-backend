@@ -66,8 +66,9 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
-    @Column(name = "department", length = 50)
-    private String department;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id", nullable = false)
+    private Department department;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id", nullable = false)
@@ -115,7 +116,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     @Builder 
-    public Employee(String employeeNumber, String name, String department, Team team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
+    public Employee(String employeeNumber, String name, Department department, Team team, String position, String email, Role role, String currYear, Float currTotalLeaveDays, LocalDate hireDate, LocalDate fireDate, Employee approver) {
         this.employeeNumber = employeeNumber;
         this.name = name;
         this.department = department;
@@ -197,18 +198,18 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     	return PositionType.isCEO(PositionType.getType(this.position));
     }
     
-    public int getManageTypeByDepartmentAndPosition(DepartmentType type, PositionType position) {
+    public int getManageTypeByDepartmentAndPosition(Department requestedDepartment, PositionType position) {
     	int manageType = 0;
-    	DepartmentType department = DepartmentType.getType(this.department);
+    	DepartmentType department = DepartmentType.getType(this.department.getDepartmentName());
     	DepartmentType parent = DepartmentType.getParentDepartmentType();
     	PositionType myPosition = PositionType.getType(this.position);
     	// 대표이사 부서에 등록할 경우
-    	if (parent.equals(type)) {
+    	if (parent.equals(DepartmentType.getType(requestedDepartment.getDepartmentName()))) {
     		// 대표이사 부서의 대표이사만 등록 가능
     		if (parent.equals(department) && PositionType.isCEO(myPosition)) {
     			manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
     		}
-    	} else if (department != null && department.equals(type)) {
+    	} else if (this.department.equals(requestedDepartment)) {
         	// 대표이사 부서가 아니면 같은 부서일 때만 등록 가능
     		manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
     	}
@@ -224,7 +225,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     public void updateInfoByAdmin(
         String name, 
         String email, 
-        String department, 
+        Department department, 
         Team team, 
         String position, 
         LocalDate hireDate, 

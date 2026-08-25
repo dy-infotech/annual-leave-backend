@@ -23,5 +23,12 @@ public final class RegisterCommonDto {
         private Collection<String> accessibleTeam;	// 관리 대상 팀 (현재 관리자인 팀. 관리자에서 내려올 수도 있는 대상들)
         private Collection<String> position;		// 직급
     }
+    
+    @Getter
+    @NoArgsConstructor
+    public static class OrganizationInfoRequest {
+    	private String department;
+    	private String team;
+    }
 
 }

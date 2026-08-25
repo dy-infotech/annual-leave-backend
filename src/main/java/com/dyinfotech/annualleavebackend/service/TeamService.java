@@ -58,7 +58,7 @@ public class TeamService {
 	}
 	
 	public List<TeamManager> findAll() {
-	    return teamManagerCache.get(CacheConfig.TEAM_TOTAL_KEY);
+	    return teamManagerCache.get(CacheConfig.TOTAL_KEY);
 	}
 	
 	public Set<Long> findAllProjectManagerIds() {
