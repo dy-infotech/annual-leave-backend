@@ -33,7 +33,7 @@ public final class PendingLeaveRequestDto {
                     .requestId(leaveRequest.getRequestId())
                     .employeeNumber(leaveRequest.getEmployee().getEmployeeNumber())
                     .employeeName(leaveRequest.getEmployee().getName())
-                    .department(leaveRequest.getEmployee().getDepartment())
+                    .department(leaveRequest.getEmployee().getDepartment().getDepartmentName())
                     .team(leaveRequest.getEmployee().getTeam().getTeamName())
                     .position(leaveRequest.getEmployee().getPosition())
                     .startDate(leaveRequest.getStartDate())

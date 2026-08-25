@@ -138,6 +138,26 @@ DROP TABLE team_legacy;
 UPDATE employee SET approver_id = (SELECT employee_id FROM (SELECT employee_id FROM employee WHERE name = '우동영') AS TEMP) WHERE approver_id IS NULL;
 ALTER TABLE employee MODIFY approver_id BIGINT NOT NULL;
 
+-- 부서 처리
+ALTER TABLE employee ADD COLUMN department_id BIGINT NULL COMMENT '부서 인덱스' AFTER department;
+
+UPDATE employee e
+JOIN department d
+  ON e.department = d.department_name
+SET e.department_id = d.department_id;
+
+-- Employee Department 매핑 누락 검증. 아래 select문의 결과값이 0건이어야 함. 그 이후 추가 진행.
+SELECT
+    employee_id,
+    employee_number,
+    department
+FROM employee
+WHERE department_id IS NULL;
+
+ALTER TABLE employee MODIFY COLUMN department_id BIGINT NOT NULL COMMENT '부서 인덱스';
+ALTER TABLE employee ADD CONSTRAINT fk_employee_department FOREIGN KEY (department_id) REFERENCES department(department_id);
+ALTER TABLE employee DROP COLUMN department;
+
 
 
 
@@ -155,10 +175,29 @@ VALUES
 UPDATE employee SET approver_id = (SELECT employee_id FROM (SELECT employee_id FROM employee WHERE name = '우동영') AS TEMP) WHERE approver_id IS NULL;
 ALTER TABLE employee MODIFY approver_id BIGINT NOT NULL;
 
-INSERT INTO team (team, project_manager_id, parent_team)
-SELECT '스마트팩토리구축사업', employee_id, '대표이사' FROM employee WHERE name = '이호영';
-INSERT INTO team (team, project_manager_id, parent_team)
-SELECT '대표이사', employee_id, '대표이사' FROM employee WHERE name = '우동영';
+INSERT INTO department (department_name, enabled)
+VALUES
+	('대표이사', TRUE),
+	('SI사업팀', TRUE)
+	;
+
+INSERT INTO team (team_name, enabled)
+VALUES
+	('대표이사', TRUE),
+	('스마트팩토리구축사업', TRUE)
+	;
+
+INSERT INTO team_manager (team_id, project_manager_id, parent_team_id)
+SELECT t1.team_id, e.employee_id, t2.team_id
+FROM employee e
+JOIN team t1 on t1.team_name = '스마트팩토리구축사업'
+JOIN team t2 on t2.team_name = '대표이사'
+WHERE e.name = '이호영';
+INSERT INTO team_manager (team_id, project_manager_id, parent_team_id)
+SELECT t.team_id, e.employee_id, t.team_id
+FROM employee e
+JOIN team t on t.team_name = '대표이사'
+WHERE e.name = '우동영';
 
 INSERT INTO basis_data (year, seq, type, data, remark)
 VALUES

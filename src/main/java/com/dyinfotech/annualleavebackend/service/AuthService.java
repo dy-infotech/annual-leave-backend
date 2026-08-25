@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -36,6 +35,7 @@ import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.domain.TeamManager;
@@ -64,6 +64,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
+    private final DepartmentService departmentService;
     private final EmployeeService employeeService;
     private final TeamService teamService;
     
@@ -94,9 +95,9 @@ public class AuthService {
     	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	PositionType requesterPosition = PositionType.getType(requester.getPosition());
     	return RegisterCommonDto.RegisterCommonResponse.builder()
-    													.department(Arrays.asList(DepartmentType.values()).stream()
-    																										.map(DepartmentType::getName)
-    																										.toList())
+    													.department(departmentService.findAll().stream()
+    																							.map(Department::getDepartmentName)
+    																							.toList())
     													.accessibleTeam(requester.getTeams().stream()
 		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam().getTeamName()).stream())
 		    																				.map(e -> e.getTeam().getTeamName())
@@ -106,6 +107,28 @@ public class AuthService {
     																									.map(PositionType::getName)
     																									.toList())
     													.build();
+    }
+    
+    @Transactional
+    public void setCommonData(Long employeeId, RegisterCommonDto.OrganizationInfoRequest request) {
+//		// XXX: 요청자가 인사권이나 별도의 권한을 가져야 하는지 확인 필요
+//    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+//    	if (!requester.hasPersonnelAuthority()) {
+//    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 부족합니다.");
+//    	}
+    	
+    	// 부서나 팀 추가하는 기능만 구현
+    	String department = request.getDepartment();
+    	if (department != null && !department.trim().isBlank()) {
+    		department = department.trim();
+    		departmentService.saveDepartment(new Department(department, Boolean.TRUE));
+    	}
+    	
+    	String team = request.getTeam();
+    	if (team != null && !team.trim().isBlank()) {
+    		team = team.trim();
+    		teamService.saveTeam(new Team(team, Boolean.TRUE));
+    	}
     }
     
     @Transactional
@@ -126,14 +149,18 @@ public class AuthService {
     											.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	
     	// 부서와 직급 검증
-    	DepartmentType department = DepartmentType.getType(request.getDepartment());
+    	Department department = departmentService.findByDepartmentName(request.getDepartment()).orElseThrow(() -> {
+			String errorMsg = "일치하는 부서 정보가 없습니다. departmentName:" + request.getDepartment();
+    		log.error(errorMsg);
+			return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    	});
     	PositionType targetPosition = PositionType.getType(request.getPosition());
     	int validationResult = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
     	if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
     		String errorMsg;
-    		String detailMsg = "approverId: " + employeeId + "approverDepartment: " + approver.getDepartment() + ", requestedDepartment: " + department;
+    		String detailMsg = "approverId: " + employeeId + "approverDepartment: " + approver.getDepartment() + ", requestedDepartment: " + department.getDepartmentName();
     		DepartmentType parent = DepartmentType.getParentDepartmentType();
-    		if (parent.equals(department)) {
+    		if (parent.equals(DepartmentType.getType(department.getDepartmentName()))) {
     			errorMsg = parent.getName() + " 부서는 " + PositionType.CEO.getName() + "만 등록할 수 있습니다.";
     			detailMsg += ", approverPosition: " + approver.getPosition();
     		} else {
@@ -212,7 +239,7 @@ public class AuthService {
     	Employee employee = Employee.builder()
 				.employeeNumber(request.getEmployeeNumber())
 				.name(request.getName())
-				.department(request.getDepartment())
+				.department(department)
 				.team(team)
 				.position(request.getPosition())
 				.email(request.getEmail())

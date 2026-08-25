@@ -20,6 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.domain.TeamManager;
@@ -40,6 +41,7 @@ public class EmployeeService {
 
 	private final TeamService teamService;
 	private final CommonService commonService;
+	private final DepartmentService departmentService;
     private final EmployeeLeaveService employeeLeaveService;
     private final EmployeeRepository employeeRepository;
     private final PasswordEncoder passwordEncoder;
@@ -222,6 +224,13 @@ public class EmployeeService {
 //    	if (employee.getEmployeeId() == approver.getEmployeeId()) {
 //            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "자신에 대한 정보는 내 정보에서 수정해야 합니다.");
 //    	}
+        
+        // 부서 처리
+        Department department = employee.getDepartment();
+        if (request.getDepartment() != null && !request.getDepartment().trim().isEmpty()) {
+        	department = departmentService.findByDepartmentName(request.getDepartment()).orElse(department);
+        }
+        
         // 관리 팀 변경 요청시 처리
     	Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
     	if (targetTeams == null || targetTeams.isEmpty()) {
@@ -264,19 +273,18 @@ public class EmployeeService {
     		}
     	}
 
-        // [팀 정보 누락 방어] 프론트 첫 번째 PUT API 구조상 team이 누락되므로 
-        // request.getTeam()이 비어 있다면 기존 엔티티의 team 정보를 그대로 보존합니다.
-    	Team finalTeam = employee.getTeam();
+    	// 팀 처리
+    	Team team = employee.getTeam();
     	if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
-    		finalTeam = teamService.findByTeamName(request.getTeam()).orElse(finalTeam);
+    		team = teamService.findByTeamName(request.getTeam()).orElse(team);
     	}
         
-        // [엔티티 메서드 호출] 가공 및 유실 방어가 완료된 필드들을 인자에 차례대로 주입합니다.
+    	// 업데이트 처리
         employee.updateInfoByAdmin(
             request.getName() != null ? request.getName() : employee.getName(),
             request.getEmail() != null ? request.getEmail() : employee.getEmail(),
-            request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
-            finalTeam,
+            department,
+            team,
             request.getPosition() != null ? request.getPosition() : employee.getPosition(),
             request.getHireDate(),
             request.getFireDate(),
@@ -284,78 +292,6 @@ public class EmployeeService {
         );
         
     }
-//    @Transactional
-//    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
-//    public void updateEmployeeByAdmin(String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
-//        // 1. 사번으로 수정 대상 사원 조회
-//        Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
-//                .orElseThrow(() -> {
-//                    String errorMsg = "존재하지 않는 직원입니다.";
-//                    log.error(errorMsg + " employeeNumber: " + employeeNumber);
-//                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
-//                });
-//
-//        // [팀 정보 누락 방어]
-//        String finalTeam = (request.getTeam() != null && !request.getTeam().trim().isEmpty()) 
-//                ? request.getTeam().trim() 
-//                : employee.getTeam();
-//
-//        // 2. 💡 [권한 및 팀 동기화 마감] 프론트엔드에서 보낸 최신 권한 상태 변환 및 주입
-//        if (request.getRole() != null && !request.getRole().trim().isEmpty()) {
-//            try {
-//                Role targetRole = Role.valueOf(request.getRole().trim().toUpperCase());
-//
-//                // B. list 리솔버가 참조하는 team 테이블과의 연동 동기화 처리
-//                if (targetRole == Role.ADMIN) {
-//                    // [멤버 -> 관리자]: team 테이블에서 해당 팀을 찾아 이 직원을 project_manager_id로 매핑 강제 등록
-//                    Team team = teamRepository.findFirstByTeamOrderBySeqAsc(finalTeam);
-//                    if (team != null) {
-//                        // 이미 등록되어 있지 않은 경우에만 중복 방지 저장
-//                        boolean isAlreadyPm = employee.getTeams().stream().anyMatch(t -> t.getTeam().equals(finalTeam));
-//                        if (!isAlreadyPm) {
-//                            teamRepository.save(new Team(team.getTeam(), employee, team.getParentTeam()));
-//                            log.info("▶ [JPA 연동] 사원 {}의 Role 리솔버 통과를 위해 team 테이블 PM 매핑 인서트 완료", employeeNumber);
-//                        }
-//                    }
-//                } else if (targetRole == Role.EMPLOYEE) {
-//                    // [관리자 -> 멤버]: 이 사원이 팀장으로 매핑된 레코드 관계를 team 테이블에서 강제 삭제
-//                    for (Team team : new ArrayList<>(employee.getTeams())) {
-//                        if (team.getTeam().equals(finalTeam)) {
-//                            teamRepository.delete(team);
-//                            log.info("▶ [JPA 연동] 사원 {}의 관리자 해제를 위해 team 테이블 PM 매핑 딜리트 완료", employeeNumber);
-//                        }
-//                    }
-//                }
-//            } catch (IllegalArgumentException e) {
-//                log.warn("🚨 올바르지 않은 Role 규격이 전송되었습니다: " + request.getRole());
-//            }
-//        }
-//
-//        // 3. 입사일 가공 처리 로직 (기존 안정 버전 유지)
-//        java.time.LocalDate parsedHireDate = null;
-//        if (request.getHireDate() != null) {
-//            String hireDateStr = String.valueOf(request.getHireDate()).trim();
-//            if (!hireDateStr.isEmpty() && !hireDateStr.equals("null")) {
-//                parsedHireDate = java.time.LocalDate.parse(hireDateStr.substring(0, 10));
-//            }
-//        }
-//        if (parsedHireDate == null) {
-//            parsedHireDate = employee.getHireDate();
-//        }
-//
-//        java.time.LocalDate hireDate = parsedHireDate;
-//    	
-//        // 4. 엔티티 나머지 필드 일괄 업데이트 완료
-//        employee.updateInfoByAdmin(
-//            request.getName() != null ? request.getName() : employee.getName(),
-//            request.getEmail() != null ? request.getEmail() : employee.getEmail(),
-//            request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
-//            finalTeam,                 
-//            request.getPosition() != null ? request.getPosition() : employee.getPosition(),
-//            parsedHireDate,            
-//            employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate) 
-//        );
-//    }
 
     
 }

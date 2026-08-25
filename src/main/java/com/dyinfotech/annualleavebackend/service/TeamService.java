@@ -30,6 +30,9 @@ import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 public class TeamService {
 	@Qualifier("teamLoadingCache")
@@ -58,7 +61,7 @@ public class TeamService {
 	}
 	
 	public List<TeamManager> findAll() {
-	    return teamManagerCache.get(CacheConfig.TEAM_TOTAL_KEY);
+	    return teamManagerCache.get(CacheConfig.TOTAL_KEY);
 	}
 	
 	public Set<Long> findAllProjectManagerIds() {
@@ -215,6 +218,7 @@ public class TeamService {
 	private Set<Employee> resolveApprovers(Employee employee) {
 		List<TeamManager> myTeam = findAllByTeam(employee.getTeam().getTeamName());
 		if (myTeam.isEmpty()) {
+			log.error("TeamService::resolveApprovers - 해당 팀의 관리자가 존재하지 않습니다. team_id : " + employee.getTeam().getTeamId());
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
 		}
 		
@@ -228,6 +232,7 @@ public class TeamService {
 				
 				List<TeamManager> parentTeams = parent.equals(employee.getTeam().getTeamName()) ? myTeam : findAllByTeam(parent);
 				if (parentTeams.isEmpty()) {
+					log.error("TeamService::resolveApprovers - 상위 팀 조회 중 해당 팀에 대한 관리자가 존재하지 않습니다. parent_team_id : " + team.getParentTeamId());
 					throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀 정보를 찾을 수 없습니다.");
 				}
 				

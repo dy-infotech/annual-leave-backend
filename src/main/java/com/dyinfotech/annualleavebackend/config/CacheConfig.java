@@ -12,8 +12,10 @@ import org.springframework.cache.support.SimpleCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.domain.TeamManager;
+import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -29,7 +31,8 @@ public class CacheConfig {
     public static final String CACHE_EMPLOYEES = "employees";
     public static final String CACHE_TEAM = "team";
     public static final String CACHE_TEAM_MANAGEMENT_DATA = "teamManagementData";
-    public static final String TEAM_TOTAL_KEY = "total";
+    public static final String CACHE_DEPARTMENT = "department";
+    public static final String TOTAL_KEY = "total";
 
     
     public static final Cache<String, List<String>> EMAIL_BY_NAME_CACHE = Caffeine.newBuilder()
@@ -80,7 +83,7 @@ public class CacheConfig {
 	            .maximumSize(100)
 	            .expireAfterWrite(24, TimeUnit.HOURS)
 	            .build(key -> {
-	                if (TEAM_TOTAL_KEY.equals(key)) {
+	                if (TOTAL_KEY.equals(key)) {
 	                    return teamRepository.findAllByEnabledTrue();
 	                }
 	                
@@ -96,11 +99,27 @@ public class CacheConfig {
 			            .maximumSize(100)
 			            .expireAfterWrite(24, TimeUnit.HOURS)
 			            .build(key -> {
-			                if (TEAM_TOTAL_KEY.equals(key)) {
+			                if (TOTAL_KEY.equals(key)) {
 			                    return teamManagerRepository.findAll();
 			                }
 		
 			                return teamManagerRepository.findAllByTeam_TeamNameOrderByTeam_TeamIdAsc(key);
 			            });
+	}
+	
+	@Bean("departmentLoadingCache")
+	LoadingCache<String, List<Department>> departmentLoadingCache(DepartmentRepository departmentRepository) {
+	    return Caffeine.newBuilder()
+	            .maximumSize(100)
+	            .expireAfterWrite(24, TimeUnit.HOURS)
+	            .build(key -> {
+	                if (TOTAL_KEY.equals(key)) {
+	                    return departmentRepository.findAllByEnabledTrue();
+	                }
+	                
+	                return departmentRepository.findByDepartmentName(key)
+				                        .map(Collections::singletonList)
+				                        .orElseGet(Collections::emptyList);
+	            });
 	}
 }
