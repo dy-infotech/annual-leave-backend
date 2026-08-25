@@ -129,18 +129,21 @@ public class AuthService {
     	DepartmentType department = DepartmentType.getType(request.getDepartment());
     	PositionType targetPosition = PositionType.getType(request.getPosition());
     	int validationResult = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
-    	if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
-    		String errorMsg;
-    		String detailMsg = "approverId: " + employeeId + "approverDepartment: " + approver.getDepartment() + ", requestedDepartment: " + department;
-    		DepartmentType parent = DepartmentType.getParentDepartmentType();
-    		if (parent.equals(department)) {
-    			errorMsg = parent.getName() + " 부서는 " + PositionType.CEO.getName() + "만 등록할 수 있습니다.";
-    			detailMsg += ", approverPosition: " + approver.getPosition();
-    		} else {
-    			errorMsg = "승인자의 부서와 동일한 부서만 선택할 수 있습니다.";
-    		}
-    		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    	// 승인자(로그인한 사람)의 직급이 '사장'인 경우, 아래의 모든 부서 검증 블록을 통째로 패스합니다.
+    	if (!PositionType.CEO.getName().equals(approver.getPosition())) {    
+	    	if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
+	    		String errorMsg;
+	    		String detailMsg = "approverId: " + employeeId + "approverDepartment: " + approver.getDepartment() + ", requestedDepartment: " + department;
+	    		DepartmentType parent = DepartmentType.getParentDepartmentType();
+	    		if (parent.equals(department)) {
+	    			errorMsg = parent.getName() + " 부서는 " + PositionType.CEO.getName() + "만 등록할 수 있습니다.";
+	    			detailMsg += ", approverPosition: " + approver.getPosition();
+	    		} else {
+	    			errorMsg = "승인자의 부서와 동일한 부서만 선택할 수 있습니다.";
+	    		}
+	    		log.error(errorMsg + " " + detailMsg);
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+	    	}
     	}
     	if (!ManageType.IS_VALID_POSITION.contains(validationResult)) {
     		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
