@@ -110,6 +110,28 @@ public class AuthService {
     }
     
     @Transactional
+    public void setCommonData(Long employeeId, RegisterCommonDto.OrganizationInfoRequest request) {
+//		// XXX: 요청자가 인사권이나 별도의 권한을 가져야 하는지 확인 필요
+//    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+//    	if (!requester.hasPersonnelAuthority()) {
+//    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "권한이 부족합니다.");
+//    	}
+    	
+    	// 부서나 팀 추가하는 기능만 구현
+    	String department = request.getDepartment();
+    	if (department != null && !department.trim().isBlank()) {
+    		department = department.trim();
+    		departmentService.saveDepartment(new Department(department, Boolean.TRUE));
+    	}
+    	
+    	String team = request.getTeam();
+    	if (team != null && !team.trim().isBlank()) {
+    		team = team.trim();
+    		teamService.saveTeam(new Team(team, Boolean.TRUE));
+    	}
+    }
+    
+    @Transactional
     public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
     	// 사번 채번용 접두사 정보 검증 (서버 데이터)
     	LocalDate now = LocalDate.now(clock);
