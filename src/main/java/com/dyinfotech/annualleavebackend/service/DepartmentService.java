@@ -4,9 +4,12 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
@@ -35,20 +38,63 @@ public class DepartmentService {
 	    return departmentCache.get(CacheConfig.TOTAL_KEY);
 	}
 	
+	/** 관리 화면용: 비활성 부서를 포함한 전체 조회 (캐시 미사용) */
+	public List<Department> findAllForAdmin() {
+	    return departmentRepository.findAll();
+	}
+	
+	@Transactional
+	public Long createDepartment(String departmentName) {
+		String name = departmentName.trim();
+		if (departmentRepository.findByDepartmentName(name).isPresent()) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
+		}
+		
+		Department department = Department.builder()
+											.departmentName(name)
+											.enabled(Boolean.TRUE)
+											.build();
+		departmentRepository.save(department);
+		invalidateDepartmentCache();
+		return department.getDepartmentId();
+	}
+	
+	@Transactional
+	public void renameDepartment(Long departmentId, String departmentName) {
+		Department department = departmentRepository.findById(departmentId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
+		
+		// 대표이사 부서는 코드(DepartmentType)가 이름으로 식별하므로 변경을 금지한다.
+		if (DepartmentType.getParentDepartmentType().getName().equals(department.getDepartmentName())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, DepartmentType.getParentDepartmentType().getName() + " 부서명은 변경할 수 없습니다.");
+		}
+		
+		String name = departmentName.trim();
+		if (name.equals(department.getDepartmentName())) {
+			return;
+		}
+		if (departmentRepository.findByDepartmentName(name).isPresent()) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
+		}
+		
+		department.changeName(name);
+		invalidateDepartmentCache();
+	}
+	
 	@Transactional
 	public void saveDepartment(Department department) {
 		departmentRepository.save(department);
-		invalidateTeamCache();
+		invalidateDepartmentCache();
 	}
 	
 	@Transactional
 	public void deleteDepartment(Department department) {
 		department.disable();
 		departmentRepository.flush();
-		invalidateTeamCache();
+		invalidateDepartmentCache();
 	}
 	
-	private void invalidateTeamCache() {
+	private void invalidateDepartmentCache() {
 		departmentCache.invalidateAll();
 	}
 }

@@ -80,6 +80,13 @@ public class AuthService {
     	}
     }
     
+    public void checkPersonnelAuthority(Long employeeId) {
+    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	if (!requester.hasPersonnelAuthority()) {
+    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인사권을 가진 관리자가 아닙니다.");
+    	}
+    }
+    
     @Transactional
     public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
 		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행

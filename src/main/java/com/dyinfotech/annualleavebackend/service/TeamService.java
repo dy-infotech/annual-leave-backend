@@ -26,6 +26,8 @@ import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.domain.TeamManager;
+import com.dyinfotech.annualleavebackend.dto.TeamDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -41,15 +43,18 @@ public class TeamService {
 	private final LoadingCache<String, List<TeamManager>> teamManagerCache;
 	private final TeamRepository teamRepository;
 	private final TeamManagerRepository teamManagerRepository;
+	private final EmployeeRepository employeeRepository;
 	
 	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, 
 						@Qualifier("teamManagerLoadingCache") LoadingCache<String, List<TeamManager>> teamManagerCache, 
 						TeamRepository teamRepository,
-						TeamManagerRepository teamManagerRepository) {
+						TeamManagerRepository teamManagerRepository,
+						EmployeeRepository employeeRepository) {
 		this.teamCache = teamCache;
         this.teamManagerCache = teamManagerCache;
         this.teamRepository = teamRepository;
         this.teamManagerRepository = teamManagerRepository;
+        this.employeeRepository = employeeRepository;
     }
 	
 	public Optional<Team> findByTeamName(String team) {
@@ -297,5 +302,160 @@ public class TeamService {
 	
 	private void invalidateTeamManagerCache() {
 		teamManagerCache.invalidateAll();
+	}
+
+	// ===== 관리자 팀 관리 (부서 및 팀 관리 화면) =====
+	
+	/** 관리 화면용: 비활성 팀을 포함한 전체 조회 (캐시 미사용) */
+	@Transactional(readOnly = true)
+	public List<TeamDto.TeamResponse> findAllForAdmin() {
+		Map<Long, List<TeamManager>> managersByTeam = teamManagerRepository.findAll().stream()
+				.collect(Collectors.groupingBy(TeamManager::getTeamId));
+		return teamRepository.findAll().stream()
+				.map(team -> {
+					List<TeamManager> managers = managersByTeam.getOrDefault(team.getTeamId(), Collections.emptyList());
+					TeamManager first = managers.isEmpty() ? null : managers.get(0);
+					return TeamDto.TeamResponse.builder()
+							.teamId(team.getTeamId())
+							.teamName(team.getTeamName())
+							.enabled(team.getEnabled())
+							.parentTeamId(first != null ? first.getParentTeamId() : null)
+							.parentTeamName(first != null ? first.getParentTeam().getTeamName() : null)
+							.managers(managers.stream()
+									.map(m -> TeamDto.ManagerResponse.builder()
+											.employeeId(m.getProjectManagerId())
+											.employeeNumber(m.getProjectManager().getEmployeeNumber())
+											.name(m.getProjectManager().getName())
+											.position(m.getProjectManager().getPosition())
+											.build())
+									.toList())
+							.build();
+				})
+				.toList();
+	}
+	
+	/**
+	 * 팀 생성. 담당자(PM) 지정이 필수이며 team과 team_manager를 한 트랜잭션으로 생성한다.
+	 * 상위 팀 미지정 시 요청자(대표이사)의 팀을 상위 팀으로 사용한다. (기존 사원 등록 흐름의 기본값과 동일)
+	 */
+	@Transactional
+	@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+	public Long createTeam(Long requesterId, TeamDto.CreateRequest request) {
+		String teamName = request.getTeamName().trim();
+		if (teamRepository.findByTeamName(teamName).isPresent()) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+		}
+		
+		Employee manager = employeeRepository.findById(request.getProjectManagerId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+		
+		Team parentTeam;
+		if (request.getParentTeamId() != null) {
+			parentTeam = teamRepository.findById(request.getParentTeamId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다."));
+		} else {
+			Employee requester = employeeRepository.findById(requesterId)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+			parentTeam = requester.getTeam();
+		}
+		
+		Team team = Team.builder()
+						.teamName(teamName)
+						.enabled(Boolean.TRUE)
+						.build();
+		teamRepository.save(team);
+		teamManagerRepository.save(TeamManager.builder()
+												.team(team)
+												.projectManager(manager)
+												.parentTeam(parentTeam)
+												.build());
+		invalidateTeamCache();
+		invalidateTeamManagerCache();
+		return team.getTeamId();
+	}
+	
+	/**
+	 * 팀 수정. null인 필드는 기존 값을 유지한다. (상위 팀 미전송 시 기존 결재선 보호)
+	 * projectManagerId 지정 시 기존 담당자 전원을 새 담당자 1명으로 교체한다.
+	 */
+	@Transactional
+	@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+	public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
+		Team team = teamRepository.findById(teamId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+		
+		// 팀명 변경
+		if (request.getTeamName() != null && !request.getTeamName().isBlank()) {
+			String newName = request.getTeamName().trim();
+			if (!newName.equals(team.getTeamName())) {
+				if (teamRepository.findByTeamName(newName).isPresent()) {
+					throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+				}
+				team.changeName(newName);
+			}
+		}
+		
+		List<TeamManager> currentManagers = teamManagerRepository.findAllByTeam_TeamId(teamId);
+		
+		// 상위 팀 변경 검증
+		Team newParentTeam = null;
+		if (request.getParentTeamId() != null) {
+			if (request.getParentTeamId().equals(teamId)) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 자신을 상위 팀으로 지정할 수 없습니다.");
+			}
+			newParentTeam = teamRepository.findById(request.getParentTeamId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다."));
+			validateNoCycle(teamId, newParentTeam);
+		}
+		
+		if (request.getProjectManagerId() != null) {
+			// 담당자 교체 (복합 PK라 update 불가 — 기존 행 삭제 후 재생성)
+			Employee manager = employeeRepository.findById(request.getProjectManagerId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+			
+			Team parentTeam = newParentTeam;
+			if (parentTeam == null) {
+				if (currentManagers.isEmpty()) {
+					throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀 정보가 없는 팀입니다. 상위 팀을 함께 지정해주세요.");
+				}
+				parentTeam = currentManagers.get(0).getParentTeam();
+			}
+			
+			teamManagerRepository.deleteAll(currentManagers);
+			teamManagerRepository.flush();	// 동일 담당자 재지정 시 PK 중복 방지 (delete 선반영)
+			teamManagerRepository.save(TeamManager.builder()
+													.team(team)
+													.projectManager(manager)
+													.parentTeam(parentTeam)
+													.build());
+		} else if (newParentTeam != null) {
+			// 담당자 유지, 상위 팀만 변경
+			for (TeamManager teamManager : currentManagers) {
+				teamManager.changeParentTeam(newParentTeam);
+			}
+		}
+		
+		invalidateTeamCache();
+		invalidateTeamManagerCache();
+	}
+	
+	/** newParent의 조상 계보에 teamId가 있으면 순환이 생기므로 거부한다. */
+	private void validateNoCycle(Long teamId, Team newParent) {
+		Long currentId = newParent.getTeamId();
+		Set<Long> visited = new HashSet<>();
+		while (currentId != null && visited.add(currentId)) {
+			if (currentId.equals(teamId)) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "해당 팀의 하위 팀은 상위 팀으로 지정할 수 없습니다.");
+			}
+			List<TeamManager> rows = teamManagerRepository.findAllByTeam_TeamId(currentId);
+			if (rows.isEmpty()) {
+				break;
+			}
+			Long parentId = rows.get(0).getParentTeamId();
+			if (parentId == null || parentId.equals(currentId)) {
+				break;	// 루트(자기 참조) 도달
+			}
+			currentId = parentId;
+		}
 	}
 }

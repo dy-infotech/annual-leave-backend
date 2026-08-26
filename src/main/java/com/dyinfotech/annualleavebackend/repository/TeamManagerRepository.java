@@ -11,4 +11,5 @@ public interface TeamManagerRepository extends JpaRepository<TeamManager, TeamMa
 	boolean existsByProjectManager_EmployeeId(Long projectManagerId);
 	TeamManager findFirstByTeam_TeamNameOrderByProjectManager_EmployeeIdAsc(String team);
     List<TeamManager> findAllByTeam_TeamNameOrderByTeam_TeamIdAsc(String team);
+    List<TeamManager> findAllByTeam_TeamId(Long teamId);
 }

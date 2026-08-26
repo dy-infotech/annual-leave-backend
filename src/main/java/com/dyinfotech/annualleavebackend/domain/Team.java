@@ -36,6 +36,10 @@ public class Team {
         this.enabled = enabled;
     }
     
+    public void changeName(String teamName) {
+        this.teamName = teamName;
+    }
+    
     public void disable() {
         this.enabled = false;
     }

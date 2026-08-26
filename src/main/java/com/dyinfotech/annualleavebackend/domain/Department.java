@@ -36,6 +36,10 @@ public class Department {
         this.enabled = enabled;
     }
     
+    public void changeName(String departmentName) {
+        this.departmentName = departmentName;
+    }
+    
     public void disable() {
         this.enabled = false;
     }
