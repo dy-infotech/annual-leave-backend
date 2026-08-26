@@ -65,6 +65,8 @@ CREATE TABLE leave_request (
                                start_date         DATE			NOT NULL,
                                end_date           DATE			NOT NULL,
                                use_days           FLOAT			NOT NULL COMMENT '차감될 일수 (연차 1.0 / 반차 0.5)',
+                               prev_total_leave_days FLOAT  	NULL COMMENT '휴가 신청 전의 연차 일수',
+                               curr_total_leave_days FLOAT  	NULL COMMENT '휴가 신청 후의 연차 일수',
                                leave_reason       VARCHAR(200)	NULL COMMENT '신청 사유',
 
                                status             VARCHAR(10)	NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING(대기) / APPROVED(승인 완료) / REJECTED(반려) / CANCELLED(신청자 취소)',
