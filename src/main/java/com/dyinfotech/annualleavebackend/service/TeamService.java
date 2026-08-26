@@ -306,12 +306,12 @@ public class TeamService {
 
 	// ===== 관리자 팀 관리 (부서 및 팀 관리 화면) =====
 	
-	/** 관리 화면용: 비활성 팀을 포함한 전체 조회 (캐시 미사용) */
+	/** 관리 화면용: 전체 조회 (소프트 딜리트된 팀 제외, 캐시 미사용) */
 	@Transactional(readOnly = true)
 	public List<TeamDto.TeamResponse> findAllForAdmin() {
 		Map<Long, List<TeamManager>> managersByTeam = teamManagerRepository.findAll().stream()
 				.collect(Collectors.groupingBy(TeamManager::getTeamId));
-		return teamRepository.findAll().stream()
+		return teamRepository.findAllByEnabledTrue().stream()
 				.map(team -> {
 					List<TeamManager> managers = managersByTeam.getOrDefault(team.getTeamId(), Collections.emptyList());
 					TeamManager first = managers.isEmpty() ? null : managers.get(0);

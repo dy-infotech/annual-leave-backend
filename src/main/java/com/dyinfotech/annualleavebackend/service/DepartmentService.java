@@ -38,9 +38,9 @@ public class DepartmentService {
 	    return departmentCache.get(CacheConfig.TOTAL_KEY);
 	}
 	
-	/** 관리 화면용: 비활성 부서를 포함한 전체 조회 (캐시 미사용) */
+	/** 관리 화면용: 전체 조회 (소프트 딜리트된 부서 제외, 캐시 미사용) */
 	public List<Department> findAllForAdmin() {
-	    return departmentRepository.findAll();
+	    return departmentRepository.findAllByEnabledTrue();
 	}
 	
 	@Transactional

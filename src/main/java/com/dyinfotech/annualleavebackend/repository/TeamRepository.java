@@ -10,4 +10,5 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 public interface TeamRepository extends JpaRepository<Team, Long> {
 	List<Team> findAllByEnabledTrue();
 	Optional<Team> findByTeamName(String teamName);
+	Optional<Team> findByTeamNameAndEnabledTrue(String teamName);
 }

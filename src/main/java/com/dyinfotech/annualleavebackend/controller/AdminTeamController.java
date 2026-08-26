@@ -31,7 +31,7 @@ public class AdminTeamController {
     private final AuthService authService;
     private final TeamService teamService;
 
-    @Operation(summary = "팀 전체 조회", description = "비활성 팀을 포함한 전체 팀을 담당자, 상위 팀 정보와 함께 조회한다.")
+    @Operation(summary = "팀 전체 조회", description = "전체 팀을 담당자, 상위 팀 정보와 함께 조회한다. (소프트 딜리트된 팀 제외)")
     @GetMapping
     public ResponseEntity<List<TeamDto.TeamResponse>> getTeams(@AuthenticationPrincipal EmployeePrincipal principal) {
     	authService.checkPersonnelAuthority(principal.employeeId());

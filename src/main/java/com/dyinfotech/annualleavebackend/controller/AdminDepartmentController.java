@@ -31,7 +31,7 @@ public class AdminDepartmentController {
     private final AuthService authService;
     private final DepartmentService departmentService;
 
-    @Operation(summary = "부서 전체 조회", description = "비활성 부서를 포함한 전체 부서를 조회한다.")
+    @Operation(summary = "부서 전체 조회", description = "전체 부서를 조회한다. (소프트 딜리트된 부서 제외)")
     @GetMapping
     public ResponseEntity<List<DepartmentDto.DepartmentResponse>> getDepartments(@AuthenticationPrincipal EmployeePrincipal principal) {
     	authService.checkPersonnelAuthority(principal.employeeId());

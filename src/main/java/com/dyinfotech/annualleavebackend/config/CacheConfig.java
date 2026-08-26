@@ -87,7 +87,7 @@ public class CacheConfig {
 	                    return teamRepository.findAllByEnabledTrue();
 	                }
 	                
-	                return teamRepository.findByTeamName(key)
+	                return teamRepository.findByTeamNameAndEnabledTrue(key)
 				                        .map(Collections::singletonList)
 				                        .orElseGet(Collections::emptyList);
 	            });
@@ -117,7 +117,7 @@ public class CacheConfig {
 	                    return departmentRepository.findAllByEnabledTrue();
 	                }
 	                
-	                return departmentRepository.findByDepartmentName(key)
+	                return departmentRepository.findByDepartmentNameAndEnabledTrue(key)
 				                        .map(Collections::singletonList)
 				                        .orElseGet(Collections::emptyList);
 	            });
