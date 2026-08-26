@@ -204,17 +204,13 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     
     public int getManageTypeByDepartmentAndPosition(Department requestedDepartment, PositionType position) {
     	int manageType = 0;
-    	DepartmentType department = DepartmentType.getType(this.department.getDepartmentName());
     	DepartmentType parent = DepartmentType.getParentDepartmentType();
     	PositionType myPosition = PositionType.getType(this.position);
     	if (PositionType.isCEO(myPosition)) {
-    		// 대표이사는 자유로운 선택이 가능하다
+    		// 정책: 대표이사는 부서 제약을 받지 않는다 (모든 부서에 등록 가능)
     		manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
     	} else if (parent.equals(DepartmentType.getType(requestedDepartment.getDepartmentName()))) {
-        	// 대표이사 부서에 등록할 경우 대표이사 부서의 대표이사만 등록 가능
-    		if (parent.equals(department) && PositionType.isCEO(myPosition)) {
-    			manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
-    		}
+        	// 대표이사 부서에는 대표이사만 등록할 수 있다 (비대표이사는 같은 부서라도 불가하므로 빈 분기 유지 필수)
     	} else if (this.department.equals(requestedDepartment)) {
         	// 대표이사 부서가 아니면 같은 부서일 때만 등록 가능
     		manageType = ManageType.IS_VALID_DEPARTMENT.addFlag(manageType);
