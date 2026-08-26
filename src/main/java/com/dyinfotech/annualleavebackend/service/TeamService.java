@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -368,7 +369,12 @@ public class TeamService {
 						.teamName(teamName)
 						.enabled(Boolean.TRUE)
 						.build();
-		teamRepository.save(team);
+		try {
+			// 사전 중복 검사를 통과한 동시 요청이 UNIQUE 제약에 걸릴 수 있으므로 즉시 flush하여 409로 변환한다
+			teamRepository.saveAndFlush(team);
+		} catch (DataIntegrityViolationException e) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+		}
 		teamManagerRepository.save(TeamManager.builder()
 												.team(team)
 												.projectManager(manager)
@@ -442,6 +448,14 @@ public class TeamService {
 			for (TeamManager teamManager : currentManagers) {
 				teamManager.changeParentTeam(newParentTeam);
 			}
+		}
+		
+		try {
+			// 팀명 변경 등 커밋 시점 UNIQUE 위반을 즉시 감지하여 409로 변환한다
+			teamRepository.flush();
+			teamManagerRepository.flush();
+		} catch (DataIntegrityViolationException e) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
 		}
 		
 		invalidateTeamCache();

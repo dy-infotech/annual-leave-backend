@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,7 +55,12 @@ public class DepartmentService {
 											.departmentName(name)
 											.enabled(Boolean.TRUE)
 											.build();
-		departmentRepository.save(department);
+		try {
+			// 사전 중복 검사를 통과한 동시 요청이 UNIQUE 제약에 걸릴 수 있으므로 즉시 flush하여 409로 변환한다
+			departmentRepository.saveAndFlush(department);
+		} catch (DataIntegrityViolationException e) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
+		}
 		invalidateDepartmentCache();
 		return department.getDepartmentId();
 	}
@@ -78,6 +84,11 @@ public class DepartmentService {
 		}
 		
 		department.changeName(name);
+		try {
+			departmentRepository.flush();
+		} catch (DataIntegrityViolationException e) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
+		}
 		invalidateDepartmentCache();
 	}
 	
