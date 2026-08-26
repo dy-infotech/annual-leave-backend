@@ -117,6 +117,7 @@ public class LeaveRequestService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .useDays(request.getUseDays())
+                .prevTotalLeaveDays(calculatedCurrYearLeaveDays)
                 .leaveReason(request.getLeaveReason())
                 .build();
 

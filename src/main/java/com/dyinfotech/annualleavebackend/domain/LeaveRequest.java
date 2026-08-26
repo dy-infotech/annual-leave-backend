@@ -58,6 +58,12 @@ public class LeaveRequest implements HasCreatedAudit {
 
     @Column(name = "use_days", nullable = false)
     private Float useDays;
+    
+    @Column(name = "prev_total_leave_days", nullable = false)
+    private Float prevTotalLeaveDays;
+    
+    @Column(name = "curr_total_leave_days", nullable = false)
+    private Float currTotalLeaveDays;
 
     @Column(name = "leave_reason", length = 200)
     private String leaveReason;
@@ -83,12 +89,14 @@ public class LeaveRequest implements HasCreatedAudit {
     private CreatedAudit createdAudit = new CreatedAudit();
 
     @Builder
-    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, String leaveReason) {
+    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, Float prevTotalLeaveDays, String leaveReason) {
         this.employee = employee;
         this.leaveType = leaveType;
         this.startDate = startDate;
         this.endDate = endDate;
         this.useDays = useDays;
+        this.prevTotalLeaveDays = prevTotalLeaveDays;
+        this.currTotalLeaveDays = prevTotalLeaveDays + useDays;
         this.leaveReason = leaveReason;
         this.status = LeaveRequestStatus.PENDING;
     }
