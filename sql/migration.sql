@@ -191,3 +191,42 @@ WHERE department_id IS NULL;
 ALTER TABLE employee MODIFY COLUMN department_id BIGINT NOT NULL COMMENT '부서 인덱스';
 ALTER TABLE employee ADD CONSTRAINT fk_employee_department FOREIGN KEY (department_id) REFERENCES department(department_id);
 ALTER TABLE employee DROP COLUMN department;
+
+
+-- -------------------------------------------------------------
+-- 5. 팀-부서 소속(1:N) 도입: team.department_id 추가
+-- (1~4 단계를 이미 적용한 DB에는 이 절만 실행한다)
+-- -------------------------------------------------------------
+ALTER TABLE team ADD COLUMN department_id BIGINT NULL COMMENT '소속 부서 (부서:팀 = 1:N)' AFTER team_name;
+
+-- 기존 팀의 소속 부서 추론: 팀 소속 사원들의 최다 부서
+UPDATE team t
+SET t.department_id = (
+    SELECT sub.department_id FROM (
+        SELECT e.team_id, e.department_id, COUNT(*) AS cnt
+        FROM employee e
+        GROUP BY e.team_id, e.department_id
+    ) sub
+    WHERE sub.team_id = t.team_id
+    ORDER BY sub.cnt DESC
+    LIMIT 1
+)
+WHERE t.department_id IS NULL;
+
+-- 대표이사 팀은 대표이사 부서로 명시 지정 (DepartmentType.CEO와 일치)
+UPDATE team t
+JOIN department d ON d.department_name = '대표이사'
+SET t.department_id = d.department_id
+WHERE t.team_name = '대표이사';
+
+-- 소속 부서 미지정 팀 검증: 0건이어야 함 (남으면 수동 지정 후 진행)
+SELECT team_id, team_name FROM team WHERE department_id IS NULL;
+
+ALTER TABLE team MODIFY COLUMN department_id BIGINT NOT NULL COMMENT '소속 부서 (부서:팀 = 1:N)';
+ALTER TABLE team ADD CONSTRAINT fk_team_department FOREIGN KEY (department_id) REFERENCES department(department_id);
+
+-- 불변식 적용: 사원의 부서 = 소속 팀의 부서
+UPDATE employee e
+JOIN team t ON t.team_id = e.team_id
+SET e.department_id = t.department_id
+WHERE e.department_id != t.department_id;

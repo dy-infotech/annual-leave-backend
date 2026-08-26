@@ -12,12 +12,14 @@ VALUES
 	('SI사업팀', TRUE)
 	;
 
--- 팀
-INSERT INTO team (team_name, enabled)
-VALUES
-	('대표이사', TRUE),
-	('스마트팩토리구축사업', TRUE)
-	;
+-- 팀 (부서:팀 = 1:N — 소속 부서 필수)
+INSERT INTO team (team_name, department_id, enabled)
+SELECT t.team_name, d.department_id, TRUE
+FROM (
+	          SELECT '대표이사' AS team_name, '대표이사' AS department_name
+	UNION ALL SELECT '스마트팩토리구축사업', 'SI사업팀'
+) t
+JOIN department d ON d.department_name = t.department_name;
 
 -- 사원
 -- approver_id가 자기참조 NOT NULL이라 초기 등록이 불가능하므로 임시로 NULL 허용 후 지정한다.
@@ -26,7 +28,7 @@ ALTER TABLE employee MODIFY approver_id BIGINT NULL COMMENT '승인한 관리자
 INSERT INTO employee (employee_number, name, department_id, team_id, email, position, hire_date, curr_year, curr_total_leave_days, created_at, created_ip, updated_at, updated_ip)
 SELECT e.employee_number, e.name, d.department_id, t.team_id, e.email, e.position, e.hire_date, YEAR(SYSDATE()), e.leave_days, SYSDATE(), 'SYSTEM', SYSDATE(), 'SYSTEM'
 FROM (
-	          SELECT 'A2011001' AS employee_number, '우동영' AS name, 'SI사업팀' AS department, '대표이사' AS team, 'test@test.com' AS email, '사장' AS position, '2011-01-01' AS hire_date, 22.0 AS leave_days
+	          SELECT 'A2011001' AS employee_number, '우동영' AS name, '대표이사' AS department, '대표이사' AS team, 'test@test.com' AS email, '사장' AS position, '2011-01-01' AS hire_date, 22.0 AS leave_days
 	UNION ALL SELECT 'A2020001', '이호영', 'SI사업팀', '스마트팩토리구축사업', 'test@test.com', '이사', '2020-03-15', 15.0
 	UNION ALL SELECT 'A2025016', '최민지', 'SI사업팀', '스마트팩토리구축사업', 'test@test.com', '사원', '2025-08-04', 15.0
 	UNION ALL SELECT 'A2025015', '이서우', 'SI사업팀', '스마트팩토리구축사업', 'test@test.com', '사원', '2025-08-06', 15.0

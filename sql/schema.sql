@@ -15,9 +15,11 @@ CREATE TABLE department (
 CREATE TABLE team (
                                team_id            BIGINT		AUTO_INCREMENT PRIMARY KEY,
                                team_name          VARCHAR(30)	NOT NULL COMMENT '팀명',
+                               department_id      BIGINT		NOT NULL COMMENT '소속 부서 (부서:팀 = 1:N)',
                                enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
                               
-                               CONSTRAINT uk_team_name UNIQUE KEY (team_name) 
+                               CONSTRAINT uk_team_name UNIQUE KEY (team_name),
+                               CONSTRAINT fk_team_department FOREIGN KEY (department_id) REFERENCES department(department_id)
 ) COMMENT '팀 정보';
 
 
