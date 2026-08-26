@@ -86,8 +86,8 @@ public class LeaveRequestService {
         // 대체, 출산, 가족돌봄 휴가 중 하나가 아닌 경우 잔여 연차 수와 요청 휴가 수를 대조하도록 함
         if (!LeaveType.ALTERNATIVE.equals(leaveType) && !LeaveType.PARENTAL.equals(leaveType) && !LeaveType.FAMILY.equals(leaveType)) {
         	validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());        	
+        	validateRemainingLeave(employee, request.getUseDays());
         }
-        validateRemainingLeave(employee, request.getUseDays());
         
         List<LeaveRequestListDto.LeaveRequestListResponse> dataList = 
         		searchLeaveRequests(new LeaveRequestListDto.LeaveRequestListRequest(employeeId, request.getStartDate(), request.getEndDate(), null));
