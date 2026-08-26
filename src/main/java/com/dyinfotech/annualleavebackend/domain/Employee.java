@@ -149,6 +149,10 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     public void changeApprover(Employee approver) {
         this.approver = approver;
     }
+
+    public void changeDepartment(Department department) {
+        this.department = department;
+    }
     
     public void increaseAccessCount(LocalDateTime now) {
     	++this.accessCount;

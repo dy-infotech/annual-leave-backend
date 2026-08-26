@@ -248,6 +248,11 @@ public class AuthService {
 						    		log.error(errorMsg);
 									return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
 								});
+    		// 팀-부서 일대다: 기존 팀 배정 시 사원의 부서는 팀의 소속 부서를 따른다 (화면 전달값과 다르면 팀 기준)
+    		if (!team.getDepartment().equals(department)) {
+    			log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartment: {}", department.getDepartmentName(), team.getDepartment().getDepartmentName());
+    			department = team.getDepartment();
+    		}
     	}
     	
     	// 근로자 정보 등록

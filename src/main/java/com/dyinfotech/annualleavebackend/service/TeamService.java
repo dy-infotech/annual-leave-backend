@@ -424,6 +424,21 @@ public class TeamService {
 			}
 		}
 		
+		// 소속 부서 변경 (부서:팀 = 1:N) — 소속 사원들의 부서도 함께 동기화한다
+		if (request.getDepartmentId() != null) {
+			Department newDepartment = departmentRepository.findById(request.getDepartmentId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
+			if (!Boolean.TRUE.equals(newDepartment.getEnabled())) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서로는 변경할 수 없습니다.");
+			}
+			if (!newDepartment.equals(team.getDepartment())) {
+				team.changeDepartment(newDepartment);
+				for (Employee member : employeeRepository.findAllByTeam_TeamId(teamId)) {
+					member.changeDepartment(newDepartment);
+				}
+			}
+		}
+		
 		List<TeamManager> currentManagers = teamManagerRepository.findAllByTeam_TeamId(teamId);
 		
 		// 상위 팀 변경 검증

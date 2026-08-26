@@ -18,6 +18,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, Emplo
     
     List<Employee> findAllByEmployeeIdInOrderByEmployeeIdAsc(Collection<Long> employeeIds);
     
+    List<Employee> findAllByTeam_TeamId(Long teamId);
+    
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     List<Employee> findAllByFireDateIsNull();
 

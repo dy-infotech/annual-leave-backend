@@ -49,6 +49,10 @@ public class Team {
         this.teamName = teamName;
     }
     
+    public void changeDepartment(Department department) {
+        this.department = department;
+    }
+    
     public void disable() {
         this.enabled = false;
     }

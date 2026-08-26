@@ -39,6 +39,8 @@ public final class TeamDto {
         // 지정 시 기존 담당자 전원이 새 담당자 1명으로 교체된다.
         private Long projectManagerId;
         private Long parentTeamId;
+        // 지정 시 소속 사원들의 부서도 함께 동기화된다.
+        private Long departmentId;
     }
 
     @Getter
