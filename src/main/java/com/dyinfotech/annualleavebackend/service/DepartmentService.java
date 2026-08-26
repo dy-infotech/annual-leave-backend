@@ -14,6 +14,7 @@ import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
+import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
 import lombok.extern.slf4j.Slf4j;
@@ -24,11 +25,14 @@ public class DepartmentService {
 	@Qualifier("departmentLoadingCache")
 	private final LoadingCache<String, List<Department>> departmentCache;
 	private final DepartmentRepository departmentRepository;
+	private final TeamRepository teamRepository;
 
 	public DepartmentService(@Qualifier("departmentLoadingCache") LoadingCache<String, List<Department>> departmentCache, 
-							DepartmentRepository departmentRepository) {
+							DepartmentRepository departmentRepository,
+							TeamRepository teamRepository) {
 		this.departmentCache = departmentCache;
         this.departmentRepository = departmentRepository;
+        this.teamRepository = teamRepository;
     }
 	
 	public Optional<Department> findByDepartmentName(String department) {
@@ -100,6 +104,10 @@ public class DepartmentService {
 	
 	@Transactional
 	public void deleteDepartment(Department department) {
+		// 소속된 활성 팀이 있으면 비활성화할 수 없다 (부서:팀 = 1:N)
+		if (teamRepository.existsByDepartment_DepartmentIdAndEnabledTrue(department.getDepartmentId())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속된 활성 팀이 있는 부서는 비활성화할 수 없습니다.");
+		}
 		department.disable();
 		departmentRepository.flush();
 		invalidateDepartmentCache();
