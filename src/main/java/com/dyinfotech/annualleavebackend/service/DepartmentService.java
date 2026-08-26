@@ -102,14 +102,29 @@ public class DepartmentService {
 		invalidateDepartmentCache();
 	}
 	
+	/**
+	 * 부서 소프트 딜리트. 대표이사 부서와 활성 팀이 소속된 부서는 삭제할 수 없다.
+	 * 이미 삭제된 부서는 무동작(멱등).
+	 */
 	@Transactional
-	public void deleteDepartment(Department department) {
-		// 소속된 활성 팀이 있으면 비활성화할 수 없다 (부서:팀 = 1:N)
-		if (teamRepository.existsByDepartment_DepartmentIdAndEnabledTrue(department.getDepartmentId())) {
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속된 활성 팀이 있는 부서는 비활성화할 수 없습니다.");
+	public void deleteDepartment(Long departmentId) {
+		Department department = departmentRepository.findById(departmentId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
+		if (!Boolean.TRUE.equals(department.getEnabled())) {
+			return;	// 이미 삭제된 부서 (멱등 처리)
 		}
+		
+		// 대표이사 부서는 코드(DepartmentType)가 이름으로 식별하므로 삭제할 수 없다
+		if (DepartmentType.getParentDepartmentType().getName().equals(department.getDepartmentName())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, DepartmentType.getParentDepartmentType().getName() + " 부서는 삭제할 수 없습니다.");
+		}
+		
+		// 소속된 활성 팀이 있으면 삭제할 수 없다 (부서:팀 = 1:N)
+		if (teamRepository.existsByDepartment_DepartmentIdAndEnabledTrue(departmentId)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속된 활성 팀이 있는 부서는 삭제할 수 없습니다. 팀을 먼저 정리해주세요.");
+		}
+		
 		department.disable();
-		departmentRepository.flush();
 		invalidateDepartmentCache();
 	}
 	

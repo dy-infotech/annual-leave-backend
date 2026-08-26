@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -49,19 +51,22 @@ public class TeamService {
 	private final TeamManagerRepository teamManagerRepository;
 	private final EmployeeRepository employeeRepository;
 	private final DepartmentRepository departmentRepository;
+	private final Clock clock;
 	
 	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, 
 						@Qualifier("teamManagerLoadingCache") LoadingCache<String, List<TeamManager>> teamManagerCache, 
 						TeamRepository teamRepository,
 						TeamManagerRepository teamManagerRepository,
 						EmployeeRepository employeeRepository,
-						DepartmentRepository departmentRepository) {
+						DepartmentRepository departmentRepository,
+						Clock clock) {
 		this.teamCache = teamCache;
         this.teamManagerCache = teamManagerCache;
         this.teamRepository = teamRepository;
         this.teamManagerRepository = teamManagerRepository;
         this.employeeRepository = employeeRepository;
         this.departmentRepository = departmentRepository;
+        this.clock = clock;
     }
 	
 	public Optional<Team> findByTeamName(String team) {
@@ -296,13 +301,6 @@ public class TeamService {
 		invalidateTeamManagerCache();
 	}
 	
-	@Transactional
-	public void deleteTeam(Team team) {
-		team.disable();
-		teamRepository.flush();
-		invalidateTeamCache();
-	}
-	
 	private void invalidateTeamCache() {
 		teamCache.invalidateAll();
 	}
@@ -509,5 +507,40 @@ public class TeamService {
 			}
 			currentId = parentId;
 		}
+	}
+
+	/**
+	 * 팀 소프트 딜리트. 하위 팀이나 재직 중인 소속 사원이 있으면 거부하고,
+	 * 삭제 시 결재선 정보(team_manager)도 함께 제거한다. 이미 삭제된 팀은 무동작(멱등).
+	 */
+	@Transactional
+	@Caching(evict = {
+			@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true),
+			// 담당자 해제가 사원별 캐시(내 정보의 관리 팀 목록, role)에 반영되어야 한다
+			@CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+	})
+	public void deleteTeam(Long teamId) {
+		Team team = teamRepository.findById(teamId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+		if (!Boolean.TRUE.equals(team.getEnabled())) {
+			return;	// 이미 삭제된 팀 (멱등 처리)
+		}
+		
+		// 하위 팀이 있으면 결재선 트리가 끊어지므로 거부 (대표이사 팀도 이 조건으로 보호된다)
+		if (teamManagerRepository.existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "하위 팀이 있는 팀은 삭제할 수 없습니다. 하위 팀을 먼저 정리해주세요.");
+		}
+		
+		// 재직 사원이 남아 있으면 결재선이 끊어지므로 거부
+		if (employeeRepository.existsActiveEmployeeInTeam(teamId, LocalDate.now(clock))) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 사원이 있는 팀은 삭제할 수 없습니다. 사원의 팀을 먼저 변경해주세요.");
+		}
+		
+		// 결재선 정보 제거 후 비활성화
+		teamManagerRepository.deleteByTeam_TeamId(teamId);
+		team.disable();
+		
+		invalidateTeamCache();
+		invalidateTeamManagerCache();
 	}
 }

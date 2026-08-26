@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,6 +57,15 @@ public class AdminTeamController {
     										@Valid @RequestBody TeamDto.UpdateRequest request) {
     	authService.checkPersonnelAuthority(principal.employeeId());
     	teamService.updateTeam(teamId, request);
+    	return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "팀 삭제", description = "팀을 소프트 딜리트한다. 하위 팀이나 재직 중인 소속 사원이 있으면 삭제할 수 없으며, 결재선 정보(담당자)도 함께 제거된다.")
+    @DeleteMapping("/{teamId}")
+    public ResponseEntity<Void> deleteTeam(@AuthenticationPrincipal EmployeePrincipal principal, 
+    										@PathVariable("teamId") Long teamId) {
+    	authService.checkPersonnelAuthority(principal.employeeId());
+    	teamService.deleteTeam(teamId);
     	return ResponseEntity.ok().build();
     }
 

@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,15 @@ public class AdminDepartmentController {
     											@Valid @RequestBody DepartmentDto.UpdateRequest request) {
     	authService.checkPersonnelAuthority(principal.employeeId());
     	departmentService.renameDepartment(departmentId, request.getDepartmentName());
+    	return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "부서 삭제", description = "부서를 소프트 딜리트한다. 대표이사 부서와 활성 팀이 소속된 부서는 삭제할 수 없다.")
+    @DeleteMapping("/{departmentId}")
+    public ResponseEntity<Void> deleteDepartment(@AuthenticationPrincipal EmployeePrincipal principal, 
+    											@PathVariable("departmentId") Long departmentId) {
+    	authService.checkPersonnelAuthority(principal.employeeId());
+    	departmentService.deleteDepartment(departmentId);
     	return ResponseEntity.ok().build();
     }
 
