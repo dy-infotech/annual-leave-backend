@@ -27,6 +27,8 @@ public class LeaveRequestDetailDto {
         private final LocalDate startDate;
         private final LocalDate endDate;
         private final Float useDays;
+        private final Float prevTotalLeaveDays;
+        private final Float currTotalLeaveDays;
         private final LeaveRequestStatus status;
         private final String leaveReason; // 권한 없으면 null 
         private final LocalDateTime managedAt; // 휴가 신청일
@@ -57,6 +59,8 @@ public class LeaveRequestDetailDto {
                     .startDate(lr.getStartDate())
                     .endDate(lr.getEndDate())
                     .useDays(lr.getUseDays())
+                    .prevTotalLeaveDays(lr.getPrevTotalLeaveDays())
+                    .currTotalLeaveDays(lr.getCurrTotalLeaveDays())
                     .status(lr.getStatus())
                     .leaveReason(canViewReason ? lr.getLeaveReason() : null) 
                     .managedAt(lr.getManagedAt())  // 휴가 신청일
