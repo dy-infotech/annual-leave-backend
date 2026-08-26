@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.dyinfotech.annualleavebackend.config.TimeConfig;
 import com.dyinfotech.annualleavebackend.service.FcmService;
 import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
@@ -24,7 +25,7 @@ public class MonthlyScheduler {
 	private final Clock clock;
 	
     // 매월 1일 새벽 3시에 주기적으로 공휴일 정보 동기화
-    @Scheduled(cron = "0 0 3 1 * ?") 
+    @Scheduled(cron = "0 0 3 1 * ?", zone = TimeConfig.TIME_ZONE) 
     public void monthlySchedule() {
     	LocalDate now = LocalDate.now(clock);
         log.info("=== [월간 스케줄러] {}년 {}월 공휴일 재갱신 캐싱 시작 ===", now.getYear(), now.getMonthValue());
