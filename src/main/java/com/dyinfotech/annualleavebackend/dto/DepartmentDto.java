@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.dto;
 import com.dyinfotech.annualleavebackend.domain.Department;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -15,6 +16,7 @@ public final class DepartmentDto {
     @NoArgsConstructor
     public static class CreateRequest {
         @NotBlank(message = "부서명은 필수입니다.")
+        @Size(max = 50, message = "부서명은 50자 이하여야 합니다.")
         private String departmentName;
     }
 
@@ -22,6 +24,7 @@ public final class DepartmentDto {
     @NoArgsConstructor
     public static class UpdateRequest {
         @NotBlank(message = "부서명은 필수입니다.")
+        @Size(max = 50, message = "부서명은 50자 이하여야 합니다.")
         private String departmentName;
     }
 

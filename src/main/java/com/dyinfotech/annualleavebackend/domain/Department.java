@@ -24,7 +24,7 @@ public class Department {
     @Column(name = "department_id")
     private Long departmentId;
 
-    @Column(name = "department_name", length = 30, nullable = false)
+    @Column(name = "department_name", length = 50, nullable = false)
     private String departmentName;
 
     @Column(name = "enabled", nullable = false)

@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.dto;
 import java.util.List;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.constraints.NotNull;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -16,6 +17,7 @@ public final class TeamDto {
     @NoArgsConstructor
     public static class CreateRequest {
         @NotBlank(message = "팀명은 필수입니다.")
+        @Size(max = 30, message = "팀명은 30자 이하여야 합니다.")
         private String teamName;
 
         @NotNull(message = "팀 담당자는 필수입니다.")
@@ -29,6 +31,7 @@ public final class TeamDto {
     @NoArgsConstructor
     public static class UpdateRequest {
         // null인 필드는 기존 값을 유지한다.
+        @Size(max = 30, message = "팀명은 30자 이하여야 합니다.")
         private String teamName;
         // 지정 시 기존 담당자 전원이 새 담당자 1명으로 교체된다.
         private Long projectManagerId;
