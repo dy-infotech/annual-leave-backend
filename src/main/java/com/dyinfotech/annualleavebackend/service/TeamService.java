@@ -25,10 +25,12 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.TeamDto;
+import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
@@ -46,17 +48,20 @@ public class TeamService {
 	private final TeamRepository teamRepository;
 	private final TeamManagerRepository teamManagerRepository;
 	private final EmployeeRepository employeeRepository;
+	private final DepartmentRepository departmentRepository;
 	
 	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, 
 						@Qualifier("teamManagerLoadingCache") LoadingCache<String, List<TeamManager>> teamManagerCache, 
 						TeamRepository teamRepository,
 						TeamManagerRepository teamManagerRepository,
-						EmployeeRepository employeeRepository) {
+						EmployeeRepository employeeRepository,
+						DepartmentRepository departmentRepository) {
 		this.teamCache = teamCache;
         this.teamManagerCache = teamManagerCache;
         this.teamRepository = teamRepository;
         this.teamManagerRepository = teamManagerRepository;
         this.employeeRepository = employeeRepository;
+        this.departmentRepository = departmentRepository;
     }
 	
 	public Optional<Team> findByTeamName(String team) {
@@ -321,6 +326,8 @@ public class TeamService {
 							.teamId(team.getTeamId())
 							.teamName(team.getTeamName())
 							.enabled(team.getEnabled())
+							.departmentId(team.getDepartment().getDepartmentId())
+							.departmentName(team.getDepartment().getDepartmentName())
 							.parentTeamId(first != null ? first.getParentTeamId() : null)
 							.parentTeamName(first != null ? first.getParentTeam().getTeamName() : null)
 							.managers(managers.stream()
@@ -355,6 +362,12 @@ public class TeamService {
 		Employee manager = employeeRepository.findById(request.getProjectManagerId())
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
 		
+		Department department = departmentRepository.findById(request.getDepartmentId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
+		if (!Boolean.TRUE.equals(department.getEnabled())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서에는 팀을 등록할 수 없습니다.");
+		}
+		
 		Team parentTeam;
 		if (request.getParentTeamId() != null) {
 			parentTeam = teamRepository.findById(request.getParentTeamId())
@@ -368,6 +381,7 @@ public class TeamService {
 		Team team = Team.builder()
 						.teamName(teamName)
 						.enabled(Boolean.TRUE)
+						.department(department)
 						.build();
 		try {
 			// 사전 중복 검사를 통과한 동시 요청이 UNIQUE 제약에 걸릴 수 있으므로 즉시 flush하여 409로 변환한다

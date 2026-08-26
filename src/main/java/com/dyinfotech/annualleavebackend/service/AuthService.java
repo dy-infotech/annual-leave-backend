@@ -134,7 +134,14 @@ public class AuthService {
     	String team = request.getTeam();
     	if (team != null && !team.trim().isBlank()) {
     		team = team.trim();
-    		teamService.saveTeam(new Team(team, Boolean.TRUE));
+    		// 팀은 부서 소속(1:N)이 필수 — 요청의 부서에 소속시킨다
+    		Department teamDepartment = departmentService.findByDepartmentName(department != null ? department : "")
+    				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 등록 시 소속 부서를 함께 지정해야 합니다."));
+    		teamService.saveTeam(Team.builder()
+    									.teamName(team)
+    									.enabled(Boolean.TRUE)
+    									.department(teamDepartment)
+    									.build());
     	}
     }
     
@@ -230,6 +237,8 @@ public class AuthService {
     		team = Team.builder()
 		        			.teamName(request.getTeam())
 		        			.enabled(Boolean.TRUE)
+		        			// 신규 팀은 등록되는 사원(PM)의 검증된 부서에 소속시킨다
+		        			.department(department)
 		        			.build();
     		teamService.saveTeam(team);
     	} else {

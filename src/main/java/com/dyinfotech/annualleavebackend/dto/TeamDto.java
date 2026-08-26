@@ -23,6 +23,9 @@ public final class TeamDto {
         @NotNull(message = "팀 담당자는 필수입니다.")
         private Long projectManagerId;
 
+        @NotNull(message = "소속 부서는 필수입니다.")
+        private Long departmentId;
+
         // 미지정 시 요청자(대표이사)의 팀이 상위 팀으로 설정된다.
         private Long parentTeamId;
     }
@@ -44,6 +47,8 @@ public final class TeamDto {
         private Long teamId;
         private String teamName;
         private Boolean enabled;
+        private Long departmentId;
+        private String departmentName;
         private Long parentTeamId;
         private String parentTeamName;
         private List<ManagerResponse> managers;
