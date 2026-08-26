@@ -57,6 +57,10 @@ public class TeamManager {
         return parentTeam != null ? parentTeam.getTeamId() : null;
     }
     
+    public void changeParentTeam(Team parentTeam) {
+        this.parentTeam = parentTeam;
+    }
+    
     @Embeddable
     @Getter
     @NoArgsConstructor(access = AccessLevel.PROTECTED)

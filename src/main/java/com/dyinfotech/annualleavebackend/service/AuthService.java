@@ -80,6 +80,13 @@ public class AuthService {
     	}
     }
     
+    public void checkPersonnelAuthority(Long employeeId) {
+    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	if (!requester.hasPersonnelAuthority()) {
+    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인사권을 가진 관리자가 아닙니다.");
+    	}
+    }
+    
     @Transactional
     public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
 		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
@@ -127,7 +134,14 @@ public class AuthService {
     	String team = request.getTeam();
     	if (team != null && !team.trim().isBlank()) {
     		team = team.trim();
-    		teamService.saveTeam(new Team(team, Boolean.TRUE));
+    		// 팀은 부서 소속(1:N)이 필수 — 요청의 부서에 소속시킨다
+    		Department teamDepartment = departmentService.findByDepartmentName(department != null ? department : "")
+    				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 등록 시 소속 부서를 함께 지정해야 합니다."));
+    		teamService.saveTeam(Team.builder()
+    									.teamName(team)
+    									.enabled(Boolean.TRUE)
+    									.department(teamDepartment)
+    									.build());
     	}
     }
     
@@ -223,6 +237,8 @@ public class AuthService {
     		team = Team.builder()
 		        			.teamName(request.getTeam())
 		        			.enabled(Boolean.TRUE)
+		        			// 신규 팀은 등록되는 사원(PM)의 검증된 부서에 소속시킨다
+		        			.department(department)
 		        			.build();
     		teamService.saveTeam(team);
     	} else {
@@ -232,6 +248,11 @@ public class AuthService {
 						    		log.error(errorMsg);
 									return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
 								});
+    		// 팀-부서 일대다: 기존 팀 배정 시 사원의 부서는 팀의 소속 부서를 따른다 (화면 전달값과 다르면 팀 기준)
+    		if (!team.getDepartment().equals(department)) {
+    			log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartment: {}", department.getDepartmentName(), team.getDepartment().getDepartmentName());
+    			department = team.getDepartment();
+    		}
     	}
     	
     	// 근로자 정보 등록

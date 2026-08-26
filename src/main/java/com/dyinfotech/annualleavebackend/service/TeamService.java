@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -23,9 +27,13 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.domain.TeamManager;
+import com.dyinfotech.annualleavebackend.dto.TeamDto;
+import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.github.benmanes.caffeine.cache.LoadingCache;
@@ -41,15 +49,24 @@ public class TeamService {
 	private final LoadingCache<String, List<TeamManager>> teamManagerCache;
 	private final TeamRepository teamRepository;
 	private final TeamManagerRepository teamManagerRepository;
+	private final EmployeeRepository employeeRepository;
+	private final DepartmentRepository departmentRepository;
+	private final Clock clock;
 	
 	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, 
 						@Qualifier("teamManagerLoadingCache") LoadingCache<String, List<TeamManager>> teamManagerCache, 
 						TeamRepository teamRepository,
-						TeamManagerRepository teamManagerRepository) {
+						TeamManagerRepository teamManagerRepository,
+						EmployeeRepository employeeRepository,
+						DepartmentRepository departmentRepository,
+						Clock clock) {
 		this.teamCache = teamCache;
         this.teamManagerCache = teamManagerCache;
         this.teamRepository = teamRepository;
         this.teamManagerRepository = teamManagerRepository;
+        this.employeeRepository = employeeRepository;
+        this.departmentRepository = departmentRepository;
+        this.clock = clock;
     }
 	
 	public Optional<Team> findByTeamName(String team) {
@@ -284,18 +301,246 @@ public class TeamService {
 		invalidateTeamManagerCache();
 	}
 	
-	@Transactional
-	public void deleteTeam(Team team) {
-		team.disable();
-		teamRepository.flush();
-		invalidateTeamCache();
-	}
-	
 	private void invalidateTeamCache() {
 		teamCache.invalidateAll();
 	}
 	
 	private void invalidateTeamManagerCache() {
 		teamManagerCache.invalidateAll();
+	}
+
+	// ===== 관리자 팀 관리 (부서 및 팀 관리 화면) =====
+	
+	/** 관리 화면용: 전체 조회 (소프트 딜리트된 팀 제외, 캐시 미사용) */
+	@Transactional(readOnly = true)
+	public List<TeamDto.TeamResponse> findAllForAdmin() {
+		Map<Long, List<TeamManager>> managersByTeam = teamManagerRepository.findAll().stream()
+				.collect(Collectors.groupingBy(TeamManager::getTeamId));
+		return teamRepository.findAllByEnabledTrue().stream()
+				.map(team -> {
+					List<TeamManager> managers = managersByTeam.getOrDefault(team.getTeamId(), Collections.emptyList());
+					TeamManager first = managers.isEmpty() ? null : managers.get(0);
+					return TeamDto.TeamResponse.builder()
+							.teamId(team.getTeamId())
+							.teamName(team.getTeamName())
+							.enabled(team.getEnabled())
+							.departmentId(team.getDepartment().getDepartmentId())
+							.departmentName(team.getDepartment().getDepartmentName())
+							.parentTeamId(first != null ? first.getParentTeamId() : null)
+							.parentTeamName(first != null ? first.getParentTeam().getTeamName() : null)
+							.managers(managers.stream()
+									.map(m -> TeamDto.ManagerResponse.builder()
+											.employeeId(m.getProjectManagerId())
+											.employeeNumber(m.getProjectManager().getEmployeeNumber())
+											.name(m.getProjectManager().getName())
+											.position(m.getProjectManager().getPosition())
+											.build())
+									.toList())
+							.build();
+				})
+				.toList();
+	}
+	
+	/**
+	 * 팀 생성. 담당자(PM) 지정이 필수이며 team과 team_manager를 한 트랜잭션으로 생성한다.
+	 * 상위 팀 미지정 시 요청자(대표이사)의 팀을 상위 팀으로 사용한다. (기존 사원 등록 흐름의 기본값과 동일)
+	 */
+	@Transactional
+	@Caching(evict = {
+			@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true),
+			// 담당자 변경은 사원별 캐시(내 정보의 관리 팀 목록, role)에 반영되어야 한다
+			@CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+	})
+	public Long createTeam(Long requesterId, TeamDto.CreateRequest request) {
+		String teamName = request.getTeamName().trim();
+		if (teamRepository.findByTeamName(teamName).isPresent()) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+		}
+		
+		Employee manager = employeeRepository.findById(request.getProjectManagerId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+		
+		Department department = departmentRepository.findById(request.getDepartmentId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
+		if (!Boolean.TRUE.equals(department.getEnabled())) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서에는 팀을 등록할 수 없습니다.");
+		}
+		
+		Team parentTeam;
+		if (request.getParentTeamId() != null) {
+			parentTeam = teamRepository.findById(request.getParentTeamId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다."));
+		} else {
+			Employee requester = employeeRepository.findById(requesterId)
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+			parentTeam = requester.getTeam();
+		}
+		
+		Team team = Team.builder()
+						.teamName(teamName)
+						.enabled(Boolean.TRUE)
+						.department(department)
+						.build();
+		try {
+			// 사전 중복 검사를 통과한 동시 요청이 UNIQUE 제약에 걸릴 수 있으므로 즉시 flush하여 409로 변환한다
+			teamRepository.saveAndFlush(team);
+		} catch (DataIntegrityViolationException e) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+		}
+		teamManagerRepository.save(TeamManager.builder()
+												.team(team)
+												.projectManager(manager)
+												.parentTeam(parentTeam)
+												.build());
+		invalidateTeamCache();
+		invalidateTeamManagerCache();
+		return team.getTeamId();
+	}
+	
+	/**
+	 * 팀 수정. null인 필드는 기존 값을 유지한다. (상위 팀 미전송 시 기존 결재선 보호)
+	 * projectManagerId 지정 시 기존 담당자 전원을 새 담당자 1명으로 교체한다.
+	 */
+	@Transactional
+	@Caching(evict = {
+			@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true),
+			// 담당자 변경은 사원별 캐시(내 정보의 관리 팀 목록, role)에 반영되어야 한다
+			@CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+	})
+	public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
+		Team team = teamRepository.findById(teamId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+		
+		// 팀명 변경
+		if (request.getTeamName() != null && !request.getTeamName().isBlank()) {
+			String newName = request.getTeamName().trim();
+			if (!newName.equals(team.getTeamName())) {
+				if (teamRepository.findByTeamName(newName).isPresent()) {
+					throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+				}
+				team.changeName(newName);
+			}
+		}
+		
+		// 소속 부서 변경 (부서:팀 = 1:N) — 소속 사원들의 부서도 함께 동기화한다
+		if (request.getDepartmentId() != null) {
+			Department newDepartment = departmentRepository.findById(request.getDepartmentId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
+			if (!Boolean.TRUE.equals(newDepartment.getEnabled())) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서로는 변경할 수 없습니다.");
+			}
+			if (!newDepartment.equals(team.getDepartment())) {
+				team.changeDepartment(newDepartment);
+				for (Employee member : employeeRepository.findAllByTeam_TeamId(teamId)) {
+					member.changeDepartment(newDepartment);
+				}
+			}
+		}
+		
+		List<TeamManager> currentManagers = teamManagerRepository.findAllByTeam_TeamId(teamId);
+		
+		// 상위 팀 변경 검증
+		Team newParentTeam = null;
+		if (request.getParentTeamId() != null) {
+			if (request.getParentTeamId().equals(teamId)) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 자신을 상위 팀으로 지정할 수 없습니다.");
+			}
+			newParentTeam = teamRepository.findById(request.getParentTeamId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다."));
+			validateNoCycle(teamId, newParentTeam);
+		}
+		
+		if (request.getProjectManagerId() != null) {
+			// 담당자 교체 (복합 PK라 update 불가 — 기존 행 삭제 후 재생성)
+			Employee manager = employeeRepository.findById(request.getProjectManagerId())
+					.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+			
+			Team parentTeam = newParentTeam;
+			if (parentTeam == null) {
+				if (currentManagers.isEmpty()) {
+					throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀 정보가 없는 팀입니다. 상위 팀을 함께 지정해주세요.");
+				}
+				parentTeam = currentManagers.get(0).getParentTeam();
+			}
+			
+			teamManagerRepository.deleteAll(currentManagers);
+			teamManagerRepository.flush();	// 동일 담당자 재지정 시 PK 중복 방지 (delete 선반영)
+			teamManagerRepository.save(TeamManager.builder()
+													.team(team)
+													.projectManager(manager)
+													.parentTeam(parentTeam)
+													.build());
+		} else if (newParentTeam != null) {
+			// 담당자 유지, 상위 팀만 변경
+			for (TeamManager teamManager : currentManagers) {
+				teamManager.changeParentTeam(newParentTeam);
+			}
+		}
+		
+		try {
+			// 팀명 변경 등 커밋 시점 UNIQUE 위반을 즉시 감지하여 409로 변환한다
+			teamRepository.flush();
+			teamManagerRepository.flush();
+		} catch (DataIntegrityViolationException e) {
+			throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+		}
+		
+		invalidateTeamCache();
+		invalidateTeamManagerCache();
+	}
+	
+	/** newParent의 조상 계보에 teamId가 있으면 순환이 생기므로 거부한다. */
+	private void validateNoCycle(Long teamId, Team newParent) {
+		Long currentId = newParent.getTeamId();
+		Set<Long> visited = new HashSet<>();
+		while (currentId != null && visited.add(currentId)) {
+			if (currentId.equals(teamId)) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "해당 팀의 하위 팀은 상위 팀으로 지정할 수 없습니다.");
+			}
+			List<TeamManager> rows = teamManagerRepository.findAllByTeam_TeamId(currentId);
+			if (rows.isEmpty()) {
+				break;
+			}
+			Long parentId = rows.get(0).getParentTeamId();
+			if (parentId == null || parentId.equals(currentId)) {
+				break;	// 루트(자기 참조) 도달
+			}
+			currentId = parentId;
+		}
+	}
+
+	/**
+	 * 팀 소프트 딜리트. 하위 팀이나 재직 중인 소속 사원이 있으면 거부하고,
+	 * 삭제 시 결재선 정보(team_manager)도 함께 제거한다. 이미 삭제된 팀은 무동작(멱등).
+	 */
+	@Transactional
+	@Caching(evict = {
+			@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true),
+			// 담당자 해제가 사원별 캐시(내 정보의 관리 팀 목록, role)에 반영되어야 한다
+			@CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+	})
+	public void deleteTeam(Long teamId) {
+		Team team = teamRepository.findById(teamId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+		if (!Boolean.TRUE.equals(team.getEnabled())) {
+			return;	// 이미 삭제된 팀 (멱등 처리)
+		}
+		
+		// 하위 팀이 있으면 결재선 트리가 끊어지므로 거부 (대표이사 팀도 이 조건으로 보호된다)
+		if (teamManagerRepository.existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId)) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "하위 팀이 있는 팀은 삭제할 수 없습니다. 하위 팀을 먼저 정리해주세요.");
+		}
+		
+		// 재직 사원이 남아 있으면 결재선이 끊어지므로 거부
+		if (employeeRepository.existsActiveEmployeeInTeam(teamId, LocalDate.now(clock))) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 사원이 있는 팀은 삭제할 수 없습니다. 사원의 팀을 먼저 변경해주세요.");
+		}
+		
+		// 결재선 정보 제거 후 비활성화
+		teamManagerRepository.deleteByTeam_TeamId(teamId);
+		team.disable();
+		
+		invalidateTeamCache();
+		invalidateTeamManagerCache();
 	}
 }
