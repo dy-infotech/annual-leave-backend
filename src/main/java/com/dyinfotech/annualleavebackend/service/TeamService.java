@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -339,7 +340,11 @@ public class TeamService {
 	 * 상위 팀 미지정 시 요청자(대표이사)의 팀을 상위 팀으로 사용한다. (기존 사원 등록 흐름의 기본값과 동일)
 	 */
 	@Transactional
-	@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true),
+			// 담당자 변경은 사원별 캐시(내 정보의 관리 팀 목록, role)에 반영되어야 한다
+			@CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+	})
 	public Long createTeam(Long requesterId, TeamDto.CreateRequest request) {
 		String teamName = request.getTeamName().trim();
 		if (teamRepository.findByTeamName(teamName).isPresent()) {
@@ -379,7 +384,11 @@ public class TeamService {
 	 * projectManagerId 지정 시 기존 담당자 전원을 새 담당자 1명으로 교체한다.
 	 */
 	@Transactional
-	@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
+	@Caching(evict = {
+			@CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true),
+			// 담당자 변경은 사원별 캐시(내 정보의 관리 팀 목록, role)에 반영되어야 한다
+			@CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true)
+	})
 	public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
 		Team team = teamRepository.findById(teamId)
 				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
