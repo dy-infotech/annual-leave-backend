@@ -230,3 +230,34 @@ UPDATE employee e
 JOIN team t ON t.team_id = e.team_id
 SET e.department_id = t.department_id
 WHERE e.department_id != t.department_id;
+
+-- -------------------------------------------------------------
+-- 6. 감사 IP 컬럼 및 휴가 신청 스냅샷 컬럼 보강
+-- (구스키마에 없는 접속/생성/수정 IP 감사 컬럼과 신청 전후 연차
+--  스냅샷 컬럼을 추가한다. 기존 행의 NOT NULL IP 값은 'SYSTEM'으로 채운다)
+-- -------------------------------------------------------------
+ALTER TABLE employee ADD COLUMN accessed_ip VARCHAR(45) NULL COMMENT '로그인 실패 IP 주소' AFTER accessed_at;
+ALTER TABLE employee ADD COLUMN created_ip VARCHAR(45) NULL COMMENT '생성 요청 IP 주소' AFTER created_at;
+ALTER TABLE employee ADD COLUMN updated_ip VARCHAR(45) NULL COMMENT '수정 요청 IP 주소' AFTER updated_at;
+UPDATE employee SET created_ip = 'SYSTEM' WHERE created_ip IS NULL;
+UPDATE employee SET updated_ip = 'SYSTEM' WHERE updated_ip IS NULL;
+ALTER TABLE employee MODIFY COLUMN created_ip VARCHAR(45) NOT NULL COMMENT '생성 요청 IP 주소';
+ALTER TABLE employee MODIFY COLUMN updated_ip VARCHAR(45) NOT NULL COMMENT '수정 요청 IP 주소';
+
+ALTER TABLE leave_request ADD COLUMN prev_total_leave_days FLOAT NULL COMMENT '휴가 신청 전의 연차 일수' AFTER use_days;
+ALTER TABLE leave_request ADD COLUMN curr_total_leave_days FLOAT NULL COMMENT '휴가 신청 후의 연차 일수' AFTER prev_total_leave_days;
+ALTER TABLE leave_request ADD COLUMN managed_ip VARCHAR(45) NULL COMMENT '처리 요청 IP 주소' AFTER managed_at;
+ALTER TABLE leave_request ADD COLUMN created_ip VARCHAR(45) NULL COMMENT '생성 요청 IP 주소' AFTER created_at;
+UPDATE leave_request SET created_ip = 'SYSTEM' WHERE created_ip IS NULL;
+ALTER TABLE leave_request MODIFY COLUMN created_ip VARCHAR(45) NOT NULL COMMENT '생성 요청 IP 주소';
+
+ALTER TABLE leave_adjustment ADD COLUMN created_ip VARCHAR(45) NULL COMMENT '생성 요청 IP 주소' AFTER created_at;
+ALTER TABLE leave_adjustment ADD COLUMN updated_ip VARCHAR(45) NULL COMMENT '수정 요청 IP 주소' AFTER updated_at;
+UPDATE leave_adjustment SET created_ip = 'SYSTEM' WHERE created_ip IS NULL;
+UPDATE leave_adjustment SET updated_ip = 'SYSTEM' WHERE updated_ip IS NULL;
+ALTER TABLE leave_adjustment MODIFY COLUMN created_ip VARCHAR(45) NOT NULL COMMENT '생성 요청 IP 주소';
+ALTER TABLE leave_adjustment MODIFY COLUMN updated_ip VARCHAR(45) NOT NULL COMMENT '수정 요청 IP 주소';
+
+ALTER TABLE fcm_token ADD COLUMN updated_ip VARCHAR(45) NULL COMMENT '수정 요청 IP 주소' AFTER updated_at;
+UPDATE fcm_token SET updated_ip = 'SYSTEM' WHERE updated_ip IS NULL;
+ALTER TABLE fcm_token MODIFY COLUMN updated_ip VARCHAR(45) NOT NULL COMMENT '수정 요청 IP 주소';
