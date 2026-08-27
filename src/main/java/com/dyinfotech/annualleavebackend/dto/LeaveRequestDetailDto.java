@@ -30,15 +30,16 @@ public class LeaveRequestDetailDto {
         private final Float prevTotalLeaveDays;
         private final Float currTotalLeaveDays;
         private final LeaveRequestStatus status;
-        private final String leaveReason; // 권한 없으면 null 
-        private final LocalDateTime managedAt; // 휴가 신청일
+        private final String leaveReason; // 권한 없으면 null
+        private final String rejectReason; // 반려 시에만 값 할당, 그 외엔 null
+        private final LocalDateTime managedAt; // 결재일
 
         // 결재자 정보 (미배정 시 null)
         private final String approverNumber;
         private final String approverName;
         private final String approverPosition;
         private final String approverDepartment;
-        private LocalDateTime createdAt; // 결재일
+        private LocalDateTime createdAt; // 휴가 신청일
 
         /**
          * @param canViewReason 사유 조회 권한 (본인 또는 관리자)
@@ -62,14 +63,15 @@ public class LeaveRequestDetailDto {
                     .prevTotalLeaveDays(lr.getPrevTotalLeaveDays())
                     .currTotalLeaveDays(lr.getCurrTotalLeaveDays())
                     .status(lr.getStatus())
-                    .leaveReason(canViewReason ? lr.getLeaveReason() : null) 
-                    .managedAt(lr.getManagedAt())  // 휴가 신청일
+                    .leaveReason(canViewReason ? lr.getLeaveReason() : null)
+                    .rejectReason(lr.getRejectReason())
+                    .managedAt(lr.getManagedAt())  // 결재일
                     // 결재자
                     .approverNumber(mgr != null ? mgr.getEmployeeNumber() : null)
                     .approverName(mgr != null ? mgr.getName() : null)
                     .approverPosition(mgr != null ? mgr.getPosition() : null)
                     .approverDepartment(mgr != null ? mgr.getDepartment().getDepartmentName() : null)
-                    .createdAt(lr.getCreatedAudit().getCreatedAt()) // 결재일
+                    .createdAt(lr.getCreatedAudit().getCreatedAt()) // 휴가 신청일
                     .build();
         }
     }
