@@ -122,8 +122,8 @@ public class TeamService {
 	    // 자기 자신 추가
 	    result.add(currentTeam);
 
-	    // 현재 팀의 직속 자식 조회
-	    Set<TeamManager> children = parentToChildren.getOrDefault(currentTeam.getTeam(), Collections.emptySet());
+	    // 현재 팀의 직속 자식 조회 (Map 키는 팀명 String)
+	    Set<TeamManager> children = parentToChildren.getOrDefault(currentTeam.getTeam().getTeamName(), Collections.emptySet());
 
 	    // 하위 탐색
 	    for (TeamManager child : children) {

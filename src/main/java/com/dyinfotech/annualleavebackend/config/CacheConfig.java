@@ -99,11 +99,13 @@ public class CacheConfig {
 			            .maximumSize(100)
 			            .expireAfterWrite(24, TimeUnit.HOURS)
 			            .build(key -> {
+			                // 캐시에는 LAZY 연관까지 초기화된 엔티티만 담는다.
+			                // (세션이 닫힌 뒤 다른 요청이 탐색하면 LazyInitializationException)
 			                if (TOTAL_KEY.equals(key)) {
-			                    return teamManagerRepository.findAll();
+			                    return teamManagerRepository.findAllWithAssociations();
 			                }
-		
-			                return teamManagerRepository.findAllByTeam_TeamNameOrderByTeam_TeamIdAsc(key);
+
+			                return teamManagerRepository.findAllByTeamNameWithAssociations(key);
 			            });
 	}
 	
