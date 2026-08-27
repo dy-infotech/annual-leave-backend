@@ -27,13 +27,17 @@ public enum PositionType {
 	private static final Map<String, PositionType> nameToEnumMap = Arrays.stream(values())
 																		.collect(Collectors.toUnmodifiableMap(PositionType::getName,
 																		              							Function.identity()));
-	
+
+	// 대표 직급 표기가 시드('사장')와 운영 데이터('대표이사')로 혼재하여 둘 다 CEO로 매핑한다
+	private static final Map<String, PositionType> aliasToEnumMap = Map.of("대표이사", CEO);
+
 	private PositionType(String name) {
 		this.name = name;
 	}
-	
+
 	public static final PositionType getType(String name) {
-		return nameToEnumMap.get(name);
+		PositionType type = nameToEnumMap.get(name);
+		return type != null ? type : aliasToEnumMap.get(name);
 	}
 	public static final boolean isCEO(PositionType position) {
 		return CEO.equals(position);
