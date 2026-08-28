@@ -31,7 +31,6 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
  * 관리자 사원 API(/api/admin/employees) 통합 테스트.
  *
  * <p>조회는 팀 관리자면 가능하지만 수정은 인사권(사장 직급)까지 필요하다.
- * 수정 엔드포인트에는 {@code @Valid}가 없어 DTO 제약이 동작하지 않는다.
  */
 @DisplayName("관리자 사원 API")
 class AdminEmployeeApiTest extends IntegrationTestSupport {
@@ -278,9 +277,7 @@ class AdminEmployeeApiTest extends IntegrationTestSupport {
 		}
 
 		@Test
-		void 입사일이_없으면_500을_반환한다() throws Exception {
-			// 이 엔드포인트에는 @Valid가 없어 hireDate의 @NotNull이 동작하지 않는다.
-			// 그대로 연차 계산으로 넘어가 NullPointerException이 나고 500으로 응답한다.
+		void 입사일이_없으면_400을_반환한다() throws Exception {
 			Map<String, Object> 요청 = new HashMap<>();
 			요청.put("name", "바뀐이름");
 			요청.put("email", "changed@example.com");
@@ -290,13 +287,14 @@ class AdminEmployeeApiTest extends IntegrationTestSupport {
 					.header("Authorization", adminBearer(사장))
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(toJson(요청)))
-					.andExpect(status().isInternalServerError());
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.message").value("hireDate: 입사일은 필수입니다."));
 		}
 
 		@Test
-		void 이메일_형식이_잘못돼도_그대로_저장된다() throws Exception {
-			// @Valid가 없어 @Email 제약이 동작하지 않는다.
+		void 이메일_형식이_잘못되면_400을_반환하고_값이_바뀌지_않는다() throws Exception {
 			String 사번 = 대상사원.getEmployeeNumber();
+			String 기존이메일 = 대상사원.getEmail();
 			Map<String, Object> 요청 = 수정요청("김특이한이름");
 			요청.put("email", "이메일아님");
 
@@ -304,10 +302,36 @@ class AdminEmployeeApiTest extends IntegrationTestSupport {
 					.header("Authorization", adminBearer(사장))
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(toJson(요청)))
-					.andExpect(status().isOk());
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.message").value("email: 유효하지 않은 이메일 형식입니다."));
 
 			초기화();
-			assertThat(사번으로조회(사번).getEmail()).isEqualTo("이메일아님");
+			assertThat(사번으로조회(사번).getEmail()).isEqualTo(기존이메일);
+		}
+
+		@Test
+		void 이름이_비어_있으면_400을_반환한다() throws Exception {
+			Map<String, Object> 요청 = 수정요청("");
+
+			mockMvc.perform(put("/api/admin/employees/" + 대상사원.getEmployeeNumber())
+					.header("Authorization", adminBearer(사장))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(toJson(요청)))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.message").value("name: 이름은 필수입니다."));
+		}
+
+		@Test
+		void 부서가_비어_있으면_400을_반환한다() throws Exception {
+			Map<String, Object> 요청 = 수정요청("바뀐이름");
+			요청.put("department", "");
+
+			mockMvc.perform(put("/api/admin/employees/" + 대상사원.getEmployeeNumber())
+					.header("Authorization", adminBearer(사장))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(toJson(요청)))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.message").value("department: 부서는 필수입니다."));
 		}
 
 		@Test
