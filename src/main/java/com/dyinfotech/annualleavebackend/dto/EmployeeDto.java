@@ -42,6 +42,7 @@ public final class EmployeeDto {
     @Builder
     public static class EmployeeResponse {
 
+        private Long employeeId; // 팀 담당자(projectManagerId) 지정 시 사용
         private String employeeNumber;
         private String name;
         private String department;
@@ -64,6 +65,7 @@ public final class EmployeeDto {
 
         public static EmployeeResponse from(Employee employee, Employee approver, EmployeeAuthorityResolver authorityResolver, Float remainingLeaveDays) {
             return EmployeeResponse.builder()
+                    .employeeId(employee.getEmployeeId())
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
                     .department(employee.getDepartment().getDepartmentName())

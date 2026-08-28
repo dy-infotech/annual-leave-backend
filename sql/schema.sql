@@ -2,6 +2,27 @@ CREATE DATABASE annual_leave CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE annual_leave;
 
 
+-- employee가 department/team을 FK로 참조하므로 반드시 두 테이블을 먼저 생성해야 한다.
+CREATE TABLE department (
+                               department_id      BIGINT		AUTO_INCREMENT PRIMARY KEY,
+                               department_name    VARCHAR(50)	NOT NULL COMMENT '부서명',
+                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
+                              
+                               CONSTRAINT uk_department_name UNIQUE KEY (department_name) 
+) COMMENT '부서 정보';
+
+
+CREATE TABLE team (
+                               team_id            BIGINT		AUTO_INCREMENT PRIMARY KEY,
+                               team_name          VARCHAR(30)	NOT NULL COMMENT '팀명',
+                               department_id      BIGINT		NOT NULL COMMENT '소속 부서 (부서:팀 = 1:N)',
+                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
+                              
+                               CONSTRAINT uk_team_name UNIQUE KEY (team_name),
+                               CONSTRAINT fk_team_department FOREIGN KEY (department_id) REFERENCES department(department_id)
+) COMMENT '팀 정보';
+
+
 CREATE TABLE employee (
                           employee_id       	BIGINT			AUTO_INCREMENT PRIMARY KEY,
                           employee_number   	VARCHAR(20) 	NOT NULL UNIQUE COMMENT '사번',
@@ -60,23 +81,6 @@ CREATE TABLE leave_request (
                                CONSTRAINT fk_request_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
                                CONSTRAINT fk_request_manager FOREIGN KEY (manager_id) REFERENCES employee(employee_id)
 ) COMMENT '휴가 신청 + 승인/반려 내역';
-
-CREATE TABLE department (
-                               department_id      BIGINT		AUTO_INCREMENT PRIMARY KEY,
-                               department_name    VARCHAR(50)	NOT NULL COMMENT '부서명',
-                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
-                              
-                               CONSTRAINT uk_department_name UNIQUE KEY (department_name) 
-) COMMENT '부서 정보';
-
-
-CREATE TABLE team (
-                               team_id            BIGINT		AUTO_INCREMENT PRIMARY KEY,
-                               team_name          VARCHAR(30)	NOT NULL COMMENT '팀명',
-                               enabled            TINYINT(1)	NOT NULL DEFAULT TRUE COMMENT '활성 여부',
-                              
-                               CONSTRAINT uk_team_name UNIQUE KEY (team_name) 
-) COMMENT '팀 정보';
 
 
 
@@ -139,5 +143,3 @@ CREATE TABLE fcm_token (
                                
                                CONSTRAINT fk_fcm_token_employee FOREIGN KEY (employee_id) REFERENCES employee(employee_id)
 ) COMMENT 'FCM 디바이스 토큰';
-
-

@@ -278,6 +278,9 @@ public class EmployeeService {
     	if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
     		team = teamService.findByTeamName(request.getTeam()).orElse(team);
     	}
+    	
+    	// 팀-부서 일대다: 사원의 부서는 소속 팀의 부서를 따른다 (요청의 부서값보다 우선)
+    	department = team.getDepartment();
         
     	// 업데이트 처리
         employee.updateInfoByAdmin(

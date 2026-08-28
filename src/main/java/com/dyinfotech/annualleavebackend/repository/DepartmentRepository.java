@@ -10,4 +10,5 @@ import com.dyinfotech.annualleavebackend.domain.Department;
 public interface DepartmentRepository extends JpaRepository<Department, Long> {
 	List<Department> findAllByEnabledTrue();
 	Optional<Department> findByDepartmentName(String departmentName);
+	Optional<Department> findByDepartmentNameAndEnabledTrue(String departmentName);
 }
