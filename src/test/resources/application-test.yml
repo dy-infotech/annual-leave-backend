@@ -1,0 +1,42 @@
+# 통합 테스트 전용 설정.
+#
+# 개발 DB(annual_leave)를 건드리지 않도록 테스트 DB로 연결을 고정한다.
+# 계정 정보는 .env의 DB_USERNAME/DB_PASSWORD를 그대로 재사용한다.
+# 다른 DB를 쓰려면 TEST_DB_URL 환경변수로 덮어쓴다.
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:mysql://localhost:3306/annual_leave_test}
+
+  # 메일 발송은 테스트에서 실제로 나가면 안 되므로 도달 불가한 값으로 고정한다.
+  # 메일을 쓰는 테스트는 JavaMailSender를 목으로 대체한다.
+  mail:
+    host: localhost
+    port: 3025
+    username: test
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+
+jwt:
+  secret: ${JWT_SECRET:test-only-secret-key-for-integration-tests-32bytes-min}
+  expiration: 3600000
+
+openapi:
+  service-key: ${SERVICE_KEY:test-service-key}
+
+logging:
+  level:
+    root: warn
+    com.dyinfotech.annualleavebackend: warn
+  file:
+    name: logs/test-app.log
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: false
