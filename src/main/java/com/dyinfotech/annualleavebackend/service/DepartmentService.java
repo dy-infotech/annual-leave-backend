@@ -96,12 +96,6 @@ public class DepartmentService {
 		invalidateDepartmentCache();
 	}
 	
-	@Transactional
-	public void saveDepartment(Department department) {
-		departmentRepository.save(department);
-		invalidateDepartmentCache();
-	}
-	
 	/**
 	 * 부서 소프트 딜리트. 대표이사 부서와 활성 팀이 소속된 부서는 삭제할 수 없다.
 	 * 이미 삭제된 부서는 무동작(멱등).

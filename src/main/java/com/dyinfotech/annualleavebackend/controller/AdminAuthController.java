@@ -42,14 +42,6 @@ public class AdminAuthController {
     	return ResponseEntity.ok(authService.getCommonData(principal.employeeId()));
     }
     
-    @Operation(summary = "부서, 팀 등록", description = "부서나 팀 정보를 등록한다.")
-    @PostMapping("/common")
-    public ResponseEntity<Void> setCommonData(@AuthenticationPrincipal EmployeePrincipal principal, RegisterCommonDto.OrganizationInfoRequest request) {
-    	authService.checkAdmin(principal.employeeId());
-    	authService.setCommonData(principal.employeeId(), request);
-    	return ResponseEntity.ok().build();
-    }
-
     @Operation(summary = "사원 등록", description = "관리자가 신규 사원의 로그인 계정 정보를 등록한다.")
     @PostMapping("/register")
     public ResponseEntity<RegisterDto.RegisterResponse> signUp(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody RegisterDto.RegisterRequest request) {
