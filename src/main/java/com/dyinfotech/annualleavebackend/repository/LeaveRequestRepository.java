@@ -83,6 +83,19 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
             "WHERE lr.requestId = :requestId")
     Optional<LeaveRequest> findDetailById(@Param("requestId") Long requestId);
 
+ 
+ // LeaveRequestRepository.java 파일 내부에 등록되어 있어야 합니다.
+
+    // 이 메서드가 반드시 선언되어 있어야 서비스단(117라인) 에러가 사라집니다!
+    @Query("SELECT l FROM LeaveRequest l " +
+           "WHERE l.employee.employeeId = :employeeId " +
+           "AND l.status IN ('APPROVED', 'PENDING') " +
+           "AND l.startDate BETWEEN :yearStart AND :yearEnd")
+    List<LeaveRequest> findActiveLeaveRequests(
+        @Param("employeeId") Long employeeId,
+        @Param("yearStart") LocalDate yearStart,
+        @Param("yearEnd") LocalDate yearEnd
+    );
     // 휴가 결재 승인 또는 반려 처리
     // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException을 GlobalExceptionHandler에서 처리하는 건
     //		별도 세부 정보를 담을 수 없고 로그 처리도 확실하지 않을 것 같다. 일단 개별 쿼리문으로 대응한다.
