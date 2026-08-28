@@ -19,6 +19,7 @@ import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @Tag(name = "관리자 전용 - 사원 조회", description = "사원 조회 API")
@@ -39,11 +40,12 @@ public class AdminEmployeeController {
     }
     
     
-    @PutMapping("/{employeeNumber}") 
+    @Operation(summary = "사원 정보 수정", description = "관리자가 사원의 정보를 수정한다. 이름, 이메일, 부서, 입사일은 필수이다.")
+    @PutMapping("/{employeeNumber}")
     public ResponseEntity<Void> updateEmployeeByAdmin(
     		@AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("employeeNumber") String employeeNumber,
-            @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
+            @Valid @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
     	authService.checkAdmin(principal.employeeId());
         employeeService.updateEmployeeByAdmin(principal.employeeId(), employeeNumber, request);
         return ResponseEntity.ok().build();
