@@ -117,12 +117,6 @@ class AdminAuthApiTest extends IntegrationTestSupport {
 				.orElseGet(() -> 부서(name));
 	}
 
-	private long 부서수(String name) {
-		return em.createQuery("select count(d) from Department d where d.departmentName = :name", Long.class)
-				.setParameter("name", name)
-				.getSingleResult();
-	}
-
 	private long 팀수(String name) {
 		return em.createQuery("select count(t) from Team t where t.teamName = :name", Long.class)
 				.setParameter("name", name)
@@ -224,67 +218,15 @@ class AdminAuthApiTest extends IntegrationTestSupport {
 			mockMvc.perform(get("/api/admin/auth/common"))
 					.andExpect(status().isForbidden());
 		}
-	}
-
-	@Nested
-	@DisplayName("부서/팀 등록 POST /api/admin/auth/common")
-	class SetCommonData {
 
 		@Test
-		void JSON_바디는_무시되어_아무것도_등록되지_않는다() throws Exception {
-			// 컨트롤러 파라미터에 @RequestBody가 없어 JSON 본문이 바인딩되지 않는다.
+		void 같은_경로의_POST는_더_이상_제공하지_않는다() throws Exception {
+			// 부서/팀 등록은 /api/admin/departments, /api/admin/teams로 옮겼다.
 			mockMvc.perform(post("/api/admin/auth/common")
 					.header("Authorization", adminBearer(사장))
 					.contentType(MediaType.APPLICATION_JSON)
-					.content(toJson(Map.of("department", "바디부서"))))
-					.andExpect(status().isOk());
-
-			초기화();
-			assertThat(부서수("바디부서")).isZero();
-		}
-
-		@Test
-		void 쿼리_파라미터로_보내도_아무것도_등록되지_않는다() throws Exception {
-			// @ModelAttribute로 바인딩되지만 OrganizationInfoRequest에 setter가 없어
-			// department/team이 항상 null이다. 결국 이 엔드포인트는 무동작이다.
-			mockMvc.perform(post("/api/admin/auth/common")
-					.header("Authorization", adminBearer(사장))
-					.param("department", "파라미터부서")
-					.param("team", "파라미터팀"))
-					.andExpect(status().isOk());
-
-			초기화();
-			assertThat(부서수("파라미터부서")).isZero();
-			assertThat(팀수("파라미터팀")).isZero();
-		}
-
-		@Test
-		void 팀만_보내도_400이_아니라_200을_반환한다() throws Exception {
-			// 소속 부서 없이 팀만 등록하면 400이어야 하지만, 바인딩 자체가 되지 않아
-			// 검증 분기까지 도달하지 못하고 200이 나간다.
-			mockMvc.perform(post("/api/admin/auth/common")
-					.header("Authorization", adminBearer(사장))
-					.param("team", "부서없는팀"))
-					.andExpect(status().isOk());
-
-			초기화();
-			assertThat(팀수("부서없는팀")).isZero();
-		}
-
-		@Test
-		void 팀_관리자가_아니면_403을_반환한다() throws Exception {
-			mockMvc.perform(post("/api/admin/auth/common")
-					.header("Authorization", adminBearer(일반사원))
-					.param("department", "파라미터부서"))
-					.andExpect(status().isForbidden());
-		}
-
-		@Test
-		void 일반_사원_토큰이면_403을_반환한다() throws Exception {
-			mockMvc.perform(post("/api/admin/auth/common")
-					.header("Authorization", bearer(일반사원))
-					.param("department", "파라미터부서"))
-					.andExpect(status().isForbidden());
+					.content(toJson(Map.of("department", "새부서"))))
+					.andExpect(status().isMethodNotAllowed());
 		}
 	}
 

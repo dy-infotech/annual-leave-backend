@@ -24,11 +24,4 @@ public final class RegisterCommonDto {
         private Collection<String> position;		// 직급
     }
     
-    @Getter
-    @NoArgsConstructor
-    public static class OrganizationInfoRequest {
-    	private String department;
-    	private String team;
-    }
-
 }
