@@ -89,14 +89,13 @@ public class LeaveRequest implements HasCreatedAudit {
     private CreatedAudit createdAudit = new CreatedAudit();
 
     @Builder
-    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays, Float prevTotalLeaveDays, Float currTotalLeaveDays,  String leaveReason) {
+    public LeaveRequest(Employee employee, String leaveType, LocalDate startDate, LocalDate endDate, Float useDays,Float prevTotalLeaveDays, Float currTotalLeaveDays,  String leaveReason) {
         this.employee = employee;
         this.leaveType = leaveType;
         this.startDate = startDate;
         this.endDate = endDate;
         this.useDays = useDays;
         this.prevTotalLeaveDays = prevTotalLeaveDays; 
-        // 🎯 [수정 핵심] 강제 차감 공식을 지우고, 서비스단에서 연산해 준 정상 값(currTotalLeaveDays)을 그대로 대입합니다!
         this.currTotalLeaveDays = currTotalLeaveDays; 
         this.leaveReason = leaveReason;
         this.status = LeaveRequestStatus.PENDING;

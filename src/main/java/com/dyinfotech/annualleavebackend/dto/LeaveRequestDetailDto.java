@@ -27,6 +27,7 @@ public class LeaveRequestDetailDto {
         private final LocalDate startDate;
         private final LocalDate endDate;
         private final Float useDays;
+        private final Float employeeCurrTotalLeaveDays;
         private final Float prevTotalLeaveDays;
         private final Float currTotalLeaveDays;
         private final LeaveRequestStatus status;
@@ -59,6 +60,9 @@ public class LeaveRequestDetailDto {
                     .startDate(lr.getStartDate())
                     .endDate(lr.getEndDate())
                     .useDays(lr.getUseDays())
+
+                    // 🎯 2. emp를 가져다 써서 직원 테이블의 실시간 연차를 카멜케이스 JSON 키로 실어 보냅니다!
+                    .employeeCurrTotalLeaveDays(emp.getCurrTotalLeaveDays())  
                     .prevTotalLeaveDays(lr.getPrevTotalLeaveDays())
                     .currTotalLeaveDays(lr.getCurrTotalLeaveDays())
                     .status(lr.getStatus())

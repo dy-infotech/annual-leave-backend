@@ -109,11 +109,7 @@ public class LeaveRequestService {
         }
          
 
-
-        
-        
-        
-        
+ 
         
         // === [당해연도 연차 증적 수치 계산 로직 추가] ===
         // 1. 당해연도의 시작일과 종료일 계산 (상단 68라인에 정의된 today 활용)
@@ -159,9 +155,8 @@ public class LeaveRequestService {
                 .leaveType(request.getLeaveType())
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
-                .useDays(request.getUseDays())
-                // .prevTotalLeaveDays(calculatedCurrYearLeaveDays) 
- 
+                .useDays(request.getUseDays())  
+                
                 .prevTotalLeaveDays(realPrevLeaveDays)  
                 .currTotalLeaveDays(realCurrLeaveDays)                 
                 
