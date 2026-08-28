@@ -245,14 +245,20 @@ public class EmployeeService {
     		// 해당 팀명으로 관리중인 팀이 존재한다면 탐색
     		TeamManager teamEntity = null;
     		for (TeamManager team : employee.getTeams()) {
-    			if (team.getTeam().equals(targetTeam)) {
+    			if (team.getTeam().getTeamName().equals(targetTeam)) {
     				teamEntity = team;
     				break;
     			}
     		}
-    		
+
     		if (teamEntity != null) {
     			// 관리자 -> 멤버
+    			// 관리자가 없는 팀은 소속 사원의 결재선을 만들 수 없으므로 마지막 한 명은 남긴다.
+    			if (teamService.findAllByTeam(targetTeam).size() <= 1) {
+    				String errorMsg = "팀의 마지막 관리자는 해제할 수 없습니다. 다른 관리자를 먼저 지정해주세요. requestedTeam : " + targetTeam;
+    				log.error(errorMsg + " employeeNumber: " + employeeNumber);
+    				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+    			}
     			teamService.deleteTeam(teamEntity);
     		} else {
     			// 멤버 -> 관리자

@@ -266,6 +266,68 @@ class AdminEmployeeApiTest extends IntegrationTestSupport {
 		}
 
 		@Test
+		void 관리하는_팀을_다시_요청하면_관리자에서_해제된다() throws Exception {
+			// 팀에 관리자가 사장과 대상사원 둘이므로 한 명은 해제할 수 있다.
+			팀관리자(팀, 대상사원, 팀);
+			초기화();
+			Employee 관리자로등록된사원 = 사번으로조회(대상사원.getEmployeeNumber());
+			assertThat(관리자로등록된사원.getTeams()).hasSize(1);
+			clearCaches();
+
+			Map<String, Object> 요청 = 수정요청("김특이한이름");
+			요청.put("targetTeamsForRoleSwap", List.of(팀.getTeamName()));
+
+			mockMvc.perform(put("/api/admin/employees/" + 대상사원.getEmployeeNumber())
+					.header("Authorization", adminBearer(사장))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(toJson(요청)))
+					.andExpect(status().isOk());
+
+			초기화();
+			assertThat(사번으로조회(대상사원.getEmployeeNumber()).getTeams()).isEmpty();
+		}
+
+		@Test
+		void 관리하지_않는_팀을_요청하면_관리자로_등록된다() throws Exception {
+			String 사번 = 대상사원.getEmployeeNumber();
+			Map<String, Object> 요청 = 수정요청("김특이한이름");
+			요청.put("targetTeamsForRoleSwap", List.of(하위팀.getTeamName()));
+
+			mockMvc.perform(put("/api/admin/employees/" + 사번)
+					.header("Authorization", adminBearer(사장))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(toJson(요청)))
+					.andExpect(status().isOk());
+
+			초기화();
+			assertThat(사번으로조회(사번).getTeams())
+					.extracting(관리팀 -> 관리팀.getTeam().getTeamName())
+					.containsExactly(하위팀.getTeamName());
+		}
+
+		@Test
+		void 팀의_마지막_관리자는_해제할_수_없다() throws Exception {
+			// 하위팀의 유일한 관리자인 팀장을 해제하려 하면 거부된다.
+			// 관리자가 없는 팀은 소속 사원의 결재선을 만들 수 없다.
+			// 갓 persist한 Employee의 관리 팀 컬렉션은 빈 상태로 잡혀 있어 다시 읽게 한다.
+			초기화();
+			clearCaches();
+			Map<String, Object> 요청 = 수정요청("팀장님");
+			요청.put("targetTeamsForRoleSwap", List.of(하위팀.getTeamName()));
+
+			mockMvc.perform(put("/api/admin/employees/" + 팀장.getEmployeeNumber())
+					.header("Authorization", adminBearer(사장))
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(toJson(요청)))
+					.andExpect(status().isBadRequest())
+					.andExpect(jsonPath("$.message")
+							.value(org.hamcrest.Matchers.containsString("마지막 관리자는 해제할 수 없습니다")));
+
+			초기화();
+			assertThat(사번으로조회(팀장.getEmployeeNumber()).getTeams()).hasSize(1);
+		}
+
+		@Test
 		void 인사권이_없는_관리자면_404를_반환한다() throws Exception {
 			// 명세상으로는 권한 부족이므로 403이 어울리지만,
 			// EmployeeService.updateEmployeeByAdmin이 NOT_FOUND로 던지고 있어 404가 나간다.
