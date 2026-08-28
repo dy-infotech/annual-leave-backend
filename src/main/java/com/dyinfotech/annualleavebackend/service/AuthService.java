@@ -381,7 +381,7 @@ public class AuthService {
 		}
         
         // 퇴직 여부 확인
-        if (employee.getFireDate() != null && employee.getFireDate().isAfter(LocalDate.now(clock))) {
+        if (employee.getFireDate() != null && employee.getFireDate().isBefore(LocalDate.now(clock))) {
 			log.error("퇴사한 사원입니다. employeeNumber: " + request.getEmployeeNumber());
 			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "퇴사한 사원입니다.");
         }
