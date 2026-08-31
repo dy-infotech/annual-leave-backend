@@ -87,7 +87,14 @@ public class LeaveRequestService {
         validateRemainingLeave(employee, request.getUseDays());
         
         List<LeaveRequestListDto.LeaveRequestListResponse> dataList = 
-        		searchLeaveRequests(new LeaveRequestListDto.LeaveRequestListRequest(employeeId, request.getStartDate(), request.getEndDate(), null));
+        		searchLeaveRequests(new LeaveRequestListDto.LeaveRequestListRequest( 
+        		                employeeId, 
+        		                null,                       // employeeName 자리
+        		                request.getStartDate(), 
+        		                request.getEndDate(), 
+        		                null,                       // status 상태 자리
+        		                null         // searchEmployeeParam 검색어 자리
+        		            ));
         for (LeaveRequestListDto.LeaveRequestListResponse data : dataList) {
         	// 신청과 승인 상태인 경우에만 중복 확인
         	if (!data.getStatus().equals(LeaveRequestStatus.PENDING.name()) && !data.getStatus().equals(LeaveRequestStatus.APPROVED.name())) {
@@ -332,11 +339,26 @@ public class LeaveRequestService {
     
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(LeaveRequestListDto.LeaveRequestListRequest condition) {
+
     	commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
-        return leaveRequestRepository.searchLeaveRequests(condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(), condition.getStatus())
-                .stream()
+        // 마지막 매개변수에 DTO에서 꺼낸 검색어 파라미터를 결합하여 레포지토리로 토스해 줍니다.
+        List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequests(
+            condition.getEmployeeId(),
+            condition.getStartDate(),
+            condition.getEndDate(),
+            condition.getStatus(),
+            null, // teams 자리 (필요 시 condition 매핑)
+            condition.getSearchEmployeeParam()  
+        );
+
+        return requests.stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
+    	
+//        return leaveRequestRepository.searchLeaveRequests(condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(), condition.getStatus())
+//                .stream()
+//                .map(LeaveRequestListDto.LeaveRequestListResponse::from)
+//                .toList();
     }
 
     @Transactional(readOnly = true)
