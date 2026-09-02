@@ -245,7 +245,8 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
         return queryFactory.selectFrom(qLeaveRequest)
         					.join(qLeaveRequest.employee).fetchJoin()
 			                .where(builder,
-			                		overlap(startDate, endDate))
+			                		overlap(startDate, endDate),
+			                		qLeaveRequest.employee.fireDate.isNull())
 			                .orderBy(qLeaveRequest.createdAudit.createdAt.desc())
 			                .fetch();
 	}
