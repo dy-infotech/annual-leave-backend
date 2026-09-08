@@ -9,7 +9,7 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-    driver-class-name: oracle.jdbc.OracleDriver
+    driver-class-name: oracle.jdbc.OracleDriver # mysql -> oracle
 
   jpa:
    show-sql: false         # ⚠️ 파일 로그에도 기록하기 위해 false로 두고 아래 logging에서 제어합니다.
