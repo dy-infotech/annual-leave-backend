@@ -20,6 +20,7 @@ import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
+import com.dyinfotech.annualleavebackend.repository.projection.LeaveUsage;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -108,6 +109,29 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    employeeIds.forEach(employeeId -> result.putIfAbsent(employeeId, 0.0f));
 
 	    return result;
+	}
+
+	@Override
+	public List<LeaveUsage> findRequestedLeaveUsage(Collection<Long> employeeIds, List<LeaveRequestStatus> status,
+	                                                LocalDate startDate, LocalDate endDate) {
+		if (employeeIds == null || employeeIds.isEmpty()) {
+			return List.of();
+		}
+
+		return queryFactory.select(
+					Projections.constructor(
+							LeaveUsage.class,
+							qLeaveRequest.employee.employeeId,
+							qLeaveRequest.startDate,
+							qLeaveRequest.useDays
+					)
+				)
+				.from(qLeaveRequest)
+				.where(
+						qLeaveRequest.employee.employeeId.in(employeeIds),
+						annualLeaveUsageCondition(status, startDate, endDate)
+				)
+				.fetch();
 	}
 
 	@Override
