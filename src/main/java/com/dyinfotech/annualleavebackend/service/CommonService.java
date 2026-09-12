@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.Month;
 import java.time.Year;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -13,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
@@ -23,6 +25,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CommonService {
 
+	private static final List<LeaveRequestStatus> REQUESTED_STATUSES = List.of(
+			LeaveRequestStatus.APPROVED,
+			LeaveRequestStatus.PENDING
+	);
+
 	private final LeaveRequestRepository leaveRequestRepository;
 	private final EmployeeLeaveService employeeLeaveService;
 	
@@ -30,6 +37,17 @@ public class CommonService {
 	
 	private static float getRemainingDays(float currTotalLeaveDays, float adjustedLeaveDays, float usedDays) {
 		return currTotalLeaveDays + adjustedLeaveDays - usedDays;
+	}
+
+	private static LocalDate getLeaveYearStartDate(LocalDate hireDate, LocalDate targetDate) {
+		int yearDifference = targetDate.getYear() - hireDate.getYear();
+		LocalDate anniversary = hireDate.plusYears(yearDifference);
+
+		if (anniversary.isAfter(targetDate)) {
+			anniversary = hireDate.plusYears(yearDifference - 1);
+		}
+
+		return anniversary;
 	}
 	
 	public float getRemainingDays(Employee employee, float currTotalLeaveDays, float usedDays) {
@@ -41,15 +59,43 @@ public class CommonService {
 	}
 
 	public float getRemainingDays(Employee employee) {
-		float usedDays = leaveRequestRepository.sumRequestedUseDays(employee.getEmployeeId(), clock);
+		LocalDate today = LocalDate.now(clock);
+		LocalDate leaveYearStart = getLeaveYearStartDate(employee.getHireDate(), today);
+		LocalDate leaveYearEnd = leaveYearStart.plusYears(1).minusDays(1);
+		float usedDays = leaveRequestRepository.sumRequestedUseDays(
+				employee.getEmployeeId(),
+				REQUESTED_STATUSES,
+				leaveYearStart,
+				leaveYearEnd
+		);
 		return getRemainingDays(employee, employee.getCurrTotalLeaveDays(), usedDays);
 	}
 	
 	public Map<Long, Float> getRemainingDays(List<Employee> employees) {
+		LocalDate today = LocalDate.now(clock);
+		Map<LocalDate, List<Long>> employeeIdsByLeaveYearStart = employees.stream()
+				.collect(Collectors.groupingBy(
+						employee -> getLeaveYearStartDate(employee.getHireDate(), today),
+						Collectors.mapping(Employee::getEmployeeId, Collectors.toList())
+				));
+
+		Map<Long, Float> usedLeaveDaysByEmployee = new HashMap<>();
+		for (Map.Entry<LocalDate, List<Long>> entry : employeeIdsByLeaveYearStart.entrySet()) {
+			LocalDate leaveYearStart = entry.getKey();
+			LocalDate leaveYearEnd = leaveYearStart.plusYears(1).minusDays(1);
+			usedLeaveDaysByEmployee.putAll(
+					leaveRequestRepository.sumRequestedUseDays(
+							entry.getValue(),
+							REQUESTED_STATUSES,
+							leaveYearStart,
+							leaveYearEnd
+					)
+			);
+		}
+
 		List<Long> employeeIds = employees.stream()
 										.map(Employee::getEmployeeId)
 										.toList();
-		Map<Long, Float> usedLeaveDaysByEmployee = leaveRequestRepository.sumRequestedUseDays(employeeIds, clock);
 		Map<Long, Float> adjustedLeaveDaysByEmployee = employeeLeaveService.getAdjustedLeaveDays(employeeIds, Year.now(clock).toString());
 		
 		return employees.stream()
