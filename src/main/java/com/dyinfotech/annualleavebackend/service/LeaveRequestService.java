@@ -63,7 +63,7 @@ public class LeaveRequestService {
         	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "휴가유형 파라미터가 잘못되었습니다.");
         }
     	
-    	Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	Employee employee = employeeRepository.findByIdForUpdate(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	
     	LocalDate today = LocalDate.now(clock);
         String currentYear = String.valueOf(today.getYear());
