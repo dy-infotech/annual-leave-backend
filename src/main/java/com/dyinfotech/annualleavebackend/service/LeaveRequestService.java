@@ -118,16 +118,23 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 신청된 연차 기간과 중복됩니다.");
         }
 
-        // 당해연도 연차 증적 수치 계산
-        LocalDate yearStart = LocalDate.of(today.getYear(), 1, 1);
-        LocalDate yearEnd = LocalDate.of(today.getYear(), 12, 31);
-        List<LeaveRequest> activeRequests = leaveRequestRepository.findActiveLeaveRequests(employeeId, yearStart, yearEnd);
+        // 현재 연차기간 연차 증적 수치 계산
+        LocalDate leaveYearStart = DateUtils.getLeaveYearStartDate(employee.getHireDate(), today);
+        LocalDate leaveYearEnd = DateUtils.getLeaveYearEndDate(employee.getHireDate(), today);
+        List<LeaveRequest> activeRequests = leaveRequestRepository.findActiveLeaveRequests(employeeId, leaveYearStart, leaveYearEnd);
 
         float approvedSum = 0;
         float pendingSum = 0;
 
         if (activeRequests != null) {
             for (LeaveRequest l : activeRequests) {
+                LeaveType activeLeaveType = LeaveType.fromName(l.getLeaveType());
+                if (LeaveType.ALTERNATIVE.equals(activeLeaveType)
+                        || LeaveType.PARENTAL.equals(activeLeaveType)
+                        || LeaveType.FAMILY.equals(activeLeaveType)) {
+                    continue;
+                }
+
                 if (l.getStatus() == LeaveRequestStatus.APPROVED) {
                     approvedSum += l.getUseDays(); 
                 } else if (l.getStatus() == LeaveRequestStatus.PENDING) {
@@ -137,9 +144,12 @@ public class LeaveRequestService {
         }
 
         // 승인 완료 기준 잔여 스냅샷
-        float realPrevLeaveDays = employee.getCurrTotalLeaveDays() - approvedSum;
+        float realPrevLeaveDays = commonService.getRemainingDays(employee, employee.getCurrTotalLeaveDays(), approvedSum);
+        float requestedAnnualLeaveDays = LeaveType.ALTERNATIVE.equals(leaveType)
+                || LeaveType.PARENTAL.equals(leaveType)
+                || LeaveType.FAMILY.equals(leaveType) ? 0.0f : request.getUseDays();
         // 승인 대기 및 현재 신청 반영 잔여 스냅샷
-        float realCurrLeaveDays = realPrevLeaveDays - pendingSum - request.getUseDays(); 
+        float realCurrLeaveDays = realPrevLeaveDays - pendingSum - requestedAnnualLeaveDays;
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .employee(employee)
