@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
+import com.dyinfotech.annualleavebackend.config.TimeConfig;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService;
 import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
@@ -28,7 +29,7 @@ public class YearlyScheduler {
      * 매년 1월 1일 0시 0분 0초에 실행되는 연차 초기화 및 롤오버 스케줄러
      * 크론 표현식: 초 분 시 일 월 요일
      */
-    @Scheduled(cron = "0 0 0 1 1 ?") 
+    @Scheduled(cron = "0 0 0 1 1 ?", zone = TimeConfig.TIME_ZONE) 
     public void yearlySchedule() {
     	log.info("=== [연간 스케줄러] 기초데이터 팩토리 리로드 시작 ===");
         try {
