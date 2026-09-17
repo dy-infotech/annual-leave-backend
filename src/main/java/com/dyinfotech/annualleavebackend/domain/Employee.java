@@ -81,7 +81,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
     @Column(name = "email", length = 100)
     private String email;
     
-    // 💡 [수정] @Transient를 붙여 실제 MySQL DB 테이블을 변경하지 않고 메모리 상에서만 활용하도록 차단막 설정
+    // DB 컬럼에 저장하지 않는 런타임 권한 정보
     @Transient 
     private Role role = Role.EMPLOYEE; 
     
