@@ -7,7 +7,9 @@ import java.time.Year;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
@@ -71,6 +73,29 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
     default List<LeaveRequest> findByStatusOrderByCreatedAtAsc(Long excludeId, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LeaveRequestStatus status, Clock clock) {
     	return findByStatusOrderByCreatedAtAsc(excludeId, directTeams, childTeamProjectManagerIds, status, Year.now(clock));
+    }
+
+    @EntityGraph(attributePaths = {"employee", "manager"})
+    Optional<LeaveRequest> findByRequestId(Long requestId);
+
+    default Optional<LeaveRequest> findDetailById(Long requestId) {
+        return findByRequestId(requestId);
+    }
+
+    List<LeaveRequest> findByEmployeeEmployeeIdAndStatusInAndStartDateBetween(
+            Long employeeId,
+            Collection<LeaveRequestStatus> status,
+            LocalDate yearStart,
+            LocalDate yearEnd
+    );
+
+    default List<LeaveRequest> findActiveLeaveRequests(Long employeeId, LocalDate yearStart, LocalDate yearEnd) {
+        return findByEmployeeEmployeeIdAndStatusInAndStartDateBetween(
+                employeeId,
+                List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING),
+                yearStart,
+                yearEnd
+        );
     }
 
     // 휴가 결재 승인 또는 반려 처리
