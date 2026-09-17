@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.repository.query;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
@@ -16,6 +17,7 @@ public interface EmployeeRepositoryCustom {
 	default List<Employee> findAllEmployees() {
 		return findAllEmployees(null, null);
 	}
+	Optional<Employee> findByIdForUpdate(Long employeeId);
 	// 로그인 실패시 접근 횟수 추가 (@Transactional을 국소적으로 사용해야 하므로 JPA가 아니라 QueryDSL을 이용해서 DB에 반영하도록 수정했다. JPA로 마이그레이션 금지.)
 	long increaseAccessCount(Long employeeId, LocalDateTime now);
 	// 로그인 성공시 접근 횟수 초기화 (@Transactional을 국소적으로 사용해야 하므로 JPA가 아니라 QueryDSL을 이용해서 DB에 반영하도록 수정했다. JPA로 마이그레이션 금지.)
