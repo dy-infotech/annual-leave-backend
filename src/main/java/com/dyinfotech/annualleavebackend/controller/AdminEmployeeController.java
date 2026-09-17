@@ -19,6 +19,7 @@ import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @Tag(name = "관리자 전용 - 사원 조회", description = "사원 조회 API")
@@ -43,7 +44,7 @@ public class AdminEmployeeController {
     public ResponseEntity<Void> updateEmployeeByAdmin(
     		@AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("employeeNumber") String employeeNumber,
-            @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
+            @Valid @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
     	authService.checkAdmin(principal.employeeId());
         employeeService.updateEmployeeByAdmin(principal.employeeId(), employeeNumber, request);
         return ResponseEntity.ok().build();

@@ -92,7 +92,7 @@ public class CommonService {
 	}
 	
 	public float getRemainingDays(Employee employee, float currTotalLeaveDays, float usedDays) {
-        return getRemainingDays(currTotalLeaveDays, employeeLeaveService.getAdjustedLeaveDays(employee.getEmployeeId(), employee.getCurrYear()), usedDays);
+        return getRemainingDays(currTotalLeaveDays, employeeLeaveService.getAdjustedLeaveDays(employee.getEmployeeId(), Year.now(clock).toString()), usedDays);
 	}
 
 	public float getRemainingDays(Employee employee, float usedDays) {
