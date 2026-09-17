@@ -32,14 +32,6 @@ public final class LeaveRequestListDto {
         private LocalDate endDate;     
         private LeaveRequestStatus status;    
         private String searchEmployeeParam; 
-
-//        public LeaveRequestListRequest(Long employeeId,  LocalDate startDate, LocalDate endDate, LeaveRequestStatus status, String searchEmployeeParam) {
-//            this.employeeId = employeeId; 
-//            this.startDate = startDate;
-//            this.endDate = endDate;
-//            this.status = status;
-//            this.searchEmployeeParam = searchEmployeeParam;
-//        }
     }
 
     @Getter
