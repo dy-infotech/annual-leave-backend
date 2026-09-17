@@ -18,6 +18,7 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
+import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
@@ -100,7 +101,7 @@ public class EmployeeLeaveService {
     private static final int MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT = 11;	// 입사 1년 미만 근로자는 매월 개근 시 1일 발생하며 최대 11일
     public float getCalculatedCurrYearLeaveDays(LocalDate hireDate, LocalDate now) {
     	// 입사 1년 미만 여부를 판단하는 기준 날짜
-    	LocalDate nextYearDateFromHireDate = hireDate.plusYears(1);
+    	LocalDate nextYearDateFromHireDate = DateUtils.getAnniversaryDate(hireDate, hireDate.getYear() + 1);
     	// 근속연수 계산 기준 날짜
         LocalDate serviceStartDate = hireDate;
 		if (basisDataFactory.getAsBoolean(BasisDataType.USE_FISCAL_YEAR_LEAVE_POLICY)
