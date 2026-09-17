@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cache.annotation.EnableCaching;
 
-import com.dyinfotech.annualleavebackend.config.CommonConfig;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService;
 import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
@@ -101,8 +100,8 @@ class AnnualLeaveBackendApplicationTests {
         calculateCurrYearLeaveDays(hireDate, now, 16);
 	    
 	    hireDate = hireDate.plusMonths(2);
-	    // 회계연도 규칙대로면 hireDate가 1월 1일로 보정되기 때문에 3년차로 인정받아서 16, 입사일 기준 계산 규칙이면 만 3년이 충족되지 않았으므로 15.
-        calculateCurrYearLeaveDays(hireDate, now, CommonConfig.USE_FISCAL_YEAR_LEAVE_POLICY ? 16 : 15);
+	    // 입사일 기준 계산 규칙에서는 만 3년이 충족되지 않았으므로 15.
+        calculateCurrYearLeaveDays(hireDate, now, 15);
     }
 
     @Test
