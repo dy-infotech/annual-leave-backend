@@ -188,13 +188,8 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
 //    	commonService.isValidDate(startDate, endDate);
-        LocalDate leaveResetDate = hireDate.withYear(today.getYear());
-        if (leaveResetDate.isAfter(today)) {
-            leaveResetDate = leaveResetDate.minusYears(1);
-        }
-
-        LocalDate leaveStartDate = leaveResetDate;
-        LocalDate leaveEndDate = leaveResetDate.plusYears(1).minusDays(1);
+        LocalDate leaveStartDate = DateUtils.getLeaveYearStartDate(hireDate, today);
+        LocalDate leaveEndDate = DateUtils.getLeaveYearEndDate(hireDate, today);
 
         if (startDate.isBefore(leaveStartDate) || endDate.isAfter(leaveEndDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "휴가 신청 가능 기간을 벗어났습니다. 가능 기간 : " + leaveStartDate + " ~ " + leaveEndDate);
@@ -226,6 +221,13 @@ public class LeaveRequestService {
     private void validateUseDaysUnit(LeaveType leaveType, Float useDays) {
         if (useDays == null || useDays <= 0) {
         	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "사용일수는 0보다 커야 합니다.");
+        }
+        
+        if (leaveType.isHalfLeave() && Float.compare(useDays, 0.5f) != 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, leaveType.getValidationMessage());
+        }
+        if (!leaveType.isPartialLeave() && useDays % 1.0f != 0.0f) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, leaveType.getValidationMessage());
         }
         
         int useMinutes = DateUtils.toMinutes(useDays);
