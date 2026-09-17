@@ -7,7 +7,6 @@ import java.time.Year;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -18,9 +17,6 @@ import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatu
 import com.dyinfotech.annualleavebackend.repository.query.LeaveRequestRepositoryCustom;
 
 import io.jsonwebtoken.lang.Collections;
-
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long>, LeaveRequestRepositoryCustom {
 	// 올해의 연도는 Year.now(Clock)를 파라미터로 넘긴다.
@@ -77,25 +73,6 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     	return findByStatusOrderByCreatedAtAsc(excludeId, directTeams, childTeamProjectManagerIds, status, Year.now(clock));
     }
 
-    @Query("SELECT lr FROM LeaveRequest lr " +
-            "JOIN FETCH lr.employee " +
-            "LEFT JOIN FETCH lr.manager " +   // manager가 null일 경우에 대비해 LEFT
-            "WHERE lr.requestId = :requestId")
-    Optional<LeaveRequest> findDetailById(@Param("requestId") Long requestId);
-
- 
- // LeaveRequestRepository.java 파일 내부에 등록되어 있어야 합니다.
-
-    // 이 메서드가 반드시 선언되어 있어야 서비스단(117라인) 에러가 사라집니다!
-    @Query("SELECT l FROM LeaveRequest l " +
-           "WHERE l.employee.employeeId = :employeeId " +
-           "AND l.status IN ('APPROVED', 'PENDING') " +
-           "AND l.startDate BETWEEN :yearStart AND :yearEnd")
-    List<LeaveRequest> findActiveLeaveRequests(
-        @Param("employeeId") Long employeeId,
-        @Param("yearStart") LocalDate yearStart,
-        @Param("yearEnd") LocalDate yearEnd
-    );
     // 휴가 결재 승인 또는 반려 처리
     // XXX: 낙관적 락(@Version)을 사용해도 되지만 ObjectOptimisticLockingFailureException을 GlobalExceptionHandler에서 처리하는 건
     //		별도 세부 정보를 담을 수 없고 로그 처리도 확실하지 않을 것 같다. 일단 개별 쿼리문으로 대응한다.
