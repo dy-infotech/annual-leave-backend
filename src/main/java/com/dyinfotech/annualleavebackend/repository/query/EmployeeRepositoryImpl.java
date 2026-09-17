@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.repository.query;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
@@ -13,6 +14,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
 @Repository
@@ -49,6 +51,16 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         return team != null && !team.isBlank()
                 ? qEmployee.team.eq(team)
                 : null;
+    }
+    
+    @Override
+    public Optional<Employee> findByIdForUpdate(Long employeeId) {
+        return Optional.ofNullable(
+                queryFactory.selectFrom(qEmployee)
+                        .where(qEmployee.employeeId.eq(employeeId))
+                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                        .fetchOne()
+        );
     }
     
     @Override
