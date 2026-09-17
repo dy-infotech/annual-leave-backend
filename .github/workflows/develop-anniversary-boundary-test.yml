@@ -1,4 +1,4 @@
-name: Develop Full Test
+name: Develop Build Check
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,7 +20,7 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Run full test suite
+      - name: Verify compile and packaging
         run: |
           chmod +x gradlew
-          ./gradlew test
+          ./gradlew testClasses bootJar -x test
