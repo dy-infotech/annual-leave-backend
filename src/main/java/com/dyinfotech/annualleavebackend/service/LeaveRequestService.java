@@ -143,13 +143,13 @@ public class LeaveRequestService {
             }
         }
 
-        // 승인 완료 기준 잔여 스냅샷
-        float realPrevLeaveDays = commonService.getRemainingDays(employee, employee.getCurrTotalLeaveDays(), approvedSum);
+        // 현재 신청 직전 잔여 스냅샷
+        float realPrevLeaveDays = commonService.getRemainingDays(employee, employee.getCurrTotalLeaveDays(), approvedSum + pendingSum);
         float requestedAnnualLeaveDays = LeaveType.ALTERNATIVE.equals(leaveType)
                 || LeaveType.PARENTAL.equals(leaveType)
                 || LeaveType.FAMILY.equals(leaveType) ? 0.0f : request.getUseDays();
-        // 승인 대기 및 현재 신청 반영 잔여 스냅샷
-        float realCurrLeaveDays = realPrevLeaveDays - pendingSum - requestedAnnualLeaveDays;
+        // 현재 신청 반영 후 잔여 스냅샷
+        float realCurrLeaveDays = realPrevLeaveDays - requestedAnnualLeaveDays;
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .employee(employee)
