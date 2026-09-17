@@ -3,7 +3,6 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Period;
-import java.time.Year;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -101,16 +100,6 @@ public class EmployeeLeaveService {
     public float getCalculatedCurrYearLeaveDays(LocalDate hireDate, LocalDate now) {
     	// 입사 1년 미만 여부를 판단하는 기준 날짜
     	LocalDate nextYearDateFromHireDate = DateUtils.getAnniversaryDate(hireDate, hireDate.getYear() + 1);
-    	// 근속연수 계산 기준 날짜
-        LocalDate serviceStartDate = hireDate;
-		if (basisDataFactory.getAsBoolean(BasisDataType.USE_FISCAL_YEAR_LEAVE_POLICY)
-		        			.orElse(false)) {
-    		// 회계연도 정책:
-    		// - 입사 다음 해 1월 1일부터 연차 부여
-    		// - 근속연수는 입사연도 1월 1일 기준으로 계산
-    		nextYearDateFromHireDate = Year.of(hireDate.getYear() + 1).atDay(1);
-        	serviceStartDate = Year.of(hireDate.getYear()).atDay(1);
-    	}
     	
         // 입사 1년 미만 근로자
         if (now.isBefore(nextYearDateFromHireDate)) {
@@ -118,7 +107,7 @@ public class EmployeeLeaveService {
         }
 
         // 입사 1년 이상 근로자
-        int yearsOfService = Period.between(serviceStartDate, now).getYears();
+        int yearsOfService = Period.between(hireDate, now).getYears();
         int baseLeaveDays = basisDataFactory.getAsInteger(BasisDataType.FIRST_YEAR_LEAVE_DAYS)
 							                .orElseThrow(() -> new IllegalArgumentException("기본 연차 일수를 찾을 수 없습니다"));
 
