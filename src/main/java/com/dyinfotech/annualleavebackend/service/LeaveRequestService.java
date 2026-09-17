@@ -83,8 +83,11 @@ public class LeaveRequestService {
 
         validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
-        validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
-        validateRemainingLeave(employee, request.getUseDays());
+        // 대체, 출산, 가족돌봄 휴가 중 하나가 아닌 경우 잔여 연차 수와 요청 휴가 수를 대조하도록 함
+        if (!LeaveType.ALTERNATIVE.equals(leaveType) && !LeaveType.PARENTAL.equals(leaveType) && !LeaveType.FAMILY.equals(leaveType)) {
+        	validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
+        	validateRemainingLeave(employee, request.getUseDays());
+        }
         
         List<LeaveRequestListDto.LeaveRequestListResponse> dataList = 
         		searchLeaveRequests(new LeaveRequestListDto.LeaveRequestListRequest( 
@@ -114,22 +117,15 @@ public class LeaveRequestService {
             
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 신청된 연차 기간과 중복됩니다.");
         }
-         
 
- 
-        
-        // === [당해연도 연차 증적 수치 계산 로직 추가] ===
-        // 1. 당해연도의 시작일과 종료일 계산 (상단 68라인에 정의된 today 활용)
+        // 당해연도 연차 증적 수치 계산
         LocalDate yearStart = LocalDate.of(today.getYear(), 1, 1);
         LocalDate yearEnd = LocalDate.of(today.getYear(), 12, 31);
-
-        // 2. 작성하신 Query 메서드로 올해 신청된 활성화(승인/대기) 휴가 목록 전체 조회
         List<LeaveRequest> activeRequests = leaveRequestRepository.findActiveLeaveRequests(employeeId, yearStart, yearEnd);
 
         float approvedSum = 0;
         float pendingSum = 0;
 
-        // 3. 단순 반복문(for)으로 기존 승인/대기 일수 각각 누적 합산
         if (activeRequests != null) {
             for (LeaveRequest l : activeRequests) {
                 if (l.getStatus() == LeaveRequestStatus.APPROVED) {
@@ -140,23 +136,11 @@ public class LeaveRequestService {
             }
         }
 
-        // 4. 최종 증적용 수치 가감 연산 (★주석을 해제하고 정상 코드로 반영)
-        // realPrevLeaveDays : 승인 완료 기준 잔여 스냅샷 (기존 총 연차 - 승인된 연차)
+        // 승인 완료 기준 잔여 스냅샷
         float realPrevLeaveDays = employee.getCurrTotalLeaveDays() - approvedSum;
-
-        // realCurrLeaveDays : 대기방 선점 내역 + 현재 신청분까지 완벽히 누적 차감된 최종 수치
+        // 승인 대기 및 현재 신청 반영 잔여 스냅샷
         float realCurrLeaveDays = realPrevLeaveDays - pendingSum - request.getUseDays(); 
-        // === [당해연도 연차 증적 수치 계산 로직 끝] ===
 
-        // 5. 계산 결과 확인용 중간 콘솔 디버그 로그
-        log.info("[연차 증적 계산 완료] 직원 ID: {} | 기존 마스터 연차: {}일", employeeId, employee.getCurrTotalLeaveDays());
-        log.info(" ▶ 누적 승인: {}일 | 누적 대기: {}일 | 이번 신청: {}일", approvedSum, pendingSum, request.getUseDays());
-        log.info(" ▶ DB 저장 스냅샷 수치 -> prev: {}, curr: {}", realPrevLeaveDays, realCurrLeaveDays);
-
-        
-        
-        
-        
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .employee(employee)
                 .leaveType(request.getLeaveType())
