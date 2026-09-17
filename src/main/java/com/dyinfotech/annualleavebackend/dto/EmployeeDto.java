@@ -46,7 +46,7 @@ public final class EmployeeDto {
         private String employeeNumber;
         private String name;
         private String department;
-        private String team; // 💡 1. 팀(Team) 필드 선언 추가
+        private String team;
         private List<String> teamList;
         private String position;
         private String email;
@@ -95,7 +95,7 @@ public final class EmployeeDto {
 
         @NotBlank(message = "이메일은 필수입니다.")
         @Email(message = "유효하지 않은 이메일 형식입니다.")
-        private String email; // 💡 플러터 이메일 컨트롤러 값 바인딩용 추가
+        private String email;
 
         @NotBlank(message = "부서는 필수입니다.")
         private String department;
