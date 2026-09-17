@@ -1,7 +1,9 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -13,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
@@ -62,7 +65,15 @@ public class DashboardService {
     }
 
     private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee, float currTotalLeaveDays) {
-        float usedDays = leaveRequestRepository.sumRequestedUseDays(employee.getEmployeeId(), clock);
+        LocalDate today = LocalDate.now(clock);
+        LocalDate leaveYearStart = DateUtils.getLeaveYearStartDate(employee.getHireDate(), today);
+        LocalDate leaveYearEnd = DateUtils.getLeaveYearEndDate(employee.getHireDate(), today);
+        float usedDays = leaveRequestRepository.sumRequestedUseDays(
+                employee.getEmployeeId(),
+                List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING),
+                leaveYearStart,
+                leaveYearEnd
+        );
         float remainingLeaveDays = commonService.getRemainingDays(employee, currTotalLeaveDays, usedDays);
 
         return DashboardDto.MyLeaveInfoResponse.builder()
