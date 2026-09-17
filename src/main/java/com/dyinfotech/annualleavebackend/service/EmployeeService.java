@@ -219,11 +219,13 @@ public class EmployeeService {
         Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
         if (targetTeams == null || targetTeams.isEmpty()) {
             targetTeams = Collections.emptyList();
-        } else if (!approver.hasPersonnelAuthority()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다."
-            );
+        } else {
+            if (!approver.hasPersonnelAuthority()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다."
+                );
+            }
         }
 
         for (String targetTeam : targetTeams) {
