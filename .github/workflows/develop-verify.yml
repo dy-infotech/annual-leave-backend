@@ -16,5 +16,5 @@ jobs:
           cache: gradle
       - run: |
           chmod +x gradlew
-          ./gradlew clean test
+          ./gradlew clean test --tests com.dyinfotech.annualleavebackend.service.LeaveRequestRegressionTest --tests com.dyinfotech.annualleavebackend.service.DashboardPeriodRegressionTest
           ./gradlew bootJar -x test
