@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import java.time.LocalDate;
+
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -9,15 +11,24 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DashboardDto {
 
+    private LeavePeriodResponse myLeavePeriod;
     private MyLeaveInfoResponse myLeaveInfoResponse;
     private LeaveRequestSummaryResponse myRequestSummary;
     private LeaveRequestSummaryResponse allEmployeeRequestSummary;  // 관리자만 값이 할당되며, 일반 사용자는 null (프론트에서 이 필드의 존재 여부로 관리자 전용 섹션을 보여줄지 말지 판단)
 
     @Builder
-    public DashboardDto(MyLeaveInfoResponse myLeaveInfoResponse, LeaveRequestSummaryResponse myRequestSummary, LeaveRequestSummaryResponse allEmployeeRequestSummary) {
+    public DashboardDto(LeavePeriodResponse myLeavePeriod, MyLeaveInfoResponse myLeaveInfoResponse, LeaveRequestSummaryResponse myRequestSummary, LeaveRequestSummaryResponse allEmployeeRequestSummary) {
+        this.myLeavePeriod = myLeavePeriod;
         this.myLeaveInfoResponse = myLeaveInfoResponse;
         this.myRequestSummary = myRequestSummary;
         this.allEmployeeRequestSummary = allEmployeeRequestSummary;
+    }
+
+    @Getter
+    @Builder
+    public static class LeavePeriodResponse {
+        private LocalDate startDate;
+        private LocalDate endDate;
     }
 
     @Getter
