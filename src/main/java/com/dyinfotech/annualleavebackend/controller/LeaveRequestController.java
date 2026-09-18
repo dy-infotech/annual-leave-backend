@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
@@ -79,6 +80,14 @@ public class LeaveRequestController {
             @PathVariable("requestId") Long requestId, // 👈 ("requestId") 이름을 명시하여 URL 매핑 문제를 해결합니다.
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveRequestService.getLeaveRequestDetail(requestId, principal.employeeId(), Role.isAdmin(principal.role()));
+    }
+
+    @Operation(summary = "내 현재 연차기간 조회", description = "로그인한 직원의 현재 입사일 기준 연차기간을 조회한다.")
+    @GetMapping("/my/period")
+    public DashboardDto.LeavePeriodResponse getMyLeavePeriod(
+            @AuthenticationPrincipal EmployeePrincipal principal
+    ) {
+        return leaveRequestService.getMyLeavePeriod(principal.employeeId());
     }
 
     @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 조회한다.")
