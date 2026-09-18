@@ -8,6 +8,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
@@ -80,9 +81,9 @@ public class AuthService {
     	}
     }
     
-    public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
+    public CompletableFuture<Void> syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
 		// FCM topic 동기화 완료 후 DB 저장(UPSERT)
-        notificationService.syncToken(
+        return notificationService.syncToken(
             employeeId,
             request.getFcmToken(), 
             request.getDeviceOs()
