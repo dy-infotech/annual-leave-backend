@@ -109,7 +109,10 @@ public class LeaveApprovalService {
     	}
     	
     	//대표이사 계정: 팀별 목록 조회 시 팀정보 유효성 확인 
-    	if (team != null && !team.isBlank() && accessibleTeams.contains(team)) {
+    	if (team != null && !team.isBlank()) {
+    		if (!accessibleTeams.contains(team)) {
+    			return Collections.emptyList();
+    		}
     		accessibleTeams = Set.of(team);
     	}
     	
@@ -141,7 +144,10 @@ public class LeaveApprovalService {
     	}
     	
     	//대표이사 계정: 팀별 목록 조회 시 팀정보 유효성 확인 
-    	if (team != null && !team.isBlank() && accessibleTeams.contains(team)) {
+    	if (team != null && !team.isBlank()) {
+    		if (!accessibleTeams.contains(team)) {
+    			return Collections.emptyList();
+    		}
     		accessibleTeams = Set.of(team);
     	}
     	
