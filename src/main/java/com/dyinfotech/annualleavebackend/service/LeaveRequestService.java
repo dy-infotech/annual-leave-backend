@@ -412,10 +412,17 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
         }
 
-        try {
-            leaveRequest.cancel(clock);
-        } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage());
+        if (leaveRequest.getStatus() != LeaveRequestStatus.PENDING && leaveRequest.getStatus() != LeaveRequestStatus.APPROVED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "대기 또는 승인 상태인 신청만 취소할 수 있습니다.");
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        if (leaveRequest.getStatus() == LeaveRequestStatus.APPROVED && !leaveRequest.getStartDate().isAfter(today)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 시작되었거나 지난 휴가는 취소할 수 없습니다.");
+        }
+
+        if (leaveRequestRepository.cancelLeaveRequest(requestId, employeeId, today) == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
     }
 }

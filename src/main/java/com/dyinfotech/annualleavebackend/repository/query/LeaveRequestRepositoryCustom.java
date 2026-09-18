@@ -45,6 +45,9 @@ public interface LeaveRequestRepositoryCustom {
             LocalDateTime now
     );
     
+    // 휴가 신청 취소 처리
+    int cancelLeaveRequest(Long requestId, Long employeeId, LocalDate today);
+    
     // 공통 조회 코드
     List<LeaveRequest> searchLeaveRequests(
             Long employeeId,

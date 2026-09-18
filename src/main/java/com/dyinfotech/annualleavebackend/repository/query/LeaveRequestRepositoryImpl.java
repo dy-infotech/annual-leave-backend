@@ -246,6 +246,26 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
+	@Transactional
+	public int cancelLeaveRequest(Long requestId, Long employeeId, LocalDate today) {
+		BooleanExpression cancelableStatus = qLeaveRequest.status.eq(LeaveRequestStatus.PENDING)
+													.or(qLeaveRequest.status.eq(LeaveRequestStatus.APPROVED)
+															.and(qLeaveRequest.startDate.gt(today)));
+
+		int result = (int) queryFactory.update(qLeaveRequest)
+									.set(qLeaveRequest.status, LeaveRequestStatus.CANCELLED)
+									.where(
+											qLeaveRequest.requestId.eq(requestId),
+											qLeaveRequest.employee.employeeId.eq(employeeId),
+											cancelableStatus
+									)
+									.execute();
+
+		entityManager.clear();
+		return result;
+	}
+
+	@Override
 	public List<LeaveRequest> searchLeaveRequests(Long employeeId, LocalDate startDate, LocalDate endDate, LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam) {
 		BooleanBuilder builder = new BooleanBuilder();
 
