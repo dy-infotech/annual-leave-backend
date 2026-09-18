@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
@@ -145,9 +146,9 @@ public class FcmService {
 	
 	@Transactional
 	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
-		List<com.dyinfotech.annualleavebackend.domain.FcmToken> inactiveTokens =
+		List<FcmToken> inactiveTokens =
 				fcmTokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));
-		for (com.dyinfotech.annualleavebackend.domain.FcmToken inactiveToken : inactiveTokens) {
+		for (FcmToken inactiveToken : inactiveTokens) {
 			if (!unsubscribeTopics(inactiveToken.getToken(), inactiveToken.getEmployeeId()).join()) {
 				log.warn("비활성 FCM token topic 해제 실패 - Token: {}, employeeId={}", maskFcmToken(inactiveToken.getToken()), inactiveToken.getEmployeeId());
 				continue;
