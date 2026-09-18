@@ -314,6 +314,7 @@ public class AuthService {
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {
         	employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), calculatedCurrYearLeaveDays);
+        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
         
         // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
