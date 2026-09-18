@@ -5,10 +5,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.query.EmployeeRepositoryCustom;
 
@@ -19,7 +17,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, Emplo
     
     List<Employee> findAllByEmployeeIdInOrderByEmployeeIdAsc(Collection<Long> employeeIds);
     
-    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     List<Employee> findAllByFireDateIsNullOrFireDateGreaterThanEqual(LocalDate now);
 
     Optional<Employee> findByEmployeeNumberAndEmail(String employeeNumber, String email);
