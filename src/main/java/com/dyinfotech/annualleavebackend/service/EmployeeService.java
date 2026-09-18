@@ -60,7 +60,7 @@ public class EmployeeService {
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
         float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
-        Float remainingDays = commonService.getRemainingDays(employee, currTotalLeaveDays);
+        Float remainingDays = commonService.getRemainingDaysByCurrTotalLeaveDays(employee, currTotalLeaveDays);
 
         return EmployeeDto.EmployeeResponse.from(employee, approver, employeeLeaveService.createAuthorityResolver(employeeId), currTotalLeaveDays, remainingDays);
     }
