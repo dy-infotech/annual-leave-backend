@@ -146,6 +146,7 @@ public class EmployeeService {
     }
     // 로그인 성공시 올해 총 연차 수 업데이트
     @Transactional
+    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
     public void updateCurrTotalLeaveDays(Long employeeId, float days) {
         employeeRepository.updateCurrTotalLeaveDays(employeeId, days);
     }
