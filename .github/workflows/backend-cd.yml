@@ -6,6 +6,7 @@ on:
       - release
   workflow_dispatch:
 
+# develop_v1.0에서는 CI만 수행하고 release에서만 배포
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
