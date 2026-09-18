@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.AbstractMap;
@@ -194,6 +195,10 @@ public class LeaveApprovalService {
         } else {
         	employee = employees.get(1);
         	approver = employees.get(0);
+        }
+        
+        if (!approver.isActive(LocalDate.now(clock))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 관리자는 휴가를 처리할 수 없습니다.");
         }
         
         // 관리자가 요청자의 승인자인지 확인 (로그인 시 업데이트되므로 문제되지 않으나 방어코드로 유지한다)

@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,12 +34,13 @@ public class TeamService {
 	@Qualifier("teamLoadingCache")
 	private final LoadingCache<String, List<Team>> teamCache;
 	private final TeamRepository teamRepository;
+	private final Clock clock;
 	
-	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, TeamRepository teamRepository) {
+	public TeamService(@Qualifier("teamLoadingCache") LoadingCache<String, List<Team>> teamCache, TeamRepository teamRepository, Clock clock) {
         this.teamCache = teamCache;
         this.teamRepository = teamRepository;
+        this.clock = clock;
     }
-	
 	public List<Team> findAllByTeam(String team) {
 		return teamCache.get(team);
 	}
@@ -269,7 +272,11 @@ public class TeamService {
 		}
 		
 		Set<Employee> approvers = new HashSet<>();
+		LocalDate now = LocalDate.now(clock);
 		for (Team team : myTeam) {
+			if (!team.getProjectManager().isActive(now)) {
+				continue;
+			}
 			if (employee.getEmployeeId().equals(team.getProjectManagerId())) {
 				String parent = team.getParentTeam();
 				if (parent == null || parent.isBlank()) {
@@ -283,7 +290,9 @@ public class TeamService {
 				
 				Set<Employee> parentApprovers = new HashSet<>();
 				for (Team parentTeam : parentTeams) {
-					parentApprovers.add(parentTeam.getProjectManager());
+					if (parentTeam.getProjectManager().isActive(now)) {
+						parentApprovers.add(parentTeam.getProjectManager());
+					}
 				}
 				
 				return parentApprovers;

@@ -207,12 +207,17 @@ public class EmployeeLeaveService {
 		}
 	}
 	public EmployeeAuthorityResolver createAuthorityResolver() {
-		return new EmployeeAuthorityResolverImpl(Set.copyOf(teamService.findAll()));
+		LocalDate now = LocalDate.now(clock);
+		return new EmployeeAuthorityResolverImpl(teamService.findAll().stream()
+															.filter(e -> e.getProjectManager().isActive(now))
+															.collect(Collectors.toSet()));
 	}
 	public EmployeeAuthorityResolver createAuthorityResolver(Set<Long> targetEmployeeIds) {
+		LocalDate now = LocalDate.now(clock);
 		return new EmployeeAuthorityResolverImpl(teamService.findAll().stream()
-																		.filter(e -> targetEmployeeIds.contains(e.getProjectManagerId()))
-																		.collect(Collectors.toSet()));
+															.filter(e -> e.getProjectManager().isActive(now))
+															.filter(e -> targetEmployeeIds.contains(e.getProjectManagerId()))
+															.collect(Collectors.toSet()));
 	}
 	public EmployeeAuthorityResolver createAuthorityResolver(Long employeeId) {
 		return createAuthorityResolver(Set.of(employeeId));

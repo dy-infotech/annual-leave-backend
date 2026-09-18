@@ -73,7 +73,9 @@ public class AuthService {
     private String mailFrom;
     
     public void checkAdmin(Long employeeId) {
-    	if (!teamService.isTeamManager(employeeId)) {
+    	Employee employee = employeeRepository.findById(employeeId)
+    									.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+    	if (!employee.isActive(LocalDate.now(clock)) || !teamService.isTeamManager(employeeId)) {
     		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인가되지 않은 사용자입니다. 다시 로그인해주세요.");
     	}
     }
