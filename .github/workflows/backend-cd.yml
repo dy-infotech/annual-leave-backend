@@ -43,7 +43,7 @@ jobs:
       - name: 4. Gradle Build
         run: |
           chmod +x gradlew
-          ./gradlew bootJar -x test
+          ./gradlew test bootJar
 
 
       # 5. 서버 배포 디렉터리 준비
