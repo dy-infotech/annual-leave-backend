@@ -1,0 +1,20 @@
+name: Develop Verify
+
+on:
+  push:
+    branches: [develop_v1.0]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: |
+          chmod +x gradlew
+          ./gradlew clean test
+          ./gradlew bootJar -x test
