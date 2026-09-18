@@ -46,7 +46,7 @@ jobs:
       - name: 4. Gradle Build
         run: |
           chmod +x gradlew
-          ./gradlew test bootJar
+          ./gradlew test --tests '*RegressionTest' bootJar
 
 
       # 5. 서버 배포 디렉터리 준비

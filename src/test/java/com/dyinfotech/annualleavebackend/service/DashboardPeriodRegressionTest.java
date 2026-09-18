@@ -25,10 +25,10 @@ import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatu
 class DashboardPeriodRegressionTest {
 
     @Test
-    void dashboardUsesSameAnniversaryPeriodForLeaveInfoAndMyRequestSummary() {
+    void dashboardUsesSameFiscalYearPeriodForLeaveInfoAndMyRequestSummary() {
         Long employeeId = 1L;
-        LocalDate periodStart = LocalDate.of(2025, 11, 18);
-        LocalDate periodEnd = LocalDate.of(2026, 11, 17);
+        LocalDate periodStart = LocalDate.of(2026, 1, 1);
+        LocalDate periodEnd = LocalDate.of(2026, 12, 31);
         Clock clock = Clock.fixed(
                 Instant.parse("2026-09-18T00:00:00Z"),
                 ZoneId.of("Asia/Seoul")

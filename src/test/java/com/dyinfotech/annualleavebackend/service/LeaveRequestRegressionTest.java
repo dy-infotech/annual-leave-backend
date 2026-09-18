@@ -70,15 +70,15 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
-    void remainingDays_usesAnniversaryPeriodAcrossCalendarYearBoundary() {
+    void remainingDays_usesFiscalYearPeriod() {
         Employee employee = mockEmployee();
         CommonService service = new CommonService(leaveRequestRepository, employeeLeaveService, clock);
 
         when(leaveRequestRepository.sumRequestedUseDays(
                 eq(EMPLOYEE_ID),
                 eq(List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING)),
-                eq(LocalDate.of(2025, 7, 1)),
-                eq(LocalDate.of(2026, 6, 30))
+                eq(LocalDate.of(2026, 1, 1)),
+                eq(LocalDate.of(2026, 12, 31))
         )).thenReturn(1.0f);
         when(employeeLeaveService.getAdjustedLeaveDays(EMPLOYEE_ID, "2026")).thenReturn(0.5f);
 
@@ -87,8 +87,8 @@ class LeaveRequestRegressionTest {
         verify(leaveRequestRepository).sumRequestedUseDays(
                 EMPLOYEE_ID,
                 List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING),
-                LocalDate.of(2025, 7, 1),
-                LocalDate.of(2026, 6, 30)
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31)
         );
         verify(employeeLeaveService).getAdjustedLeaveDays(EMPLOYEE_ID, "2026");
     }
@@ -121,6 +121,7 @@ class LeaveRequestRegressionTest {
         when(employee.getHireDate()).thenReturn(HIRE_DATE);
         when(employee.getCurrYear()).thenReturn("2026");
         when(employee.getCurrTotalLeaveDays()).thenReturn(15.0f);
+        when(employee.isActive(any(LocalDate.class))).thenReturn(true);
         return employee;
     }
 
@@ -143,8 +144,8 @@ class LeaveRequestRegressionTest {
         )).thenReturn(List.of());
         when(leaveRequestRepository.findActiveLeaveRequests(
                 EMPLOYEE_ID,
-                LocalDate.of(2025, 7, 1),
-                LocalDate.of(2026, 6, 30)
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31)
         )).thenReturn(List.of(approved, pending));
         when(teamService.refreshApproverIds(employee)).thenReturn(Set.of());
 
