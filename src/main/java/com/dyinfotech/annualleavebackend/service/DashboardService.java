@@ -41,29 +41,39 @@ public class DashboardService {
     public DashboardDto getDashboard(Long employeeId, Role role) {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
+        LocalDate today = LocalDate.now(clock);
+        LocalDate leaveYearStart = DateUtils.getLeaveYearStartDate(employee.getHireDate(), today);
+        LocalDate leaveYearEnd = DateUtils.getLeaveYearEndDate(employee.getHireDate(), today);
+
         // 현재 연도 연차일수 계산
         float currYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
 
         // 1. 내 휴가 정보
-        DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee, currYearLeaveDays);
+        DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee, currYearLeaveDays, leaveYearStart, leaveYearEnd);
 
         // 2. 내 휴가 요청 요약
-        DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId);
+        DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId, leaveYearStart, leaveYearEnd);
 
         // 3. 관리자일 경우, 전직원 요약 포함
         DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createAuthorityResolver(employeeId).isAdmin(employeeId) ? getAllEmployeeRequestSummary(employee) : null;
 
         return DashboardDto.builder()
+                .myLeavePeriod(DashboardDto.LeavePeriodResponse.builder()
+                        .startDate(leaveYearStart)
+                        .endDate(leaveYearEnd)
+                        .build())
                 .myLeaveInfoResponse(myLeaveInfo)
                 .myRequestSummary(myRequestSummary)
                 .allEmployeeRequestSummary(allEmployeeSummary)
                 .build();
     }
 
-    private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(Employee employee, float currTotalLeaveDays) {
-        LocalDate today = LocalDate.now(clock);
-        LocalDate leaveYearStart = DateUtils.getLeaveYearStartDate(employee.getHireDate(), today);
-        LocalDate leaveYearEnd = DateUtils.getLeaveYearEndDate(employee.getHireDate(), today);
+    private DashboardDto.MyLeaveInfoResponse getMyLeaveInfo(
+            Employee employee,
+            float currTotalLeaveDays,
+            LocalDate leaveYearStart,
+            LocalDate leaveYearEnd
+    ) {
         float usedDays = leaveRequestRepository.sumRequestedUseDays(
                 employee.getEmployeeId(),
                 List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING),
@@ -79,8 +89,8 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardDto.LeaveRequestSummaryResponse getMyRequestSummary(Long employeeId) {
-    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(employeeId, clock).stream()
+    private DashboardDto.LeaveRequestSummaryResponse getMyRequestSummary(Long employeeId, LocalDate startDate, LocalDate endDate) {
+    	Map<LeaveRequestStatus, Long> countMap = leaveRequestRepository.countByStatus(employeeId, startDate, endDate).stream()
 																			    	                  .collect(Collectors.toMap(
 																			    	                      LeaveRequestStatusCount::status,
 																			    	                      LeaveRequestStatusCount::count
