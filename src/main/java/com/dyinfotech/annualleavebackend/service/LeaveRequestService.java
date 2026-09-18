@@ -22,6 +22,7 @@ import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
+import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
@@ -244,6 +245,18 @@ public class LeaveRequestService {
         }
     }
     
+    @Transactional(readOnly = true)
+    public DashboardDto.LeavePeriodResponse getMyLeavePeriod(Long employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        LocalDate today = LocalDate.now(clock);
+
+        return DashboardDto.LeavePeriodResponse.builder()
+                .startDate(DateUtils.getLeaveYearStartDate(employee.getHireDate(), today))
+                .endDate(DateUtils.getLeaveYearEndDate(employee.getHireDate(), today))
+                .build();
+    }
+
     public List<SpecialDayDto.SpecialDayResponse> getHolidays(int year) {    	
 //    	List<Holiday> holidays = holidayRepository.findAllByYear(String.valueOf(year));
 //    	
