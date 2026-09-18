@@ -152,4 +152,33 @@ class NotificationFcmRegressionTest {
 
         assertEquals("127.0.0.1", IpContext.get());
     }
+    @Test
+    void logout_deletesTokenOnlyAfterTopicUnsubscribeSucceeds() {
+        CompletableFuture<Boolean> unsubscribeFuture = new CompletableFuture<>();
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.empty());
+        when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID)).thenReturn(unsubscribeFuture);
+
+        CompletableFuture<Void> result = notificationService.logoutToken(TOKEN, NEW_EMPLOYEE_ID);
+
+        verify(tokenRepository, never()).deleteByToken(TOKEN);
+
+        unsubscribeFuture.complete(true);
+        result.join();
+
+        verify(tokenRepository, times(1)).deleteByToken(TOKEN);
+    }
+
+    @Test
+    void logout_unsubscribeFailure_doesNotDeleteToken() {
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.empty());
+        when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(false));
+
+        assertThrows(
+                CompletionException.class,
+                () -> notificationService.logoutToken(TOKEN, NEW_EMPLOYEE_ID).join()
+        );
+
+        verify(tokenRepository, never()).deleteByToken(TOKEN);
+    }
 }

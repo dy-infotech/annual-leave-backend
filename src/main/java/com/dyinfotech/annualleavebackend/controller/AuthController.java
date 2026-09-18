@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.controller;
 
+import java.util.concurrent.CompletableFuture;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -69,9 +71,9 @@ public class AuthController {
 
     @Operation(summary = "로그아웃", description = "FCM 토큰을 폐기한다.(DB에서 삭제, FCM 서버에서 토픽 해제)")
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal EmployeePrincipal principal,
+    public CompletableFuture<ResponseEntity<Void>> logout(@AuthenticationPrincipal EmployeePrincipal principal,
             							@RequestBody(required = false) LogoutDto.LogoutRequest request) {
-        authService.logout(principal.employeeId(), request == null ? null : request.getFcmToken());
-        return ResponseEntity.ok().build();
+        return authService.logout(principal.employeeId(), request == null ? null : request.getFcmToken())
+                .thenApply(v -> ResponseEntity.ok().build());
     }
 }

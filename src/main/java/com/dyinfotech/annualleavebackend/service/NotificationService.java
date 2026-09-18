@@ -226,8 +226,7 @@ public class NotificationService {
      * ② 로그아웃 및 기기 해제
      * TODO: 로그아웃 기능 구현 및 토큰 삭제 적용
      */
-    @Transactional
-    public void logoutToken(String fcmToken, Long employeeId) {
+    public CompletableFuture<Void> logoutToken(String fcmToken, Long employeeId) {
         Long topicOwnerId = tokenRepository.findByToken(fcmToken)
                 .map(FcmToken::getEmployeeId)
                 .orElse(employeeId);
@@ -236,12 +235,15 @@ public class NotificationService {
             log.info("FCM logout token owner mismatch. requestEmployeeId={}, topicOwnerId={}", employeeId, topicOwnerId);
         }
 
-        if (!fcmService.unsubscribeTopics(fcmToken, topicOwnerId).join()) {
-            log.warn("FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, topicOwnerId);
-            return;
-        }
+        return fcmService.unsubscribeTopics(fcmToken, topicOwnerId)
+                .thenAccept(success -> {
+                    if (!success) {
+                        log.warn("FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, topicOwnerId);
+                        throw new IllegalStateException("FCM topic unsubscribe 실패");
+                    }
 
-        tokenRepository.deleteByToken(fcmToken);
+                    tokenRepository.deleteByToken(fcmToken);
+                });
     }
 
     /**

@@ -471,11 +471,11 @@ public class AuthService {
         }
     }
     
-    @Transactional
-    public void logout(Long employeeId, String fcmToken) {
+    public CompletableFuture<Void> logout(Long employeeId, String fcmToken) {
         if (fcmToken != null && !fcmToken.isBlank()) {
-            notificationService.logoutToken(fcmToken, employeeId);
+            return notificationService.logoutToken(fcmToken, employeeId);
         }
         // fcmToken 없으면 서버 측 정리 불필요 — 클라가 토큰 폐기 (200 반환)
+        return CompletableFuture.completedFuture(null);
     }
 }
