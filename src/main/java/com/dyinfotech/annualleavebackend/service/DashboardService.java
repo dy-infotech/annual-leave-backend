@@ -2,6 +2,8 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.Year;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +17,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.Role;
-import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
@@ -42,8 +43,9 @@ public class DashboardService {
         Employee employee = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         LocalDate today = LocalDate.now(clock);
-        LocalDate leaveYearStart = DateUtils.getLeaveYearStartDate(employee.getHireDate(), today);
-        LocalDate leaveYearEnd = DateUtils.getLeaveYearEndDate(employee.getHireDate(), today);
+        Year currentYear = Year.from(today);
+        LocalDate leaveYearStart = currentYear.atDay(1);
+        LocalDate leaveYearEnd = currentYear.atMonth(Month.DECEMBER).atEndOfMonth();
 
         // 현재 연도 연차일수 계산
         float currYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);

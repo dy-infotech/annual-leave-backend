@@ -82,7 +82,7 @@ public class LeaveRequestController {
         return leaveRequestService.getLeaveRequestDetail(requestId, principal.employeeId(), Role.isAdmin(principal.role()));
     }
 
-    @Operation(summary = "내 현재 연차기간 조회", description = "로그인한 직원의 현재 입사일 기준 연차기간을 조회한다.")
+    @Operation(summary = "내 현재 연차기간 조회", description = "로그인한 직원의 현재 회계연도 연차기간을 조회한다.")
     @GetMapping("/my/period")
     public DashboardDto.LeavePeriodResponse getMyLeavePeriod(
             @AuthenticationPrincipal EmployeePrincipal principal

@@ -55,40 +55,10 @@ public class CommonService {
 			return Map.of();
 		}
 
-		Map<Long, LocalDate> leaveYearStartByEmployeeId = employees.stream()
-				.collect(Collectors.toMap(
-						Employee::getEmployeeId,
-						employee -> getLeaveYearStartDate(employee.getHireDate(), today)
-				));
-		Map<Long, LocalDate> leaveYearEndByEmployeeId = employees.stream()
-				.collect(Collectors.toMap(
-						Employee::getEmployeeId,
-						employee -> getLeaveYearEndDate(employee.getHireDate(), today)
-				));
-
-		LocalDate queryStart = Collections.min(leaveYearStartByEmployeeId.values());
-		LocalDate queryEnd = Collections.max(leaveYearEndByEmployeeId.values());
-
-		List<LeaveUsage> leaveUsage = leaveRequestRepository.findRequestedLeaveUsage(
-				leaveYearStartByEmployeeId.keySet(),
-				REQUESTED_STATUSES,
-				queryStart,
-				queryEnd
+		return leaveRequestRepository.sumRequestedUseDays(
+				employees.stream().map(Employee::getEmployeeId).toList(),
+				Year.from(today)
 		);
-
-		Map<Long, Float> usedLeaveDaysByEmployee = new HashMap<>();
-		for (LeaveUsage usage : leaveUsage) {
-			LocalDate leaveYearStart = leaveYearStartByEmployeeId.get(usage.employeeId());
-			LocalDate leaveYearEnd = leaveYearEndByEmployeeId.get(usage.employeeId());
-
-			if (usage.startDate().isBefore(leaveYearStart) || usage.startDate().isAfter(leaveYearEnd)) {
-				continue;
-			}
-
-			usedLeaveDaysByEmployee.merge(usage.employeeId(), usage.useDays(), Float::sum);
-		}
-
-		return usedLeaveDaysByEmployee;
 	}
 	
 	public float getRemainingDays(Employee employee, float currTotalLeaveDays, float usedDays) {
@@ -100,15 +70,7 @@ public class CommonService {
 	}
 
 	public float getRemainingDays(Employee employee) {
-		LocalDate today = LocalDate.now(clock);
-		LocalDate leaveYearStart = getLeaveYearStartDate(employee.getHireDate(), today);
-		LocalDate leaveYearEnd = getLeaveYearEndDate(employee.getHireDate(), today);
-		float usedDays = leaveRequestRepository.sumRequestedUseDays(
-				employee.getEmployeeId(),
-				REQUESTED_STATUSES,
-				leaveYearStart,
-				leaveYearEnd
-		);
+		float usedDays = leaveRequestRepository.sumRequestedUseDays(employee.getEmployeeId(), Year.now(clock));
 		return getRemainingDays(employee, employee.getCurrTotalLeaveDays(), usedDays);
 	}
 	

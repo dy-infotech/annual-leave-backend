@@ -3,6 +3,8 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.Year;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -119,9 +121,10 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 신청된 연차 기간과 중복됩니다.");
         }
 
-        // 현재 연차기간 연차 증적 수치 계산
-        LocalDate leaveYearStart = DateUtils.getLeaveYearStartDate(employee.getHireDate(), today);
-        LocalDate leaveYearEnd = DateUtils.getLeaveYearEndDate(employee.getHireDate(), today);
+        // 현재 회계연도 연차 증적 수치 계산
+        Year leaveYear = Year.from(today);
+        LocalDate leaveYearStart = leaveYear.atDay(1);
+        LocalDate leaveYearEnd = leaveYear.atMonth(Month.DECEMBER).atEndOfMonth();
         List<LeaveRequest> activeRequests = leaveRequestRepository.findActiveLeaveRequests(employeeId, leaveYearStart, leaveYearEnd);
 
         float approvedSum = 0;
@@ -183,8 +186,13 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
 //    	commonService.isValidDate(startDate, endDate);
-        LocalDate leaveStartDate = DateUtils.getLeaveYearStartDate(hireDate, today);
-        LocalDate leaveEndDate = DateUtils.getLeaveYearEndDate(hireDate, today);
+        Year leaveYear = Year.from(today);
+        LocalDate leaveStartDate = leaveYear.atDay(1);
+        LocalDate leaveEndDate = leaveYear.atMonth(Month.DECEMBER).atEndOfMonth();
+
+        if (startDate.isBefore(hireDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "입사일 이전에는 휴가를 신청할 수 없습니다.");
+        }
 
         if (startDate.isBefore(leaveStartDate) || endDate.isAfter(leaveEndDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "휴가 신청 가능 기간을 벗어났습니다. 가능 기간 : " + leaveStartDate + " ~ " + leaveEndDate);
@@ -250,10 +258,11 @@ public class LeaveRequestService {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
         LocalDate today = LocalDate.now(clock);
+        Year currentYear = Year.from(today);
 
         return DashboardDto.LeavePeriodResponse.builder()
-                .startDate(DateUtils.getLeaveYearStartDate(employee.getHireDate(), today))
-                .endDate(DateUtils.getLeaveYearEndDate(employee.getHireDate(), today))
+                .startDate(currentYear.atDay(1))
+                .endDate(currentYear.atMonth(Month.DECEMBER).atEndOfMonth())
                 .build();
     }
 

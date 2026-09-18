@@ -2,7 +2,9 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.Period;
+import java.time.Year;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -17,7 +19,6 @@ import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.type.Sign;
-import com.dyinfotech.annualleavebackend.common.util.DateUtils;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -98,16 +99,19 @@ public class EmployeeLeaveService {
      */
     private static final int MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT = 11;	// 입사 1년 미만 근로자는 매월 개근 시 1일 발생하며 최대 11일
     public float getCalculatedCurrYearLeaveDays(LocalDate hireDate, LocalDate now) {
-    	// 입사 1년 미만 여부를 판단하는 기준 날짜
-    	LocalDate nextYearDateFromHireDate = DateUtils.getAnniversaryDate(hireDate, hireDate.getYear() + 1);
-    	
-        // 입사 1년 미만 근로자
-        if (now.isBefore(nextYearDateFromHireDate)) {
+        if (hireDate.isAfter(now)) {
+            return 0.0f;
+        }
+
+        // 당해년도 입사자는 현재까지 발생한 월차를 계산
+        if (hireDate.getYear() == now.getYear()) {
             return Math.min(calculateMonthlyLeaveCount(hireDate, now), MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT);
         }
 
-        // 입사 1년 이상 근로자
-        int yearsOfService = Period.between(hireDate, now).getYears();
+        // 이전 연도 입사자는 현재 회계연도 말일 기준으로 근속연수를 계산
+        Year currentYear = Year.from(now);
+        LocalDate yearEnd = currentYear.atMonth(Month.DECEMBER).atEndOfMonth();
+        int yearsOfService = Period.between(hireDate, yearEnd).getYears();
         int baseLeaveDays = basisDataFactory.getAsInteger(BasisDataType.FIRST_YEAR_LEAVE_DAYS)
 							                .orElseThrow(() -> new IllegalArgumentException("기본 연차 일수를 찾을 수 없습니다"));
 
