@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.repository.query.FcmTokenRepositoryCustom;
@@ -15,6 +16,7 @@ public interface FcmTokenRepository extends JpaRepository<FcmToken, Long>, FcmTo
 	List<FcmToken> findAllByUpdatedAuditUpdatedAtBefore(LocalDateTime threshold);
 	
 	// 로그아웃 시 토큰 삭제
+	@Transactional
 	void deleteByToken(String token);
 	
 //	// 더티 체킹 우회하고 update_at을 현재 시간으로 갱신

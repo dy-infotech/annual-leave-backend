@@ -115,7 +115,6 @@ public class NotificationService {
 	    return future;
 	}
 	
-	@Transactional
 	public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
 		FcmToken existingToken = tokenRepository.findByToken(fcmToken).orElse(null);
 		if (existingToken != null) {

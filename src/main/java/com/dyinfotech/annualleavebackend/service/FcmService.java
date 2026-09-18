@@ -16,7 +16,6 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
@@ -144,7 +143,6 @@ public class FcmService {
 	            });
 	}
 	
-	@Transactional
 	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
 		List<FcmToken> inactiveTokens =
 				fcmTokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));

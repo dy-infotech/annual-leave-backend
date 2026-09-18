@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.repository.query;
 import java.time.LocalDateTime;
 
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.QFcmToken;
@@ -19,6 +20,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	private static final QFcmToken qFcmToken = QFcmToken.fcmToken;
 	
 	@Override
+	@Transactional
 	public int updateTokenAndTouch(Long employeeId, String deviceOs, LocalDateTime now, String token) {
 		int result = (int) queryFactory.update(qFcmToken)
 						                .set(qFcmToken.employeeId, employeeId)
@@ -35,6 +37,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	}
 	
 	@Override
+	@Transactional
 	public void deleteByUpdatedAtBefore(LocalDateTime threshold) {
 	    queryFactory.delete(qFcmToken)
 	    			.where(qFcmToken.updatedAudit.updatedAt.before(threshold))

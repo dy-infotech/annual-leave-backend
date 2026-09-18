@@ -80,9 +80,8 @@ public class AuthService {
     	}
     }
     
-    @Transactional
     public void syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
-		// DB 저장(UPSERT) 및 구글 토픽 비동기 구독 실행
+		// FCM topic 동기화 완료 후 DB 저장(UPSERT)
         notificationService.syncToken(
             employeeId,
             request.getFcmToken(), 
