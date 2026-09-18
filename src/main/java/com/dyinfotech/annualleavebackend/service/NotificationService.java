@@ -117,23 +117,28 @@ public class NotificationService {
 	
 	@Transactional
 	public void syncToken(Long employeeId, String fcmToken, String deviceOs) {
-		// DB에 토큰이 있으면 소유자 변경 처리
-		tokenRepository.findByToken(fcmToken)	// Topic은 migrate(), 토큰 소유자는 updateTokenAndTouch()에서 처리하도록 순서를 맞춤
-						.ifPresent(existingToken -> syncExistingToken(existingToken, employeeId, fcmToken));
+		FcmToken existingToken = tokenRepository.findByToken(fcmToken).orElse(null);
+		if (existingToken != null) {
+			TopicSyncResult result = syncExistingToken(existingToken, employeeId, fcmToken);
+			if (result != TopicSyncResult.SUCCESS) {
+				log.error("FCM topic migration 최종 실패. result={}, token={}, oldEmployeeId={}, newEmployeeId={}", result, fcmToken, existingToken.getEmployeeId(), employeeId);
+				throw new IllegalStateException("FCM topic migration 실패");
+			}
+
+			tokenRepository.updateTokenAndTouch(employeeId, deviceOs, LocalDateTime.now(clock), fcmToken);
+			return;
+		}
 		
 		// DB에 토큰이 없으면 새로운 토큰 생성
-		if (tokenRepository.updateTokenAndTouch(employeeId, deviceOs, LocalDateTime.now(clock), fcmToken) == 0) {
-			subscribeRetry(fcmToken, employeeId, 1).thenAccept(result -> {
-                if (result == TopicSyncResult.SUCCESS) {
-                    tokenRepository.save(new FcmToken(employeeId, fcmToken, deviceOs));
-                    return;
-                }
-
-                log.error("신규 FCM token topic 등록 최종 실패. token={}, employeeId={}", fcmToken, employeeId);
-            });
+		TopicSyncResult result = subscribeRetry(fcmToken, employeeId, 1).join();
+		if (result != TopicSyncResult.SUCCESS) {
+			log.error("신규 FCM token topic 등록 최종 실패. token={}, employeeId={}", fcmToken, employeeId);
+			throw new IllegalStateException("FCM topic 등록 실패");
 		}
+
+		tokenRepository.save(new FcmToken(employeeId, fcmToken, deviceOs));
 	}
-	
+
 	private CompletableFuture<TopicSyncResult> subscribeRetry(String token, Long employeeId, int retryCount) {
 	    return subscribeTopic(token, employeeId)
 	            .thenCompose(result -> {
@@ -148,20 +153,14 @@ public class NotificationService {
 	            });
 	}
 
-	private void syncExistingToken(FcmToken existingToken, Long employeeId, String fcmToken) {
+	private TopicSyncResult syncExistingToken(FcmToken existingToken, Long employeeId, String fcmToken) {
 		Long oldEmployeeId = existingToken.getEmployeeId();
 		if (oldEmployeeId.equals(employeeId)) {
-			return;
+			return TopicSyncResult.SUCCESS;
 		}
 
 		log.info("FCM token 소유자 변경 감지. oldEmployeeId={}, newEmployeeId={}, token={}", oldEmployeeId, employeeId, fcmToken);
-		
-		migrate(fcmToken, oldEmployeeId, employeeId, TopicSyncResult.NONE, 1)
-        .thenAccept(result -> {
-            if (result != TopicSyncResult.SUCCESS) {
-                log.error("FCM topic migration 최종 실패. result={}, token={}, oldEmployeeId={}, newEmployeeId={}", result, fcmToken, oldEmployeeId, employeeId);
-            }
-        });
+		return migrate(fcmToken, oldEmployeeId, employeeId, TopicSyncResult.NONE, 1).join();
 	}
 	
 	private CompletableFuture<TopicSyncResult> migrate(String token, Long oldEmployeeId, Long newEmployeeId, TopicSyncResult previousResult, int retryCount) {

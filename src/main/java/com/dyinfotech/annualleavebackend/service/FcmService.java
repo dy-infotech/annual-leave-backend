@@ -145,6 +145,14 @@ public class FcmService {
 	
 	@Transactional
 	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
-		fcmTokenRepository.deleteByUpdatedAtBefore(now.minusMonths(monthCount));
+		List<com.dyinfotech.annualleavebackend.domain.FcmToken> inactiveTokens =
+				fcmTokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));
+		for (com.dyinfotech.annualleavebackend.domain.FcmToken inactiveToken : inactiveTokens) {
+			if (!unsubscribeTopics(inactiveToken.getToken(), inactiveToken.getEmployeeId()).join()) {
+				log.warn("비활성 FCM token topic 해제 실패 - Token: {}, employeeId={}", maskFcmToken(inactiveToken.getToken()), inactiveToken.getEmployeeId());
+				continue;
+			}
+			fcmTokenRepository.deleteByToken(inactiveToken.getToken());
+		}
 	}
 }
