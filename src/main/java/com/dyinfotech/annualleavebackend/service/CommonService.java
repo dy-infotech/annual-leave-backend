@@ -99,7 +99,7 @@ public class CommonService {
         return getRemainingDays(employee, employeeLeaveService.getCalculatedCurrYearLeaveDays(employee), usedDays);
 	}
 
-	public float getRemainingDays(Employee employee) {
+	public float getRemainingDays(Employee employee, float currTotalLeaveDays) {
 		LocalDate today = LocalDate.now(clock);
 		Year currentYear = Year.from(today);
 		LocalDate leaveYearStart = currentYear.atDay(1);
@@ -110,7 +110,11 @@ public class CommonService {
 				leaveYearStart,
 				leaveYearEnd
 		);
-		return getRemainingDays(employee, employee.getCurrTotalLeaveDays(), usedDays);
+		return getRemainingDays(employee, currTotalLeaveDays, usedDays);
+	}
+
+	public float getRemainingDays(Employee employee) {
+		return getRemainingDays(employee, employee.getCurrTotalLeaveDays());
 	}
 	
 	public Map<Long, Float> getRemainingDays(List<Employee> employees) {
@@ -130,7 +134,7 @@ public class CommonService {
 				                Employee::getEmployeeId,
 				                employee -> {
 				                    Long employeeId = employee.getEmployeeId();
-				                    return getRemainingDays(employee.getCurrTotalLeaveDays(), 
+				                    return getRemainingDays(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee), 
 				                    						adjustedLeaveDaysByEmployee.getOrDefault(employeeId, 0.0f), 
 				                    						usedLeaveDaysByEmployee.getOrDefault(employeeId, 0.0f));
 				                }

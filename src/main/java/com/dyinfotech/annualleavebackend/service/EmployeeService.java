@@ -59,9 +59,10 @@ public class EmployeeService {
                     log.error(errorMsg + " " + "employeeId: " + employeeId + ", approverId: " + employee.getApproverId());
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
-        Float remainingDays = commonService.getRemainingDays(employee);
+        float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+        Float remainingDays = commonService.getRemainingDays(employee, currTotalLeaveDays);
 
-        return EmployeeDto.EmployeeResponse.from(employee, approver, employeeLeaveService.createAuthorityResolver(employeeId), remainingDays);
+        return EmployeeDto.EmployeeResponse.from(employee, approver, employeeLeaveService.createAuthorityResolver(employeeId), currTotalLeaveDays, remainingDays);
     }
     
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
@@ -82,7 +83,8 @@ public class EmployeeService {
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
             // XXX: approver 데이터 필요 없어서 뺐음.
-			responses.add(EmployeeResponse.from(employee, employee, roleResolver, remainingLeaveDaysMap.get(employee.getEmployeeId())));
+			float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+			responses.add(EmployeeResponse.from(employee, employee, roleResolver, currTotalLeaveDays, remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
 
         return responses;

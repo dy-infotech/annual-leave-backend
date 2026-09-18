@@ -64,6 +64,10 @@ public final class EmployeeDto {
         private Boolean isRegisted;
 
         public static EmployeeResponse from(Employee employee, Employee approver, EmployeeAuthorityResolver authorityResolver, Float remainingLeaveDays) {
+            return from(employee, approver, authorityResolver, employee.getCurrTotalLeaveDays(), remainingLeaveDays);
+        }
+
+        public static EmployeeResponse from(Employee employee, Employee approver, EmployeeAuthorityResolver authorityResolver, Float currTotalLeaveDays, Float remainingLeaveDays) {
             return EmployeeResponse.builder()
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
@@ -75,7 +79,7 @@ public final class EmployeeDto {
                     .hireDate(employee.getHireDate())
                     .fireDate(employee.getFireDate())
                     .role(authorityResolver.resolveRole(employee.getEmployeeId()).name())
-                    .currTotalLeaveDays(employee.getCurrTotalLeaveDays())
+                    .currTotalLeaveDays(currTotalLeaveDays)
                     .remainingLeaveDays(remainingLeaveDays)
                     .approverNumber(approver.getEmployeeNumber())
                     .approverName(approver.getName())
