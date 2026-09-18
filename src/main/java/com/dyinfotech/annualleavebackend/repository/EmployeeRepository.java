@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -19,7 +20,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long>, Emplo
     List<Employee> findAllByEmployeeIdInOrderByEmployeeIdAsc(Collection<Long> employeeIds);
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    List<Employee> findAllByFireDateIsNull();
+    List<Employee> findAllByFireDateIsNullOrFireDateGreaterThanEqual(LocalDate now);
 
     Optional<Employee> findByEmployeeNumberAndEmail(String employeeNumber, String email);
     

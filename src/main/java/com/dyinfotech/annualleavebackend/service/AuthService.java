@@ -327,6 +327,10 @@ public class AuthService {
                 	return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
                 });
         
+        if (!employee.isActive(LocalDate.now(clock))) {
+			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "퇴사 처리된 사원입니다.");
+		}
+        
         // 사용 등록 여부 확인
         if (employee.getPassword() == null) {
 			log.error("사용 등록이 되지 않은 사원입니다. employeeNumber: " + request.getEmployeeNumber());

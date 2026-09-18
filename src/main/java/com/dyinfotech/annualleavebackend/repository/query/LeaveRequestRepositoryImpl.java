@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository.query;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
@@ -36,6 +37,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 
     private final JPAQueryFactory queryFactory;
 	private final EntityManager entityManager;
+	private final Clock clock;
 
     private static final QLeaveRequest qLeaveRequest = QLeaveRequest.leaveRequest;
 	
@@ -270,7 +272,8 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
         					.join(qLeaveRequest.employee).fetchJoin()
 			                .where(builder,
 			                		overlap(startDate, endDate),
-			                		qLeaveRequest.employee.fireDate.isNull())
+			                		qLeaveRequest.employee.fireDate.isNull()
+			                				.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock))))
 			                .orderBy(qLeaveRequest.createdAudit.createdAt.desc())
 			                .fetch();
 	}

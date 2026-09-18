@@ -52,7 +52,7 @@ public class EmployeeLeaveService {
     @Transactional
     public void renewAllActiveEmployeesLeave(String currentYear) {
         // 1. 퇴사자를 제외한 전직원 목록 조회 (필요 시 패치 조인이나 벌크 연산 고려)
-        List<Employee> activeEmployees = employeeRepository.findAllByFireDateIsNull();
+        List<Employee> activeEmployees = employeeRepository.findAllByFireDateIsNullOrFireDateGreaterThanEqual(LocalDate.now(clock));
         
         // 2. 루프를 돌며 안전하게 연차 갱신
         for (Employee employee : activeEmployees) {
