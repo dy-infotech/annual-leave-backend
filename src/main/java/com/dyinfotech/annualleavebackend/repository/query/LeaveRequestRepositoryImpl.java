@@ -195,7 +195,9 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				                teamCondition,
 //				                qLeaveRequest.startDate.loe(endDate),
 //				                qLeaveRequest.endDate.goe(startDate)
-				                overlap(startDate, endDate)
+				                overlap(startDate, endDate),
+			                qLeaveRequest.employee.fireDate.isNull()
+			                		.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock)))
 				            )
 				            .groupBy(qLeaveRequest.status)
 				            .fetch();
@@ -217,7 +219,9 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	                            targetCondition,
 //	                            qLeaveRequest.startDate.loe(endDate),
 //	                            qLeaveRequest.endDate.goe(startDate)
-				                overlap(startDate, endDate)
+				                overlap(startDate, endDate),
+			                qLeaveRequest.employee.fireDate.isNull()
+			                		.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock)))
 	                        )
 	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
 	                        .fetch();
