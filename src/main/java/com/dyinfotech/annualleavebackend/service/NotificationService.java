@@ -210,8 +210,16 @@ public class NotificationService {
      */
     @Transactional
     public void logoutToken(String fcmToken, Long employeeId) {
-        if (!fcmService.unsubscribeTopics(fcmToken, employeeId).join()) {
-            log.warn("FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, employeeId);
+        Long topicOwnerId = tokenRepository.findByToken(fcmToken)
+                .map(FcmToken::getEmployeeId)
+                .orElse(employeeId);
+
+        if (!topicOwnerId.equals(employeeId)) {
+            log.info("FCM logout token owner mismatch. requestEmployeeId={}, topicOwnerId={}", employeeId, topicOwnerId);
+        }
+
+        if (!fcmService.unsubscribeTopics(fcmToken, topicOwnerId).join()) {
+            log.warn("FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, topicOwnerId);
             return;
         }
 
