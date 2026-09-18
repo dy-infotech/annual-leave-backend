@@ -69,6 +69,9 @@ public class LeaveRequestService {
     	Employee employee = employeeRepository.findByIdForUpdate(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
     	
     	LocalDate today = LocalDate.now(clock);
+    	if (!employee.isActive(today)) {
+    		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 사원은 휴가를 신청할 수 없습니다.");
+    	}
         String currentYear = String.valueOf(today.getYear());
         // 현재 연도를 currYear에 설정
         if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
