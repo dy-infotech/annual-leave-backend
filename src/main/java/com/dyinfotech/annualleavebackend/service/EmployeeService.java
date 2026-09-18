@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
@@ -261,13 +262,29 @@ public class EmployeeService {
         String finalTeam = request.getTeam() != null && !request.getTeam().trim().isEmpty()
                 ? request.getTeam()
                 : employee.getTeam();
+        String finalPosition = request.getPosition() != null && !request.getPosition().trim().isEmpty()
+                ? request.getPosition()
+                : employee.getPosition();
+
+        if (DepartmentType.getType(request.getDepartment()) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다.");
+        }
+        if (PositionType.getType(finalPosition) == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "직급 정보가 잘못되었습니다.");
+        }
+        if (teamService.findAllByTeam(finalTeam).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다.");
+        }
+        if (request.getFireDate() != null && request.getFireDate().isBefore(request.getHireDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "퇴사일은 입사일 이후여야 합니다.");
+        }
 
         employee.updateInfoByAdmin(
                 request.getName() != null ? request.getName() : employee.getName(),
                 request.getEmail() != null ? request.getEmail() : employee.getEmail(),
                 request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
                 finalTeam,
-                request.getPosition() != null ? request.getPosition() : employee.getPosition(),
+                finalPosition,
                 request.getHireDate(),
                 request.getFireDate(),
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())

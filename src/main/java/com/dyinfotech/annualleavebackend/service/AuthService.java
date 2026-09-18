@@ -316,7 +316,11 @@ public class AuthService {
         
         // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
         // (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
+        Long approverId = employee.getApproverId();
         teamService.refreshApproverIds(employee);
+        if (!Objects.equals(approverId, employee.getApproverId())) {
+        	employeeService.saveEmployee(employee);
+        }
     }
     
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
