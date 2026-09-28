@@ -3,10 +3,12 @@ package com.dyinfotech.annualleavebackend.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +17,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -104,7 +107,11 @@ class OrganizationPolicyRegressionTest {
         Employee resolvedParent = mock(Employee.class);
         when(resolvedParent.getEmployeeId()).thenReturn(3L);
         when(resolvedParent.isActive(TODAY)).thenReturn(true);
-        when(employeeRepository.findAllById(any())).thenReturn(List.of(resolvedParent));
+        when(employeeRepository.findAllById(argThat(ids -> {
+            Set<Long> actual = new HashSet<>();
+            ids.forEach(actual::add);
+            return actual.equals(Set.of(3L));
+        }))).thenReturn(List.of(resolvedParent));
 
         Set<Long> approvers = teamService.refreshApproverIds(employee);
 
@@ -142,7 +149,7 @@ class OrganizationPolicyRegressionTest {
         TeamDto.UpdateRequest request = new TeamDto.UpdateRequest();
         setField(request, "departmentId", 2L);
 
-        when(teamRepository.findById(10L)).thenReturn(Optional.of(team));
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
         when(team.getEnabled()).thenReturn(true);
         when(team.getTeamName()).thenReturn("플랫폼팀");
         when(team.getDepartment()).thenReturn(oldDepartment);
@@ -163,26 +170,37 @@ class OrganizationPolicyRegressionTest {
 
     @Test
     void managerlessTeam_rejectsEmployeeAssignment() {
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(mock(Team.class)));
         when(teamManagerRepository.existsActiveManagerInTeam(10L, TODAY)).thenReturn(false);
 
-        assertThrows(
+        ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> teamService.requireActiveManager(10L)
         );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("담당자가 없는 팀"));
+        verify(teamRepository).findByIdForUpdate(10L);
     }
 
     @Test
     void lastActiveManager_cannotBeRemovedWhenChildTeamDependsOnIt() {
         TeamManagerId id = new TeamManagerId(10L, 1L);
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(mock(Team.class)));
         when(teamManagerRepository.existsById(id)).thenReturn(true);
         when(teamManagerRepository.existsOtherActiveManagerInTeam(10L, 1L, TODAY)).thenReturn(false);
         when(employeeRepository.existsActiveEmployeeInTeam(10L, TODAY)).thenReturn(false);
         when(teamManagerRepository.existsByParentTeam_TeamIdAndTeam_TeamIdNot(10L, 10L)).thenReturn(true);
 
-        assertThrows(
+        ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> teamService.removeManager(10L, 1L)
         );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("마지막 재직 담당자"));
+        verify(teamRepository).findByIdForUpdate(10L);
+        verify(teamManagerRepository, never()).deleteById(id);
     }
 
     @Test
@@ -192,19 +210,61 @@ class OrganizationPolicyRegressionTest {
         TeamDto.UpdateRequest request = new TeamDto.UpdateRequest();
         setField(request, "projectManagerId", 99L);
 
-        when(teamRepository.findById(10L)).thenReturn(Optional.of(team));
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
         when(team.getEnabled()).thenReturn(true);
         when(team.getTeamName()).thenReturn("플랫폼팀");
         when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of());
-        when(employeeRepository.findById(99L)).thenReturn(Optional.of(retiredManager));
+        when(employeeRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(retiredManager));
         when(retiredManager.isActive(TODAY)).thenReturn(false);
 
-        assertThrows(
+        ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
                 () -> teamService.updateTeam(10L, request)
         );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("퇴사 처리된 사원"));
+        verify(teamManagerRepository, never()).deleteAll(any());
     }
 
+    @Test
+    void scheduledRetirement_rejectsFutureApprovalGap() {
+        LocalDate fireDate = TODAY.plusDays(10);
+        LocalDate inactiveFrom = fireDate.plusDays(1);
+
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of(10L));
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(mock(Team.class)));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(mock(Employee.class)));
+        when(teamManagerRepository.existsOtherActiveManagerInTeam(10L, 1L, inactiveFrom)).thenReturn(false);
+        when(employeeRepository.existsActiveEmployeeInTeamExcludingEmployee(10L, 1L, inactiveFrom)).thenReturn(true);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.validateManagerDeactivation(1L, fireDate)
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("예약 퇴사일 이후 결재 공백"));
+    }
+
+    @Test
+    void currentApprover_usesLiveOrganizationInsteadOfStaleStoredPointer() {
+        TeamCacheRow team = new TeamCacheRow(10L, "T팀", 1L, true);
+        TeamManagerCacheRow currentManager = manager(10L, 3L, 20L, null);
+        prepareCaches(List.of(team), List.of(currentManager));
+
+        Employee employee = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(2L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getApproverId()).thenReturn(1L);
+
+        Employee resolved = mock(Employee.class);
+        when(resolved.getEmployeeId()).thenReturn(3L);
+        when(resolved.isActive(TODAY)).thenReturn(true);
+        when(employeeRepository.findAllById(any())).thenReturn(List.of(resolved));
+
+        assertEquals(3L, teamService.resolveCurrentApprover(employee).getEmployeeId());
+    }
     @Test
     void representativeDirectorAlias_mapsToCeo() {
         assertEquals(PositionType.CEO, PositionType.getType("대표이사"));
