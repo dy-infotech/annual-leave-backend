@@ -15,6 +15,9 @@ public interface TeamManagerRepository extends JpaRepository<TeamManager, TeamMa
 
     boolean existsByProjectManager_EmployeeId(Long projectManagerId);
 
+    @Query("select tm.team.teamId from TeamManager tm where tm.projectManager.employeeId = :projectManagerId")
+    List<Long> findTeamIdsByProjectManagerId(@Param("projectManagerId") Long projectManagerId);
+
     List<TeamManager> findAllByTeam_TeamId(Long teamId);
 
     boolean existsByParentTeam_TeamIdAndTeam_TeamIdNot(Long parentTeamId, Long teamId);

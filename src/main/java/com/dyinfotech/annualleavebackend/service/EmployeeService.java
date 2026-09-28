@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Department;
@@ -26,6 +27,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
@@ -44,6 +46,8 @@ public class EmployeeService {
 	private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
     private final EmployeeRepository employeeRepository;
+    private final TeamManagerRepository teamManagerRepository;
+    private final OrganizationCacheInvalidator cacheInvalidator;
     private final PasswordEncoder passwordEncoder;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
@@ -189,20 +193,13 @@ public class EmployeeService {
     
     
     @Transactional
-    @Caching(evict = {
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true),
-    	    @CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
-    })
     public void saveEmployee(Employee employee) {
     	employeeRepository.save(employee);
+    	cacheInvalidator.afterEmployeeViewChange();
     }
     
-    // 사원 정보가 수정되면 캐시를 전체 초기화하여 데이터 정합성을 유지합니다.
+    // 사원 정보가 수정되면 커밋 후 관련 캐시만 무효화하여 데이터 정합성을 유지합니다.
     @Transactional
-    @Caching(evict = {
-        @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, allEntries = true),
-        @CacheEvict(value = CacheConfig.CACHE_TEAM_MANAGEMENT_DATA, allEntries = true)
-    })
     public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
         Employee approver = employeeRepository.findById(approverId)
                 .orElseThrow(() -> {
@@ -221,6 +218,8 @@ public class EmployeeService {
                     log.error(errorMsg + " employeeNumber: " + employeeNumber);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
+
+        List<Long> managedTeamIdsBeforeUpdate = teamManagerRepository.findTeamIdsByProjectManagerId(employee.getEmployeeId());
 
         Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
@@ -286,6 +285,8 @@ public class EmployeeService {
                 request.getFireDate(),
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
+
+        cacheInvalidator.afterEmployeeOrganizationChange(managedTeamIdsBeforeUpdate);
     }
 
 }

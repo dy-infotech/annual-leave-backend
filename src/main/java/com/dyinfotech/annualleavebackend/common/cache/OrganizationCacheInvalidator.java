@@ -36,6 +36,27 @@ public class OrganizationCacheInvalidator {
         this.afterCommitExecutor = afterCommitExecutor;
     }
 
+    public void afterEmployeeViewChange() {
+        afterCommitExecutor.execute(() -> clearSpringCache(CacheConfig.CACHE_EMPLOYEES));
+    }
+
+    public void afterEmployeeOrganizationChange(Collection<Long> managedTeamIds) {
+        afterCommitExecutor.execute(() -> {
+            clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
+            clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
+
+            if (managedTeamIds == null || managedTeamIds.isEmpty()) {
+                return;
+            }
+
+            teamManagerCache.invalidate(CacheConfig.TOTAL_KEY);
+            managedTeamIds.stream()
+                    .filter(id -> id != null)
+                    .map(String::valueOf)
+                    .forEach(teamManagerCache::invalidate);
+        });
+    }
+
     public void afterDepartmentChange(Collection<String> departmentNames, boolean evictEmployeeCache) {
         afterCommitExecutor.execute(() -> {
             departmentCache.invalidate(CacheConfig.TOTAL_KEY);
