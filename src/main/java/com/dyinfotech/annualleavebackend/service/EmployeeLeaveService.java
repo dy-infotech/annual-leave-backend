@@ -24,6 +24,8 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
 
+import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
