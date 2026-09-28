@@ -186,6 +186,26 @@ class OrganizationPolicyRegressionTest {
     }
 
     @Test
+    void retiredManager_cannotReplaceExistingTeamManager() {
+        Team team = mock(Team.class);
+        Employee retiredManager = mock(Employee.class);
+        TeamDto.UpdateRequest request = new TeamDto.UpdateRequest();
+        setField(request, "projectManagerId", 99L);
+
+        when(teamRepository.findById(10L)).thenReturn(Optional.of(team));
+        when(team.getEnabled()).thenReturn(true);
+        when(team.getTeamName()).thenReturn("플랫폼팀");
+        when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of());
+        when(employeeRepository.findById(99L)).thenReturn(Optional.of(retiredManager));
+        when(retiredManager.isActive(TODAY)).thenReturn(false);
+
+        assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.updateTeam(10L, request)
+        );
+    }
+
+    @Test
     void representativeDirectorAlias_mapsToCeo() {
         assertEquals(PositionType.CEO, PositionType.getType("대표이사"));
         assertEquals(PositionType.CEO, PositionType.getType("사장"));

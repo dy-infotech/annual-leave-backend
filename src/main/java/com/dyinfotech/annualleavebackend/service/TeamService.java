@@ -594,7 +594,6 @@ public class TeamService {
             Employee manager = employeeRepository.findById(request.getProjectManagerId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
             validateManager(manager);
-            validateManager(manager);
 
             Long parentTeamId = request.getParentTeamId();
             if (parentTeamId == null) {
@@ -673,6 +672,7 @@ public class TeamService {
         if (request.getProjectManagerId() != null) {
             Employee manager = employeeRepository.findById(request.getProjectManagerId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+            validateManager(manager);
 
             Team parentTeam = newParentTeam;
             if (parentTeam == null) {
