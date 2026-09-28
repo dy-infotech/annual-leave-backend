@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -385,6 +386,24 @@ public class EmployeeService {
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        if (request.getExpected() != null) {
+            boolean noManagedTeamMutationRequested =
+                    request.getManagedTeams() == null
+                            && (request.getTargetTeamsForRoleSwap() == null
+                                || request.getTargetTeamsForRoleSwap().isEmpty());
+
+            if (noManagedTeamMutationRequested && employeeMatchesDesiredState(employee, request)) {
+                // 동일 full PUT 재전송은 DB를 다시 쓰지 않고 성공 처리한다.
+                return;
+            }
+
+            if (!employeeMatchesExpectedState(employee, request.getExpected())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "사원 정보가 다른 요청에 의해 변경되었습니다. 다시 조회해주세요.");
+            }
+        }
 
         List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
