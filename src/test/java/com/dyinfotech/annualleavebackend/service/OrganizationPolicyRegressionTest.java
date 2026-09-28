@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -44,6 +45,8 @@ import com.dyinfotech.annualleavebackend.repository.projection.DepartmentCacheRo
 import com.dyinfotech.annualleavebackend.repository.projection.TeamCacheRow;
 import com.dyinfotech.annualleavebackend.repository.projection.TeamManagerCacheRow;
 import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 
 class OrganizationPolicyRegressionTest {
@@ -272,17 +275,22 @@ class OrganizationPolicyRegressionTest {
     }
 
     @Test
-    void employeeViewCacheGeneration_separatesStaleInFlightKeys() {
+    void employeeViewCacheGeneration_separatesLateStalePutFromFreshLookup() {
         EmployeeViewCacheKey cacheKey = new EmployeeViewCacheKey();
+        Cache<String, String> cache = Caffeine.newBuilder().build();
 
-        String initial = cacheKey.key(1L);
+        String staleInFlightKey = cacheKey.key(1L);
         cacheKey.bumpOrganization();
-        String afterOrganizationChange = cacheKey.key(1L);
-        cacheKey.bumpEmployee(1L);
-        String afterEmployeeChange = cacheKey.key(1L);
+        String freshKey = cacheKey.key(1L);
 
-        assertNotEquals(initial, afterOrganizationChange);
-        assertNotEquals(afterOrganizationChange, afterEmployeeChange);
+        // 조직 변경 전에 시작한 조회가 무효화 이후 늦게 완료되어도 구세대 키에만 저장된다.
+        cache.put(staleInFlightKey, "stale");
+
+        assertNotEquals(staleInFlightKey, freshKey);
+        assertNull(cache.getIfPresent(freshKey));
+
+        cacheKey.bumpEmployee(1L);
+        assertNotEquals(freshKey, cacheKey.key(1L));
     }
 
     private void prepareCaches(
