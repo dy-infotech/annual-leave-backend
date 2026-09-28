@@ -73,6 +73,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(department.getDepartmentId()).thenReturn(1L);
 
         when(request.getDepartment()).thenReturn("SI사업팀");
+        when(request.getManagedTeams()).thenReturn(null);
         when(request.getTargetTeamsForRoleSwap()).thenReturn(List.of("T2", "T1"));
         when(request.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
         when(departmentService.findByDepartmentName("SI사업팀")).thenReturn(Optional.of(department));
