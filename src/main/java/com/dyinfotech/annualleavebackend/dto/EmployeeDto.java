@@ -95,6 +95,24 @@ public final class EmployeeDto {
     
     @Getter
     @NoArgsConstructor
+    public static class ManagedTeamsUpdateRequest {
+        /**
+         * 화면이 마지막으로 조회했을 때의 관리팀 집합.
+         * Backend가 현재 상태와 비교해 stale update를 409로 차단한다.
+         */
+        @NotNull(message = "기준 관리팀 목록은 필수입니다.")
+        private Collection<String> expectedManagedTeams;
+
+        /**
+         * 저장 후 원하는 최종 관리팀 집합.
+         * 동일 요청 재전송 시 current == desired이면 no-op 성공한다.
+         */
+        @NotNull(message = "최종 관리팀 목록은 필수입니다.")
+        private Collection<String> managedTeams;
+    }
+    
+    @Getter
+    @NoArgsConstructor
     public static class EmployeeAdminUpdateRequest {
         @NotBlank(message = "이름은 필수입니다.")
         private String name;
