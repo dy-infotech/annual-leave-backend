@@ -909,8 +909,9 @@ public class TeamService {
                         HttpStatus.BAD_REQUEST,
                         "담당자가 없는 팀은 상위 팀 결재선을 지정할 수 없습니다.");
             }
+            Long desiredParentTeamId = newParentTeam.getTeamId();
             boolean alreadyDesiredParent = currentManagers.stream()
-                    .allMatch(teamManager -> newParentTeam.getTeamId().equals(teamManager.getParentTeamId()));
+                    .allMatch(teamManager -> desiredParentTeamId.equals(teamManager.getParentTeamId()));
             if (!alreadyDesiredParent) {
                 for (TeamManager teamManager : currentManagers) {
                     teamManager.changeParentTeam(newParentTeam);
