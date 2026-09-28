@@ -29,6 +29,8 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 	public List<Employee> findAllEmployees(String searchParam, String team) {
 		// TODO Auto-generated method stub
 		return queryFactory.selectFrom(qEmployee)
+                            .join(qEmployee.department).fetchJoin()
+                            .join(qEmployee.team).fetchJoin()
 			                .where(
 			                    searchCondition(searchParam),
 			                    teamCondition(team)
@@ -49,7 +51,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 
     private BooleanExpression teamCondition(String team) {
         return team != null && !team.isBlank()
-                ? qEmployee.team.eq(team)
+                ? qEmployee.team.teamName.eq(team)
                 : null;
     }
     
