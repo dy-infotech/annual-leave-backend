@@ -268,6 +268,9 @@ public class EmployeeService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "퇴사일은 입사일 이후여야 합니다.");
         }
 
+        teamService.validateManagerDeactivation(employee.getEmployeeId(), request.getFireDate());
+        teamService.requireActiveManager(team.getTeamId());
+
         // 팀-부서 1:N 불변식을 우선한다. 요청 부서와 다르면 팀의 부서를 사용한다.
         Department department = team.getDepartment();
         if (!department.getDepartmentId().equals(requestedDepartment.getDepartmentId())) {

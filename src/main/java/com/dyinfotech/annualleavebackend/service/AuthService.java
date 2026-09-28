@@ -107,6 +107,9 @@ public class AuthService {
         Employee requester = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
         PositionType requesterPosition = PositionType.getType(requester.getPosition());
+        if (requesterPosition == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "직급 정보가 잘못되었습니다.");
+        }
 
         java.util.Collection<String> accessibleTeams;
         if (requester.hasPersonnelAuthority()) {
@@ -220,6 +223,11 @@ public class AuthService {
             }
         }
 
+        // 팀은 담당자 없이 준비 상태로 생성할 수 있지만, 일반 사원 배정 전에는 재직 담당자가 필요하다.
+        // ADMIN 등록은 같은 트랜잭션에서 해당 사원을 담당자로 연결하므로 예외로 허용한다.
+        if (!newTeam && !makeAdminAccount) {
+            teamService.requireActiveManager(team.getTeamId());
+        }
         LocalDate hireDate = LocalDate.parse(request.getHireDate());
         Employee employee = Employee.builder()
                 .employeeNumber(request.getEmployeeNumber())
