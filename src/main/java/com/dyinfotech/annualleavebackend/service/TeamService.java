@@ -1,5 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.AbstractMap;
@@ -8,6 +11,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -734,7 +738,32 @@ public class TeamService {
 
     @Transactional
     public Long createTeam(Long requesterId, TeamDto.CreateRequest request) {
+        return createTeam(requesterId, request, null);
+    }
+
+    @Transactional
+    public Long createTeam(
+            Long requesterId,
+            TeamDto.CreateRequest request,
+            String idempotencyKey) {
         String teamName = request.getTeamName().trim();
+        String normalizedRequestKey = normalizeCreateRequestKey(idempotencyKey);
+        String requestHash = normalizedRequestKey == null
+                ? null
+                : createTeamRequestHash(requesterId, request, teamName);
+
+        if (normalizedRequestKey != null) {
+            Optional<Team> replay = teamRepository.findByCreateRequestKey(normalizedRequestKey);
+            if (replay.isPresent()) {
+                if (!java.util.Objects.equals(replay.get().getCreateRequestHash(), requestHash)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "동일한 Idempotency-Key가 다른 팀 생성 요청에 사용되었습니다.");
+                }
+                return replay.get().getTeamId();
+            }
+        }
+
         if (teamRepository.findByTeamName(teamName).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
         }
@@ -756,10 +785,18 @@ public class TeamService {
                 .enabled(Boolean.TRUE)
                 .department(department)
                 .build();
+        if (normalizedRequestKey != null) {
+            team.markCreateRequest(normalizedRequestKey, requestHash);
+        }
 
         try {
             teamRepository.saveAndFlush(team);
         } catch (DataIntegrityViolationException e) {
+            if (normalizedRequestKey != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "동일한 팀 생성 요청이 동시에 처리되었습니다. 같은 Idempotency-Key로 다시 요청해주세요.");
+            }
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
         }
 
@@ -794,6 +831,41 @@ public class TeamService {
         }
 
         return team.getTeamId();
+    }
+
+    private String normalizeCreateRequestKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return null;
+        }
+
+        String normalized = idempotencyKey.trim();
+        if (normalized.length() < 16
+                || normalized.length() > 128
+                || !normalized.matches("[A-Za-z0-9._:-]+")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Idempotency-Key 형식이 올바르지 않습니다.");
+        }
+        return normalized;
+    }
+
+    private String createTeamRequestHash(
+            Long requesterId,
+            TeamDto.CreateRequest request,
+            String normalizedTeamName) {
+        String canonical = requesterId
+                + "|" + normalizedTeamName.length() + ":" + normalizedTeamName
+                + "|" + String.valueOf(request.getDepartmentId())
+                + "|" + String.valueOf(request.getProjectManagerId())
+                + "|" + String.valueOf(request.getParentTeamId());
+
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", e);
+        }
     }
 
     @Transactional
