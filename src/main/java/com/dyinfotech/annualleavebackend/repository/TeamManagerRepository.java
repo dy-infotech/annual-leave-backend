@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,6 +20,20 @@ public interface TeamManagerRepository extends JpaRepository<TeamManager, TeamMa
     List<Long> findTeamIdsByProjectManagerId(@Param("projectManagerId") Long projectManagerId);
 
     List<TeamManager> findAllByTeam_TeamId(Long teamId);
+
+    @Query("select count(tm) > 0 from TeamManager tm "
+            + "where tm.team.teamId = :teamId "
+            + "and (tm.projectManager.fireDate is null or tm.projectManager.fireDate >= :today)")
+    boolean existsActiveManagerInTeam(@Param("teamId") Long teamId, @Param("today") LocalDate today);
+
+    @Query("select count(tm) > 0 from TeamManager tm "
+            + "where tm.team.teamId = :teamId "
+            + "and tm.projectManager.employeeId <> :employeeId "
+            + "and (tm.projectManager.fireDate is null or tm.projectManager.fireDate >= :today)")
+    boolean existsOtherActiveManagerInTeam(
+            @Param("teamId") Long teamId,
+            @Param("employeeId") Long employeeId,
+            @Param("today") LocalDate today);
 
     boolean existsByParentTeam_TeamIdAndTeam_TeamIdNot(Long parentTeamId, Long teamId);
 

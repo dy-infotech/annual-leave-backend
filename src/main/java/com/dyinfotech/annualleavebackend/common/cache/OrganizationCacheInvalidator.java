@@ -42,18 +42,17 @@ public class OrganizationCacheInvalidator {
 
     public void afterEmployeeOrganizationChange(Collection<Long> managedTeamIds) {
         afterCommitExecutor.execute(() -> {
-            clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
-            clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
-
-            if (managedTeamIds == null || managedTeamIds.isEmpty()) {
-                return;
+            if (managedTeamIds != null && !managedTeamIds.isEmpty()) {
+                // 원본 조직 snapshot을 먼저 비운 뒤 파생 응답 캐시를 제거한다.
+                teamManagerCache.invalidate(CacheConfig.TOTAL_KEY);
+                managedTeamIds.stream()
+                        .filter(id -> id != null)
+                        .map(String::valueOf)
+                        .forEach(teamManagerCache::invalidate);
             }
 
-            teamManagerCache.invalidate(CacheConfig.TOTAL_KEY);
-            managedTeamIds.stream()
-                    .filter(id -> id != null)
-                    .map(String::valueOf)
-                    .forEach(teamManagerCache::invalidate);
+            clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
+            clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
         });
     }
 
