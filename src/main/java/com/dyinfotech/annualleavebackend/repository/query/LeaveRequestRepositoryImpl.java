@@ -58,6 +58,12 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    return condition;
 	}
 	
+    private BooleanExpression activeEmployeeAt(LocalDate date) {
+        return qLeaveRequest.employee.hireDate.loe(date)
+                .and(qLeaveRequest.employee.fireDate.isNull()
+                        .or(qLeaveRequest.employee.fireDate.goe(date)));
+    }
+
 	private BooleanExpression annualLeaveUsageCondition(Collection<LeaveRequestStatus> status, LocalDate startDate, LocalDate endDate) {
 	    return qLeaveRequest.status.in(status)
 	            .and(qLeaveRequest.startDate.between(startDate, endDate))
@@ -165,7 +171,8 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 			pendingTargetCondition = pendingTargetCondition.or(qLeaveRequest.employee.employeeId.in(childTeamProjectManagerIds));
 		}
 		BooleanExpression pendingCondition = qLeaveRequest.status.eq(LeaveRequestStatus.PENDING)
-													            .and(pendingTargetCondition);
+													            .and(pendingTargetCondition)
+                                                                .and(activeEmployeeAt(LocalDate.now(clock)));
 
 		BooleanExpression processedCondition = qLeaveRequest.status.in(LeaveRequestStatus.APPROVED, LeaveRequestStatus.REJECTED)
 		        													.and(qLeaveRequest.employee.team.teamName.in(accessibleTeams));
@@ -182,9 +189,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				            .from(qLeaveRequest)
 				            .where(
 				                teamCondition,
-				                overlap(startDate, endDate),
-				                qLeaveRequest.employee.fireDate.isNull()
-				                		.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock)))
+				                overlap(startDate, endDate)
 				            )
 				            .groupBy(qLeaveRequest.status)
 				            .fetch();
@@ -207,8 +212,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 //	                            qLeaveRequest.startDate.loe(endDate),
 //	                            qLeaveRequest.endDate.goe(startDate)
 				                overlap(startDate, endDate),
-			                qLeaveRequest.employee.fireDate.isNull()
-			                		.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock)))
+                                activeEmployeeAt(LocalDate.now(clock))
 	                        )
 	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
 	                        .fetch();
@@ -281,10 +285,10 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    
         return queryFactory.selectFrom(qLeaveRequest)
         					.join(qLeaveRequest.employee).fetchJoin()
-			                .where(builder,
-			                		overlap(startDate, endDate),
-			                		qLeaveRequest.employee.fireDate.isNull()
-			                				.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock))))
+			                .where(
+                                    builder,
+			                		overlap(startDate, endDate)
+                            )
 			                .orderBy(qLeaveRequest.createdAudit.createdAt.desc())
 			                .fetch();
 	}

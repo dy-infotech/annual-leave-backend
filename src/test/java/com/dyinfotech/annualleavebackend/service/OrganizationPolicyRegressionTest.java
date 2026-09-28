@@ -429,6 +429,7 @@ class OrganizationPolicyRegressionTest {
                 "E" + employeeId,
                 "관리자" + employeeId,
                 "부장",
+                TODAY.minusYears(1),
                 fireDate
         );
     }

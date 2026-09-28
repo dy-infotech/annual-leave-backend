@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 public class TeamCreateCoordinator {
 
     private final TeamService teamService;
-    private final ConcurrentMap<String, Object> requestLocks = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, LockEntry> requestLocks = new ConcurrentHashMap<>();
 
     public Long createTeam(
             Long requesterId,
@@ -30,9 +30,29 @@ public class TeamCreateCoordinator {
         }
 
         String lockKey = idempotencyKey.trim();
-        Object monitor = requestLocks.computeIfAbsent(lockKey, ignored -> new Object());
-        synchronized (monitor) {
-            return teamService.createTeam(requesterId, request, lockKey);
+        LockEntry entry = requestLocks.compute(lockKey, (key, current) -> {
+            LockEntry resolved = current != null ? current : new LockEntry();
+            resolved.references++;
+            return resolved;
+        });
+
+        try {
+            synchronized (entry.monitor) {
+                return teamService.createTeam(requesterId, request, lockKey);
+            }
+        } finally {
+            requestLocks.computeIfPresent(lockKey, (key, current) -> {
+                if (current != entry) {
+                    return current;
+                }
+                current.references--;
+                return current.references == 0 ? null : current;
+            });
         }
+    }
+
+    private static final class LockEntry {
+        private final Object monitor = new Object();
+        private int references;
     }
 }
