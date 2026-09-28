@@ -418,12 +418,33 @@ public class TeamService {
         cacheInvalidator.afterTeamManagerChange(Set.of(teamId));
     }
 
+    private Team lockTeam(Long teamId) {
+        return teamRepository.findByIdForUpdate(teamId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+    }
+
+    private Map<Long, Team> lockTeams(Collection<Long> teamIds) {
+        Map<Long, Team> locked = new HashMap<>();
+        if (teamIds == null) {
+            return locked;
+        }
+
+        teamIds.stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(teamId -> locked.put(teamId, lockTeam(teamId)));
+        return locked;
+    }
+
     public boolean hasActiveManager(Long teamId) {
         return teamId != null
                 && teamManagerRepository.existsActiveManagerInTeam(teamId, LocalDate.now(clock));
     }
 
+    @Transactional
     public void requireActiveManager(Long teamId) {
+        lockTeam(teamId);
         if (!hasActiveManager(teamId)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -431,24 +452,51 @@ public class TeamService {
         }
     }
 
+    @Transactional
     public void validateManagerDeactivation(Long employeeId, LocalDate fireDate) {
-        LocalDate today = LocalDate.now(clock);
-        if (fireDate == null || !fireDate.isBefore(today)) {
+        if (fireDate == null) {
             return;
         }
 
-        for (Long teamId : teamManagerRepository.findTeamIdsByProjectManagerId(employeeId)) {
-            if (!teamManagerRepository.existsOtherActiveManagerInTeam(teamId, employeeId, today)
-                    && hasApprovalDependents(teamId, today)) {
+        LocalDate inactiveFrom = fireDate.equals(LocalDate.MAX) ? fireDate : fireDate.plusDays(1);
+        List<Long> initialTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+
+        lockTeams(initialTeamIds);
+        employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        List<Long> currentTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        if (!initialTeamIds.equals(currentTeamIds)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "담당 팀 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
+        }
+
+        for (Long teamId : currentTeamIds) {
+            if (!teamManagerRepository.existsOtherActiveManagerInTeam(teamId, employeeId, inactiveFrom)
+                    && hasApprovalDependentsAfterDeactivation(teamId, employeeId, inactiveFrom)) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "활성 사원 또는 하위 팀이 의존하는 팀의 마지막 재직 담당자는 퇴사 처리할 수 없습니다.");
+                        "예약 퇴사일 이후 결재 공백이 발생합니다. 다른 재직 담당자를 먼저 지정해주세요.");
             }
         }
     }
 
     private boolean hasApprovalDependents(Long teamId, LocalDate today) {
         return employeeRepository.existsActiveEmployeeInTeam(teamId, today)
+                || teamManagerRepository.existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId);
+    }
+
+    private boolean hasApprovalDependentsAfterDeactivation(Long teamId, Long employeeId, LocalDate inactiveFrom) {
+        return employeeRepository.existsActiveEmployeeInTeamExcludingEmployee(teamId, employeeId, inactiveFrom)
                 || teamManagerRepository.existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId);
     }
 
@@ -469,6 +517,7 @@ public class TeamService {
 
     @Transactional
     public void removeManager(Long teamId, Long employeeId) {
+        lockTeam(teamId);
         TeamManagerId id = new TeamManagerId(teamId, employeeId);
         if (!teamManagerRepository.existsById(id)) {
             return;
@@ -490,12 +539,11 @@ public class TeamService {
     public void addManager(String teamName, Long employeeId, Long parentTeamId) {
         TeamCacheRow teamInfo = findTeamInfo(teamName)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
-        Team team = teamRepository.findById(teamInfo.teamId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
-        Employee employee = employeeRepository.findById(employeeId)
+        Map<Long, Team> lockedTeams = lockTeams(List.of(teamInfo.teamId(), parentTeamId));
+        Team team = lockedTeams.get(teamInfo.teamId());
+        Team parent = lockedTeams.get(parentTeamId);
+        Employee employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-        Team parent = teamRepository.findById(parentTeamId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀 정보가 잘못되었습니다."));
 
         validateManager(employee);
         validateParentTeam(team, parent);
@@ -591,9 +639,7 @@ public class TeamService {
         cacheInvalidator.afterTeamChange(Set.of(teamName), false);
 
         if (request.getProjectManagerId() != null) {
-            Employee manager = employeeRepository.findById(request.getProjectManagerId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
-            validateManager(manager);
+            Employee manager;
 
             Long parentTeamId = request.getParentTeamId();
             if (parentTeamId == null) {
@@ -602,8 +648,10 @@ public class TeamService {
                 parentTeamId = requester.getTeamId();
             }
 
-            Team parentTeam = teamRepository.findById(parentTeamId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다."));
+            Team parentTeam = lockTeam(parentTeamId);
+            manager = employeeRepository.findByIdForUpdate(request.getProjectManagerId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+            validateManager(manager);
             validateParentTeam(team, parentTeam);
             teamManagerRepository.save(TeamManager.builder()
                     .team(team)
@@ -618,8 +666,10 @@ public class TeamService {
 
     @Transactional
     public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+        Map<Long, Team> lockedTeams = lockTeams(request.getParentTeamId() == null
+                ? List.of(teamId)
+                : List.of(teamId, request.getParentTeamId()));
+        Team team = lockedTeams.get(teamId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
         }
@@ -663,14 +713,16 @@ public class TeamService {
             if (request.getParentTeamId().equals(teamId)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 자신을 상위 팀으로 지정할 수 없습니다.");
             }
-            newParentTeam = teamRepository.findById(request.getParentTeamId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다."));
+            newParentTeam = lockedTeams.get(request.getParentTeamId());
+            if (newParentTeam == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "상위 팀이 존재하지 않습니다.");
+            }
             validateParentTeam(team, newParentTeam);
             validateNoCycle(teamId, newParentTeam);
         }
 
         if (request.getProjectManagerId() != null) {
-            Employee manager = employeeRepository.findById(request.getProjectManagerId())
+            Employee manager = employeeRepository.findByIdForUpdate(request.getProjectManagerId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
             validateManager(manager);
 
@@ -746,8 +798,7 @@ public class TeamService {
 
     @Transactional
     public void deleteTeam(Long teamId) {
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다."));
+        Team team = lockTeam(teamId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             return;
         }
