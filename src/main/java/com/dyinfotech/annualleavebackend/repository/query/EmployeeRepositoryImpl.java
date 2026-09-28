@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository.query;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +54,39 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         return team != null && !team.isBlank()
                 ? qEmployee.team.teamName.eq(team)
                 : null;
+    }
+
+    private BooleanExpression activeAt(LocalDate date) {
+        return qEmployee.hireDate.loe(date)
+                .and(qEmployee.fireDate.isNull().or(qEmployee.fireDate.goe(date)));
+    }
+
+    @Override
+    public List<Employee> findAllActiveAt(LocalDate date) {
+        return queryFactory.selectFrom(qEmployee)
+                .where(activeAt(date))
+                .orderBy(qEmployee.employeeId.asc())
+                .fetch();
+    }
+
+    @Override
+    public boolean existsActiveEmployeeInTeam(Long teamId, LocalDate date) {
+        return queryFactory.selectOne()
+                .from(qEmployee)
+                .where(qEmployee.team.teamId.eq(teamId), activeAt(date))
+                .fetchFirst() != null;
+    }
+
+    @Override
+    public boolean existsActiveEmployeeInTeamExcludingEmployee(Long teamId, Long employeeId, LocalDate date) {
+        return queryFactory.selectOne()
+                .from(qEmployee)
+                .where(
+                        qEmployee.team.teamId.eq(teamId),
+                        qEmployee.employeeId.ne(employeeId),
+                        activeAt(date)
+                )
+                .fetchFirst() != null;
     }
     
     @Override

@@ -156,8 +156,9 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
 
     public boolean isRegisted() { return this.password != null && !this.password.isBlank(); }
 
-    public boolean isActive(LocalDate now) {
-        return this.fireDate == null || !this.fireDate.isBefore(now);
+    public boolean isActive(LocalDate date) {
+        return !this.hireDate.isAfter(date)
+                && (this.fireDate == null || !this.fireDate.isBefore(date));
     }
 
     public boolean hasPersonnelAuthority() {
