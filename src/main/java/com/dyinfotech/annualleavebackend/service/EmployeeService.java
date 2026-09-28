@@ -503,4 +503,29 @@ public class EmployeeService {
                 List.of(oldEmployeeName, employee.getName()),
                 employee.getEmployeeNumber());
     }
+
+    private boolean employeeMatchesExpectedState(
+            Employee employee,
+            EmployeeDto.EmployeeAdminExpectedState expected) {
+        return Objects.equals(employee.getName(), expected.getName())
+                && Objects.equals(employee.getEmail(), expected.getEmail())
+                && Objects.equals(employee.getDepartmentName(), expected.getDepartment())
+                && Objects.equals(employee.getTeamName(), expected.getTeam())
+                && Objects.equals(employee.getPosition(), expected.getPosition())
+                && Objects.equals(employee.getHireDate(), expected.getHireDate())
+                && Objects.equals(employee.getFireDate(), expected.getFireDate());
+    }
+
+    private boolean employeeMatchesDesiredState(
+            Employee employee,
+            EmployeeDto.EmployeeAdminUpdateRequest request) {
+        return Objects.equals(employee.getName(), request.getName())
+                && Objects.equals(employee.getEmail(), request.getEmail())
+                && Objects.equals(employee.getDepartmentName(), request.getDepartment())
+                && Objects.equals(employee.getTeamName(), request.getTeam())
+                && Objects.equals(employee.getPosition(), request.getPosition())
+                && Objects.equals(employee.getHireDate(), request.getHireDate())
+                && Objects.equals(employee.getFireDate(), request.getFireDate());
+    }
+
 }
