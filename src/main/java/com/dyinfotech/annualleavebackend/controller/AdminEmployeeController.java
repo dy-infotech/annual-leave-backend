@@ -40,6 +40,17 @@ public class AdminEmployeeController {
     }
     
     
+    @PutMapping("/{employeeNumber}/managed-teams")
+    public ResponseEntity<Void> updateManagedTeams(
+            @AuthenticationPrincipal EmployeePrincipal principal,
+            @PathVariable("employeeNumber") String employeeNumber,
+            @Valid @RequestBody EmployeeDto.ManagedTeamsUpdateRequest request) {
+        authService.checkAdmin(principal.employeeId());
+        employeeService.updateManagedTeamsByAdmin(principal.employeeId(), employeeNumber, request);
+        return ResponseEntity.ok().build();
+    }
+    
+    
     @PutMapping("/{employeeNumber}") 
     public ResponseEntity<Void> updateEmployeeByAdmin(
     		@AuthenticationPrincipal EmployeePrincipal principal,
