@@ -180,7 +180,8 @@ BEGIN
               FROM (
                     SELECT DISTINCT TRIM(e.team) AS team_name
                       FROM employee e
-                     WHERE e.fire_date IS NULL OR e.fire_date >= TRUNC(SYSDATE)
+                     WHERE e.hire_date <= TRUNC(SYSDATE)
+                       AND (e.fire_date IS NULL OR e.fire_date >= TRUNC(SYSDATE))
                     UNION
                     SELECT DISTINCT TRIM(t.parent_team)
                       FROM team t
@@ -192,6 +193,7 @@ BEGIN
                       JOIN employee pm
                         ON pm.employee_id = tm.project_manager_id
                      WHERE TRIM(tm.team) = required.team_name
+                       AND pm.hire_date <= TRUNC(SYSDATE)
                        AND (pm.fire_date IS NULL OR pm.fire_date >= TRUNC(SYSDATE))
              )
       );
@@ -545,7 +547,8 @@ BEGIN
               FROM (
                     SELECT DISTINCT e.team_id
                       FROM employee e
-                     WHERE e.fire_date IS NULL OR e.fire_date >= TRUNC(SYSDATE)
+                     WHERE e.hire_date <= TRUNC(SYSDATE)
+                       AND (e.fire_date IS NULL OR e.fire_date >= TRUNC(SYSDATE))
                     UNION
                     SELECT DISTINCT tm.parent_team_id
                       FROM team_manager tm
@@ -557,6 +560,7 @@ BEGIN
                       JOIN employee pm
                         ON pm.employee_id = tm.project_manager_id
                      WHERE tm.team_id = required.team_id
+                       AND pm.hire_date <= TRUNC(SYSDATE)
                        AND (pm.fire_date IS NULL OR pm.fire_date >= TRUNC(SYSDATE))
              )
       );
