@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +18,6 @@ import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.domain.QLeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveUsage;
 import com.querydsl.core.BooleanBuilder;
@@ -157,30 +155,21 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, LocalDate startDate, LocalDate endDate) {
-		Set<Long> childTeamProjectManagerIds = new HashSet<>();
-		Set<String> accessibleTeamNames = new HashSet<>();
-		for (Team team : accessibleTeams) {
-		    accessibleTeamNames.add(team.getTeam());
-		    if (directTeams.contains(team.getParentTeam()) && team.getProjectManager() != null) {
-		        childTeamProjectManagerIds.add(team.getProjectManager().getEmployeeId());
-		    }
-		}
-		
-		BooleanExpression directTeamCondition = qLeaveRequest.employee.team.in(directTeams);
+	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<String> accessibleTeams, Collection<Long> childTeamProjectManagerIds, LocalDate startDate, LocalDate endDate) {
+		BooleanExpression directTeamCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
 		if (excludeId != null) {
 			directTeamCondition = directTeamCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
 		}
 		BooleanExpression pendingTargetCondition = directTeamCondition;
-		if (!childTeamProjectManagerIds.isEmpty()) {
-		    pendingTargetCondition = pendingTargetCondition.or(qLeaveRequest.employee.employeeId.in(childTeamProjectManagerIds));
+		if (childTeamProjectManagerIds != null && !childTeamProjectManagerIds.isEmpty()) {
+			pendingTargetCondition = pendingTargetCondition.or(qLeaveRequest.employee.employeeId.in(childTeamProjectManagerIds));
 		}
 		BooleanExpression pendingCondition = qLeaveRequest.status.eq(LeaveRequestStatus.PENDING)
 													            .and(pendingTargetCondition);
 
 		BooleanExpression processedCondition = qLeaveRequest.status.in(LeaveRequestStatus.APPROVED, LeaveRequestStatus.REJECTED)
-		        													.and(qLeaveRequest.employee.team.in(accessibleTeamNames));
-		
+		        													.and(qLeaveRequest.employee.team.teamName.in(accessibleTeams));
+
 		BooleanExpression teamCondition = pendingCondition.or(processedCondition);
 
 	    return queryFactory.select(
@@ -193,11 +182,9 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				            .from(qLeaveRequest)
 				            .where(
 				                teamCondition,
-//				                qLeaveRequest.startDate.loe(endDate),
-//				                qLeaveRequest.endDate.goe(startDate)
 				                overlap(startDate, endDate),
-			                qLeaveRequest.employee.fireDate.isNull()
-			                		.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock)))
+				                qLeaveRequest.employee.fireDate.isNull()
+				                		.or(qLeaveRequest.employee.fireDate.goe(LocalDate.now(clock)))
 				            )
 				            .groupBy(qLeaveRequest.status)
 				            .fetch();
@@ -205,7 +192,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	
 	@Override
 	public List<LeaveRequest> findByStatusAndTeamsInRange(Long excludeId, LeaveRequestStatus status, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LocalDate startDate, LocalDate endDate) {
-		BooleanExpression targetCondition = qLeaveRequest.employee.team.in(directTeams);
+		BooleanExpression targetCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
 		if (excludeId != null) {
 		    targetCondition = targetCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
 		}
@@ -282,7 +269,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	    }
 
 	    if (teams != null && !teams.isEmpty()) {
-	        builder.and(qLeaveRequest.employee.team.in(teams));
+	        builder.and(qLeaveRequest.employee.team.teamName.in(teams));
 	    }
 	    
 	    if (searchEmployeeParam != null && !searchEmployeeParam.trim().isEmpty()) {

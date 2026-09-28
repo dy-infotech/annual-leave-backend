@@ -14,7 +14,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
-import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
 import com.dyinfotech.annualleavebackend.repository.query.LeaveRequestRepositoryCustom;
 
@@ -54,14 +53,14 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     }
 
     // 전직원 기준 특정 상태 요청 개수 (관리자용)
-	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, Year year) {
+	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<String> accessibleTeams, Collection<Long> childTeamProjectManagerIds, Year year) {
 		if (directTeams == null || directTeams.isEmpty() || accessibleTeams == null || accessibleTeams.isEmpty()) {
 			return Collections.emptyList();
 		}
-		return countByStatus(excludeId, directTeams, accessibleTeams, getStartOfYear(year), getEndOfYear(year));
+		return countByStatus(excludeId, directTeams, accessibleTeams, childTeamProjectManagerIds, getStartOfYear(year), getEndOfYear(year));
 	}
-	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<Team> accessibleTeams, Clock clock) {
-		return countByStatus(excludeId, directTeams, accessibleTeams, Year.now(clock));
+	default List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<String> accessibleTeams, Collection<Long> childTeamProjectManagerIds, Clock clock) {
+		return countByStatus(excludeId, directTeams, accessibleTeams, childTeamProjectManagerIds, Year.now(clock));
 	}
 
 	// 승인 대기 상태 휴가 조회 (관리자용)
