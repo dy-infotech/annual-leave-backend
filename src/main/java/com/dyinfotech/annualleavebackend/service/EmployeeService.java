@@ -225,10 +225,18 @@ public class EmployeeService {
         Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
 
-        Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
-        if (targetTeams == null || targetTeams.isEmpty()) {
-            targetTeams = Collections.emptyList();
+        boolean desiredManagedTeamsProvided = request.getManagedTeams() != null;
+        Collection<String> requestedManagementTeams = desiredManagedTeamsProvided
+                ? request.getManagedTeams()
+                : request.getTargetTeamsForRoleSwap();
+        if (requestedManagementTeams == null || requestedManagementTeams.isEmpty()) {
+            requestedManagementTeams = Collections.emptyList();
         }
+        Set<String> normalizedManagementTeams = requestedManagementTeams.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(teamName -> !teamName.isEmpty())
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
 
         Set<Long> plannedTeamIds = new HashSet<>(managedTeamIdsBeforeUpdate);
         if (employee.getTeamId() != null) {
@@ -237,7 +245,7 @@ public class EmployeeService {
 
         Map<String, Long> requestedTeamIds = new HashMap<>();
         Map<String, Long> requestedParentTeamIds = new HashMap<>();
-        for (String targetTeam : targetTeams) {
+        for (String targetTeam : normalizedManagementTeams) {
             var teamInfo = teamService.findTeamInfo(targetTeam)
                     .orElseThrow(() -> {
                         String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
@@ -282,20 +290,37 @@ public class EmployeeService {
                     .ifPresent(teamInfo -> managedByEmployee.put(teamInfo.teamName(), teamInfo.teamId()));
         }
 
-        for (String targetTeam : targetTeams) {
-            Long managedTeamId = managedByEmployee.get(targetTeam);
-            if (managedTeamId != null) {
-                teamService.removeManager(managedTeamId, employeeId);
-            } else {
-                Long targetTeamId = requestedTeamIds.get(targetTeam);
-                Long parentTeamId = requestedParentTeamIds.get(targetTeam);
-                String targetTeamName = teamService.findTeamInfo(targetTeamId)
-                        .map(info -> info.teamName())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "팀 정보가 동시에 변경되었습니다."));
-                teamService.addManager(targetTeamName, employeeId, parentTeamId);
+        Set<String> teamsToRemove = new java.util.LinkedHashSet<>();
+        Set<String> teamsToAdd = new java.util.LinkedHashSet<>();
+        if (desiredManagedTeamsProvided) {
+            // desired-state PUT: 같은 요청을 반복해도 최종 관리팀 상태가 동일하다.
+            teamsToRemove.addAll(managedByEmployee.keySet());
+            teamsToRemove.removeAll(normalizedManagementTeams);
+
+            teamsToAdd.addAll(normalizedManagementTeams);
+            teamsToAdd.removeAll(managedByEmployee.keySet());
+        } else {
+            // 하위 호환용 legacy toggle. 프론트 전환 후 제거 대상이다.
+            for (String targetTeam : normalizedManagementTeams) {
+                if (managedByEmployee.containsKey(targetTeam)) {
+                    teamsToRemove.add(targetTeam);
+                } else {
+                    teamsToAdd.add(targetTeam);
+                }
             }
         }
 
+        for (String teamNameToRemove : teamsToRemove) {
+            teamService.removeManager(managedByEmployee.get(teamNameToRemove), employeeId);
+        }
+        for (String teamNameToAdd : teamsToAdd) {
+            Long targetTeamId = requestedTeamIds.get(teamNameToAdd);
+            Long parentTeamId = requestedParentTeamIds.get(teamNameToAdd);
+            String targetTeamName = teamService.findTeamInfo(targetTeamId)
+                    .map(info -> info.teamName())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "팀 정보가 동시에 변경되었습니다."));
+            teamService.addManager(targetTeamName, employeeId, parentTeamId);
+        }
         Team team = employee.getTeam();
         if (requestedEmployeeTeamId != null) {
             team = teamService.findByTeamName(request.getTeam())
