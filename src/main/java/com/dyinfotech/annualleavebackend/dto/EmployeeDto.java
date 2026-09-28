@@ -113,7 +113,26 @@ public final class EmployeeDto {
     
     @Getter
     @NoArgsConstructor
+    public static class EmployeeAdminExpectedState {
+        private String name;
+        private String email;
+        private String department;
+        private String team;
+        private String position;
+        private LocalDate hireDate;
+        private LocalDate fireDate;
+    }
+    
+    @Getter
+    @NoArgsConstructor
     public static class EmployeeAdminUpdateRequest {
+        /**
+         * v2 화면이 마지막으로 조회한 인사정보 snapshot.
+         * 값이 있으면 잠금 획득 후 현재 DB 상태와 비교해 stale update를 409로 차단한다.
+         * 구 프론트 호환을 위해 생략 가능하다.
+         */
+        private EmployeeAdminExpectedState expected;
+
         @NotBlank(message = "이름은 필수입니다.")
         private String name;
 
