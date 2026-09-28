@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.inOrder;
@@ -15,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
@@ -160,4 +163,146 @@ class EmployeeOrganizationLockRegressionTest {
         verify(teamService, never()).removeManager(any(), any());
         verify(teamService, never()).addManager(any(), any(), any());
     }
+
+    @Test
+    void managedTeamsUpdate_replayedAfterCommit_isIdempotentNoOp() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        CommonService commonService = mock(CommonService.class);
+        EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        OrganizationCacheInvalidator cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, commonService, employeeLeaveService,
+                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeCacheInvalidator, passwordEncoder);
+
+        Employee approver = mock(Employee.class);
+        Employee employee = mock(Employee.class);
+        EmployeeDto.ManagedTeamsUpdateRequest request = mock(EmployeeDto.ManagedTeamsUpdateRequest.class);
+        TeamCacheRow t1 = new TeamCacheRow(10L, "T1", 1L, true);
+        TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(approver.getTeamId()).thenReturn(30L);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
+        when(request.getManagedTeams()).thenReturn(List.of("T1", "T2"));
+        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo("T2")).thenReturn(Optional.of(t2));
+        when(teamService.findTeamInfo(10L)).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo(20L)).thenReturn(Optional.of(t2));
+        when(teamService.resolveParentTeamId("T1")).thenReturn(Optional.of(30L));
+        when(teamService.resolveParentTeamId("T2")).thenReturn(Optional.of(30L));
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L))
+                .thenReturn(List.of(10L, 20L), List.of(10L, 20L));
+
+        service.updateManagedTeamsByAdmin(100L, "E001", request);
+
+        verify(teamService, never()).removeManager(any(), any());
+        verify(teamService, never()).addManager(any(), any(), any());
+    }
+
+    @Test
+    void managedTeamsUpdate_staleExpectedState_isRejectedWithoutWrite() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        CommonService commonService = mock(CommonService.class);
+        EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        OrganizationCacheInvalidator cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, commonService, employeeLeaveService,
+                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeCacheInvalidator, passwordEncoder);
+
+        Employee approver = mock(Employee.class);
+        Employee employee = mock(Employee.class);
+        EmployeeDto.ManagedTeamsUpdateRequest request = mock(EmployeeDto.ManagedTeamsUpdateRequest.class);
+        TeamCacheRow t1 = new TeamCacheRow(10L, "T1", 1L, true);
+        TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
+        TeamCacheRow t3 = new TeamCacheRow(30L, "T3", 1L, true);
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(approver.getTeamId()).thenReturn(40L);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
+        when(request.getManagedTeams()).thenReturn(List.of("T1", "T3"));
+        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo("T3")).thenReturn(Optional.of(t3));
+        when(teamService.findTeamInfo(10L)).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo(20L)).thenReturn(Optional.of(t2));
+        when(teamService.resolveParentTeamId("T1")).thenReturn(Optional.of(40L));
+        when(teamService.resolveParentTeamId("T3")).thenReturn(Optional.of(40L));
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L))
+                .thenReturn(List.of(10L, 20L), List.of(10L, 20L));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.updateManagedTeamsByAdmin(100L, "E001", request));
+
+        assertEquals(409, exception.getStatusCode().value());
+        verify(teamService, never()).removeManager(any(), any());
+        verify(teamService, never()).addManager(any(), any(), any());
+    }
+
+    @Test
+    void managedTeamsUpdate_matchingExpectedState_appliesOnlyDiff() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        CommonService commonService = mock(CommonService.class);
+        EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        OrganizationCacheInvalidator cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, commonService, employeeLeaveService,
+                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeCacheInvalidator, passwordEncoder);
+
+        Employee approver = mock(Employee.class);
+        Employee employee = mock(Employee.class);
+        EmployeeDto.ManagedTeamsUpdateRequest request = mock(EmployeeDto.ManagedTeamsUpdateRequest.class);
+        TeamCacheRow t1 = new TeamCacheRow(10L, "T1", 1L, true);
+        TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(approver.getTeamId()).thenReturn(30L);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
+        when(request.getManagedTeams()).thenReturn(List.of("T1", "T2"));
+        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo("T2")).thenReturn(Optional.of(t2));
+        when(teamService.findTeamInfo(10L)).thenReturn(Optional.of(t1));
+        when(teamService.resolveParentTeamId("T1")).thenReturn(Optional.of(30L));
+        when(teamService.resolveParentTeamId("T2")).thenReturn(Optional.of(30L));
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L))
+                .thenReturn(List.of(10L), List.of(10L));
+
+        service.updateManagedTeamsByAdmin(100L, "E001", request);
+
+        verify(teamService, never()).removeManager(any(), any());
+        verify(teamService).addManager("T2", 1L, 30L);
+    }
+
 }
