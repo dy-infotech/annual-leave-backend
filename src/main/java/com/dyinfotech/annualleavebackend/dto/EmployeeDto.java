@@ -6,7 +6,7 @@ import java.util.Collection;
 import java.util.List;
 
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
 import jakarta.validation.constraints.Email;
@@ -43,6 +43,7 @@ public final class EmployeeDto {
     @Builder
     public static class EmployeeResponse {
 
+        private Long employeeId;
         private String employeeNumber;
         private String name;
         private String department;
@@ -69,11 +70,12 @@ public final class EmployeeDto {
 
         public static EmployeeResponse from(Employee employee, Employee approver, EmployeeAuthorityResolver authorityResolver, Float currTotalLeaveDays, Float remainingLeaveDays) {
             return EmployeeResponse.builder()
+                    .employeeId(employee.getEmployeeId())
                     .employeeNumber(employee.getEmployeeNumber())
                     .name(employee.getName())
-                    .department(employee.getDepartment())
-                    .team(employee.getTeam())
-                    .teamList(authorityResolver.getManagedTeams(employee.getEmployeeId()).stream().map(Team::getTeam).toList())
+                    .department(employee.getDepartmentName())
+                    .team(employee.getTeamName())
+                    .teamList(authorityResolver.getManagedTeams(employee.getEmployeeId()).stream().map(ManagedTeam::teamName).toList())
                     .position(employee.getPosition())
                     .email(employee.getEmail())
                     .hireDate(employee.getHireDate())
@@ -84,7 +86,7 @@ public final class EmployeeDto {
                     .approverNumber(approver.getEmployeeNumber())
                     .approverName(approver.getName())
                     .approverPosition(approver.getPosition())
-                    .approverDepartment(approver.getDepartment())
+                    .approverDepartment(approver.getDepartmentName())
                     .isRegisted(employee.isRegisted())
                     .createdAt(employee.getCreatedAudit().getCreatedAt())
                     .build();

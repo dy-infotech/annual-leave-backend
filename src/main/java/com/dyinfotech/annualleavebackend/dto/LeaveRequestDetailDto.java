@@ -52,8 +52,8 @@ public class LeaveRequestDetailDto {
                     .employeeNumber(emp.getEmployeeNumber())
                     .employeeName(emp.getName())
                     .position(emp.getPosition())
-                    .department(emp.getDepartment())
-                    .team(emp.getTeam())
+                    .department(emp.getDepartmentName())
+                    .team(emp.getTeamName())
                     // 휴가 정보
                     .leaveType(lr.getLeaveType())
                     .startDate(lr.getStartDate())
@@ -68,7 +68,7 @@ public class LeaveRequestDetailDto {
                     .approverNumber(mgr != null ? mgr.getEmployeeNumber() : null)
                     .approverName(mgr != null ? mgr.getName() : null)
                     .approverPosition(mgr != null ? mgr.getPosition() : null)
-                    .approverDepartment(mgr != null ? mgr.getDepartment() : null)
+                    .approverDepartment(mgr != null ? mgr.getDepartmentName() : null)
                     .createdAt(lr.getCreatedAudit().getCreatedAt()) // 결재일
                     .build();
         }
