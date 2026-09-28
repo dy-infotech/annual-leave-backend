@@ -15,9 +15,11 @@
 -- IMPORTANT
 -- 1) SQL*Plus / SQLcl 기준 스크립트다.
 -- 2) Oracle DDL은 implicit commit이므로 실행 전 반드시 DB 백업을 수행한다.
--- 3) TEAM_LEGACY는 애플리케이션 검증이 끝날 때까지 삭제하지 않는다.
+-- 3) TEAM_LEGACY와 EMPLOYEE_ORG_LEGACY는 애플리케이션 검증이 끝날 때까지 삭제하지 않는다.
 -- 4) 기존 팀에 서로 다른 부서의 사원이 섞여 있으면 임의로 다수결하지 않고
 --    사전 검증에서 중단한다.
+-- 5) Oracle DDL은 중간 rollback이 불가능하므로 DDL 시작 후 실패한 스크립트를 그대로 재실행하지 않는다.
+--    TEAM_LEGACY / EMPLOYEE_ORG_LEGACY와 외부 백업을 기준으로 수동 복구 후 다시 실행한다.
 -- =====================================================================
 
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;
@@ -47,11 +49,11 @@ BEGIN
     SELECT COUNT(*)
       INTO v_count
       FROM (
-            SELECT e.team
+            SELECT TRIM(e.team)
               FROM employee e
-             WHERE e.team <> '대표이사'
-             GROUP BY e.team
-            HAVING COUNT(DISTINCT e.department) > 1
+             WHERE TRIM(e.team) <> '대표이사'
+             GROUP BY TRIM(e.team)
+            HAVING COUNT(DISTINCT TRIM(e.department)) > 1
       );
 
     IF v_count > 0 THEN
@@ -65,9 +67,9 @@ BEGIN
     SELECT COUNT(*)
       INTO v_count
       FROM (
-            SELECT t.team, t.project_manager_id
+            SELECT TRIM(t.team), t.project_manager_id
               FROM team t
-             GROUP BY t.team, t.project_manager_id
+             GROUP BY TRIM(t.team), t.project_manager_id
             HAVING COUNT(*) > 1
       );
 
@@ -82,17 +84,18 @@ BEGIN
     SELECT COUNT(*)
       INTO v_count
       FROM (
-            SELECT DISTINCT t.parent_team
+            SELECT DISTINCT TRIM(t.parent_team)
               FROM team t
-             WHERE NOT EXISTS (
+             WHERE TRIM(t.parent_team) IS NOT NULL
+               AND NOT EXISTS (
                     SELECT 1
                       FROM team p
-                     WHERE p.team = t.parent_team
+                     WHERE TRIM(p.team) = TRIM(t.parent_team)
              )
                AND NOT EXISTS (
                     SELECT 1
                       FROM employee e
-                     WHERE e.team = t.parent_team
+                     WHERE TRIM(e.team) = TRIM(t.parent_team)
              )
       );
 
@@ -108,22 +111,18 @@ BEGIN
     SELECT COUNT(*)
       INTO v_count
       FROM (
-            SELECT t.team
+            SELECT TRIM(t.team)
               FROM team t
-             WHERE t.team <> '대표이사'
+              JOIN employee pm
+                ON pm.employee_id = t.project_manager_id
+             WHERE TRIM(t.team) <> '대표이사'
                AND NOT EXISTS (
                     SELECT 1
                       FROM employee e
-                     WHERE e.team = t.team
+                     WHERE TRIM(e.team) = TRIM(t.team)
                )
-             GROUP BY t.team
-            HAVING COUNT(
-                    DISTINCT (
-                        SELECT pm.department
-                          FROM employee pm
-                         WHERE pm.employee_id = t.project_manager_id
-                    )
-            ) > 1
+             GROUP BY TRIM(t.team)
+            HAVING COUNT(DISTINCT TRIM(pm.department)) > 1
       );
 
     IF v_count > 0 THEN
@@ -132,10 +131,87 @@ BEGIN
             '사원이 없는 팀의 PM 부서가 서로 달라 팀 부서를 자동 결정할 수 없습니다. count=' || v_count
         );
     END IF;
+
+    -- 동일 팀의 PM row들이 서로 다른 상위 팀을 가리키면 신규 모델의 단일 계층을 결정할 수 없다.
+    SELECT COUNT(*)
+      INTO v_count
+      FROM (
+            SELECT TRIM(t.team)
+              FROM team t
+             GROUP BY TRIM(t.team)
+            HAVING COUNT(DISTINCT TRIM(t.parent_team)) > 1
+      );
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20012,
+            '동일 팀의 상위 팀 정보가 PM별로 다릅니다. team_count=' || v_count
+        );
+    END IF;
+
+    -- self-parent(root)는 허용하되 길이 2 이상의 조직 순환은 DDL 전에 차단한다.
+    SELECT COUNT(*)
+      INTO v_count
+      FROM (
+            SELECT CONNECT_BY_ISCYCLE AS is_cycle
+              FROM (
+                    SELECT DISTINCT TRIM(team) AS team_name,
+                                    TRIM(parent_team) AS parent_team_name
+                      FROM team
+                     WHERE TRIM(team) <> TRIM(parent_team)
+              )
+             START WITH team_name IS NOT NULL
+            CONNECT BY NOCYCLE PRIOR parent_team_name = team_name
+      )
+     WHERE is_cycle = 1;
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20013,
+            '조직 계층에 순환 참조가 존재합니다. cycle_count=' || v_count
+        );
+    END IF;
+
+    -- 재직 사원이 있거나 하위 팀이 의존하는 팀에는 재직 PM이 최소 1명 필요하다.
+    SELECT COUNT(*)
+      INTO v_count
+      FROM (
+            SELECT required.team_name
+              FROM (
+                    SELECT DISTINCT TRIM(e.team) AS team_name
+                      FROM employee e
+                     WHERE e.fire_date IS NULL OR e.fire_date >= TRUNC(SYSDATE)
+                    UNION
+                    SELECT DISTINCT TRIM(t.parent_team)
+                      FROM team t
+                     WHERE TRIM(t.parent_team) <> TRIM(t.team)
+              ) required
+             WHERE NOT EXISTS (
+                    SELECT 1
+                      FROM team tm
+                      JOIN employee pm
+                        ON pm.employee_id = tm.project_manager_id
+                     WHERE TRIM(tm.team) = required.team_name
+                       AND (pm.fire_date IS NULL OR pm.fire_date >= TRUNC(SYSDATE))
+             )
+      );
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20014,
+            '재직 사원 또는 하위 팀이 의존하지만 재직 PM이 없는 팀이 존재합니다. team_count=' || v_count
+        );
+    END IF;
 END;
 /
 
-PROMPT [2/9] Preserve legacy TEAM
+PROMPT [2/9] Preserve legacy organization data
+
+CREATE TABLE employee_org_legacy AS
+SELECT employee_id,
+       department AS department_name,
+       team AS team_name
+  FROM employee;
 
 ALTER TABLE team RENAME TO team_legacy;
 
@@ -202,16 +278,16 @@ team_department_map AS (
                WHEN n.team_name = '대표이사' THEN '대표이사'
                ELSE COALESCE(
                     (
-                        SELECT MIN(e.department)
+                        SELECT MIN(TRIM(e.department))
                           FROM employee e
-                         WHERE e.team = n.team_name
+                         WHERE TRIM(e.team) = n.team_name
                     ),
                     (
-                        SELECT MIN(pm.department)
+                        SELECT MIN(TRIM(pm.department))
                           FROM team_legacy tl
                           JOIN employee pm
                             ON pm.employee_id = tl.project_manager_id
-                         WHERE tl.team = n.team_name
+                         WHERE TRIM(tl.team) = n.team_name
                     )
                )
            END AS department_name
@@ -282,9 +358,9 @@ SELECT t.team_id,
        pt.team_id
   FROM team_legacy tl
   JOIN team t
-    ON t.team_name = tl.team
+    ON t.team_name = TRIM(tl.team)
   JOIN team pt
-    ON pt.team_name = tl.parent_team;
+    ON pt.team_name = TRIM(tl.parent_team);
 
 DECLARE
     v_legacy_count NUMBER;
@@ -316,7 +392,7 @@ UPDATE employee e
    SET (team_id, department_id) = (
         SELECT t.team_id, t.department_id
           FROM team t
-         WHERE t.team_name = e.team
+         WHERE t.team_name = TRIM(e.team)
    );
 
 DECLARE
@@ -413,6 +489,76 @@ BEGIN
             'TEAM_MANAGER FK 무결성 검증 실패. count=' || v_count
         );
     END IF;
+
+    -- 한 팀의 관리자들은 동일한 parent_team_id를 사용해야 한다.
+    SELECT COUNT(*)
+      INTO v_count
+      FROM (
+            SELECT team_id
+              FROM team_manager
+             GROUP BY team_id
+            HAVING COUNT(DISTINCT parent_team_id) > 1
+      );
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20015,
+            'TEAM_MANAGER의 상위 팀 정보가 관리자별로 다릅니다. team_count=' || v_count
+        );
+    END IF;
+
+    -- self-parent(root)를 제외한 조직 순환 검증
+    SELECT COUNT(*)
+      INTO v_count
+      FROM (
+            SELECT CONNECT_BY_ISCYCLE AS is_cycle
+              FROM (
+                    SELECT DISTINCT team_id, parent_team_id
+                      FROM team_manager
+                     WHERE team_id <> parent_team_id
+              )
+             START WITH team_id IS NOT NULL
+            CONNECT BY NOCYCLE PRIOR parent_team_id = team_id
+      )
+     WHERE is_cycle = 1;
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20016,
+            '신규 조직 계층에 순환 참조가 존재합니다. cycle_count=' || v_count
+        );
+    END IF;
+
+    -- 재직 사원 또는 하위 팀이 의존하는 팀은 재직 PM을 가져야 한다.
+    SELECT COUNT(*)
+      INTO v_count
+      FROM (
+            SELECT required.team_id
+              FROM (
+                    SELECT DISTINCT e.team_id
+                      FROM employee e
+                     WHERE e.fire_date IS NULL OR e.fire_date >= TRUNC(SYSDATE)
+                    UNION
+                    SELECT DISTINCT tm.parent_team_id
+                      FROM team_manager tm
+                     WHERE tm.parent_team_id <> tm.team_id
+              ) required
+             WHERE NOT EXISTS (
+                    SELECT 1
+                      FROM team_manager tm
+                      JOIN employee pm
+                        ON pm.employee_id = tm.project_manager_id
+                     WHERE tm.team_id = required.team_id
+                       AND (pm.fire_date IS NULL OR pm.fire_date >= TRUNC(SYSDATE))
+             )
+      );
+
+    IF v_count > 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20017,
+            '재직 사원 또는 하위 팀이 의존하지만 재직 PM이 없는 신규 팀이 존재합니다. team_count=' || v_count
+        );
+    END IF;
 END;
 /
 
@@ -452,4 +598,5 @@ SELECT t.team_name,
 -- rollback 자료를 남겨두기 위함이다.
 --
 -- DROP TABLE team_legacy PURGE;
+-- DROP TABLE employee_org_legacy PURGE;
 -- ---------------------------------------------------------------------
