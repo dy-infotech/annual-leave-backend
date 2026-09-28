@@ -80,7 +80,7 @@ public class LeaveRequestService {
         	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
 
-        validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate());
+        validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate(), employee.getFireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
         // 대체, 출산, 가족돌봄 휴가 중 하나가 아닌 경우 잔여 연차 수와 요청 휴가 수를 대조하도록 함
         if (!LeaveType.ALTERNATIVE.equals(leaveType) && !LeaveType.PARENTAL.equals(leaveType) && !LeaveType.FAMILY.equals(leaveType)) {
@@ -178,7 +178,12 @@ public class LeaveRequestService {
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }
 
-    private void validateDateRange(LocalDate startDate, LocalDate endDate, LocalDate today, LocalDate hireDate) {
+    private void validateDateRange(
+            LocalDate startDate,
+            LocalDate endDate,
+            LocalDate today,
+            LocalDate hireDate,
+            LocalDate fireDate) {
         if (endDate.isBefore(startDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "종료일은 시작일 이후여야 합니다.");
         }
@@ -189,6 +194,10 @@ public class LeaveRequestService {
 
         if (startDate.isBefore(hireDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "입사일 이전에는 휴가를 신청할 수 없습니다.");
+        }
+
+        if (fireDate != null && endDate.isAfter(fireDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "퇴사일 이후에는 휴가를 신청할 수 없습니다.");
         }
 
         if (startDate.isBefore(leaveStartDate) || endDate.isAfter(leaveEndDate)) {

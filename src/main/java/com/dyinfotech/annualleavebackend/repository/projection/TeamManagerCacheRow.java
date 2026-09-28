@@ -9,9 +9,11 @@ public record TeamManagerCacheRow(
         String employeeNumber,
         String managerName,
         String position,
+        LocalDate hireDate,
         LocalDate fireDate
 ) {
-    public boolean isActive(LocalDate today) {
-        return fireDate == null || !fireDate.isBefore(today);
+    public boolean isActive(LocalDate date) {
+        return !hireDate.isAfter(date)
+                && (fireDate == null || !fireDate.isBefore(date));
     }
 }

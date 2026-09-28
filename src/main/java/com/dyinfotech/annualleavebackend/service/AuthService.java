@@ -484,7 +484,8 @@ public class AuthService {
         // 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생)
     	String realEmail = CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(request.getEmployeeNumber(), employeeService::findEmailsByEmployeeNumber);
     	Entry<HttpStatus, String> emptyUserErrorEntry = new java.util.AbstractMap.SimpleEntry<>(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
-    	if (realEmail == null) {
+    	String requestedEmail = request.getEmail() != null ? request.getEmail().trim() : null;
+    	if (realEmail == null || requestedEmail == null || !realEmail.equalsIgnoreCase(requestedEmail)) {
     		throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
     	}
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), realEmail)
