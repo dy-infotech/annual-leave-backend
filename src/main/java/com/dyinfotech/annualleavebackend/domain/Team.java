@@ -37,6 +37,12 @@ public class Team {
     @Column(name = "enabled", nullable = false)
     private Boolean enabled;
 
+    @Column(name = "create_request_key", unique = true, length = 128)
+    private String createRequestKey;
+
+    @Column(name = "create_request_hash", length = 64)
+    private String createRequestHash;
+
     @Builder
     public Team(String teamName, Boolean enabled, Department department) {
         this.teamName = teamName;
@@ -54,5 +60,10 @@ public class Team {
 
     public void disable() {
         this.enabled = false;
+    }
+
+    public void markCreateRequest(String requestKey, String requestHash) {
+        this.createRequestKey = requestKey;
+        this.createRequestHash = requestHash;
     }
 }
