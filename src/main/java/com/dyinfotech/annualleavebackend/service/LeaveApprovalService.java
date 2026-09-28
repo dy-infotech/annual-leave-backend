@@ -51,116 +51,113 @@ public class LeaveApprovalService {
     private final Clock clock;
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(Long employeeId) {
-    	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
-    	if (employeeList.isEmpty()) {
-    		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
-    	}
+        List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
+        if (employeeList.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
 
-    	Long excludeId = employeeId;
-    	Set<String> directTeams = new HashSet<>();
-    	Set<Team> accessibleTeams = new HashSet<>();
-    	for (Team team : employeeList.get(0).getTeams()) {
-    		String myTeam = team.getTeam();
-    		directTeams.add(myTeam);
-    		if (myTeam.equals(team.getParentTeam())) {
-    			excludeId = null;	// 최상위 팀이면 제외할 필요 없음 (스스로 승인이 가능하므로)
-    		}
-    		accessibleTeams.addAll(teamService.getSelfAndDescendants(myTeam));
-    	}
-    	Set<Long> childTeamProjectManagerIds = accessibleTeams.stream()
-//    														// 내 팀 + 하위 팀 조합에서 내 팀만 제외하면 하위 팀만 조회
-//    														.filter(e -> !directTeams.contains(e.getTeam()))
-											    			// 최상위 팀(TeamName == ParentTeamName)과 내가 관리하는 팀을 제외하고, 하위 팀들을 반환
-															.filter(e -> !e.getTeam().equals(e.getParentTeam()) && directTeams.contains(e.getParentTeam()))
-    														.map(Team::getProjectManagerId)
-    												        .filter(Objects::nonNull)
-    														.collect(Collectors.toSet());
-    	
-        return leaveRequestRepository.findByStatusOrderByCreatedAtAsc(excludeId, directTeams, childTeamProjectManagerIds, LeaveRequestStatus.PENDING, clock)
+        Long excludeId = employeeId;
+        List<ManagedTeam> managedTeams = teamService.findManagedTeams(employeeId);
+
+        Set<String> directTeams = managedTeams.stream()
+                .map(ManagedTeam::teamName)
+                .collect(Collectors.toSet());
+
+        if (managedTeams.stream().anyMatch(team -> team.teamId().equals(team.parentTeamId()))) {
+            excludeId = null;
+        }
+
+        Set<ManagedTeam> accessibleTeams = managedTeams.stream()
+                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                .collect(Collectors.toSet());
+
+        Set<Long> childTeamProjectManagerIds = accessibleTeams.stream()
+                .filter(team -> !team.teamId().equals(team.parentTeamId()))
+                .filter(team -> directTeams.contains(team.parentTeamName()))
+                .map(ManagedTeam::projectManagerId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return leaveRequestRepository
+                .findByStatusOrderByCreatedAtAsc(
+                        excludeId,
+                        directTeams,
+                        childTeamProjectManagerIds,
+                        LeaveRequestStatus.PENDING,
+                        clock)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();
     }
     
-    private Set<String> getAccessibleTeams(List<Team> teams) {
-    	if (teams.isEmpty()) {
-    		return Collections.emptySet();
-    	}
-    	
-    	return teams.stream()
-    				.flatMap(e -> teamService.getSelfAndDescendants(e.getTeam())
-    										.stream())
-    				.map(Team::getTeam)
-    				.collect(Collectors.toSet());
+    private Set<String> getAccessibleTeams(Collection<ManagedTeam> teams) {
+        if (teams == null || teams.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        return teams.stream()
+                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                .map(ManagedTeam::teamName)
+                .collect(Collectors.toSet());
     }
     
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(Long employeeId, String team, String employeeParam) {
-    	//승인권자 정보
-    	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
-    	if (employeeList.isEmpty()) {
-    		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
-    	}
-    	
-    	//승인권자의 팀정보
-    	Set<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
-    	if (accessibleTeams.isEmpty()) {
-    		return Collections.emptyList();
-    	}
-    	
-    	//대표이사 계정: 팀별 목록 조회 시 팀정보 유효성 확인 
-    	if (team != null && !team.isBlank()) {
-    		if (!accessibleTeams.contains(team)) {
-    			return Collections.emptyList();
-    		}
-    		accessibleTeams = Set.of(team);
-    	}
-    	
-    	Year year = Year.now(clock);
-    	
+        List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
+        if (employeeList.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
+
+        Set<String> accessibleTeams = getAccessibleTeams(teamService.findManagedTeams(employeeId));
+        if (accessibleTeams.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        if (team != null && !team.isBlank()) {
+            if (!accessibleTeams.contains(team)) {
+                return Collections.emptyList();
+            }
+            accessibleTeams = Set.of(team);
+        }
+
+        Year year = Year.now(clock);
         return leaveRequestRepository.searchLeaveRequests(
-        		DateUtils.getFirstDayOfYear(year), 
-        		DateUtils.getLastDayOfYear(year),
-        		LeaveRequestStatus.APPROVED,
-        		accessibleTeams,
-        		employeeParam
-        		)
-        		.stream()
+                        DateUtils.getFirstDayOfYear(year),
+                        DateUtils.getLastDayOfYear(year),
+                        LeaveRequestStatus.APPROVED,
+                        accessibleTeams,
+                        employeeParam)
+                .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }
     
     public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(Long employeeId, String team, String employeeParam) {
-    	//승인권자 정보
-    	List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
-    	if (employeeList.isEmpty()) {
-    		throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
-    	}
-    	
-    	//승인권자의 팀정보
-    	Set<String> accessibleTeams = getAccessibleTeams(employeeList.get(0).getTeams());
-    	if (accessibleTeams.isEmpty()) {
-    		return Collections.emptyList();
-    	}
-    	
-    	//대표이사 계정: 팀별 목록 조회 시 팀정보 유효성 확인 
-    	if (team != null && !team.isBlank()) {
-    		if (!accessibleTeams.contains(team)) {
-    			return Collections.emptyList();
-    		}
-    		accessibleTeams = Set.of(team);
-    	}
-    	
-    	Year year = Year.now(clock);
-    	
+        List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
+        if (employeeList.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
+
+        Set<String> accessibleTeams = getAccessibleTeams(teamService.findManagedTeams(employeeId));
+        if (accessibleTeams.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        if (team != null && !team.isBlank()) {
+            if (!accessibleTeams.contains(team)) {
+                return Collections.emptyList();
+            }
+            accessibleTeams = Set.of(team);
+        }
+
+        Year year = Year.now(clock);
         return leaveRequestRepository.searchLeaveRequests(
-        		DateUtils.getFirstDayOfYear(year), 
-        		DateUtils.getLastDayOfYear(year),
-        		LeaveRequestStatus.REJECTED,
-        		accessibleTeams,
-        		employeeParam
-        		)
-        		.stream()
+                        DateUtils.getFirstDayOfYear(year),
+                        DateUtils.getLastDayOfYear(year),
+                        LeaveRequestStatus.REJECTED,
+                        accessibleTeams,
+                        employeeParam)
+                .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }
@@ -223,7 +220,7 @@ public class LeaveApprovalService {
         	}
         	
         	String errorMsg = "승인할 수 없는 관리자입니다.";
-            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeam() + ",expectedApproverId : [" + approverString + "]";
+            String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId + ",approverId : " + approverId + ",employeeTeam : " + employee.getTeamName() + ",expectedApproverId : [" + approverString + "]";
     		log.error(errorMsg + " " + detailMsg);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
         }
