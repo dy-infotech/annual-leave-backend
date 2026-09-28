@@ -182,46 +182,48 @@ public class EmployeeLeaveService {
     }
 
 	public interface EmployeeAuthorityResolver {
-		boolean isAdmin(Long employeeId);
-		Collection<Team> getManagedTeams(Long employeeId);
-		default Role resolveRole(Long employeeId) {
-			return EmployeeLeaveService.convertRole(isAdmin(employeeId));
-		}
-	}
-	private static class EmployeeAuthorityResolverImpl implements EmployeeAuthorityResolver {
-		private final Map<Long, Set<Team>> managedTeams;
-		
-		public EmployeeAuthorityResolverImpl(Collection<Team> teams) {
-			this.managedTeams = teams.stream()
-							            .collect(Collectors.groupingBy(Team::getProjectManagerId, Collectors.toSet()));
-		}
-		
-		@Override
-		public Collection<Team> getManagedTeams(Long employeeId) {
-			return managedTeams.getOrDefault(employeeId, Collections.emptySet());
-		}
-		
-		@Override
-		public boolean isAdmin(Long employeeId) {
-			return managedTeams.containsKey(employeeId);
-		}
-	}
-	public EmployeeAuthorityResolver createAuthorityResolver() {
-		LocalDate now = LocalDate.now(clock);
-		return new EmployeeAuthorityResolverImpl(teamService.findAll().stream()
-															.filter(e -> e.getProjectManager().isActive(now))
-															.collect(Collectors.toSet()));
-	}
-	public EmployeeAuthorityResolver createAuthorityResolver(Set<Long> targetEmployeeIds) {
-		LocalDate now = LocalDate.now(clock);
-		return new EmployeeAuthorityResolverImpl(teamService.findAll().stream()
-															.filter(e -> e.getProjectManager().isActive(now))
-															.filter(e -> targetEmployeeIds.contains(e.getProjectManagerId()))
-															.collect(Collectors.toSet()));
-	}
-	public EmployeeAuthorityResolver createAuthorityResolver(Long employeeId) {
-		return createAuthorityResolver(Set.of(employeeId));
-	}
+        boolean isAdmin(Long employeeId);
+        Collection<ManagedTeam> getManagedTeams(Long employeeId);
+
+        default Role resolveRole(Long employeeId) {
+            return EmployeeLeaveService.convertRole(isAdmin(employeeId));
+        }
+    }
+
+    private static class EmployeeAuthorityResolverImpl implements EmployeeAuthorityResolver {
+        private final Map<Long, Set<ManagedTeam>> managedTeams;
+
+        public EmployeeAuthorityResolverImpl(Collection<ManagedTeam> teams) {
+            this.managedTeams = teams.stream()
+                    .collect(Collectors.groupingBy(ManagedTeam::projectManagerId, Collectors.toSet()));
+        }
+
+        @Override
+        public Collection<ManagedTeam> getManagedTeams(Long employeeId) {
+            return managedTeams.getOrDefault(employeeId, Collections.emptySet());
+        }
+
+        @Override
+        public boolean isAdmin(Long employeeId) {
+            return managedTeams.containsKey(employeeId);
+        }
+    }
+
+    public EmployeeAuthorityResolver createAuthorityResolver() {
+        return new EmployeeAuthorityResolverImpl(teamService.findAll());
+    }
+
+    public EmployeeAuthorityResolver createAuthorityResolver(Set<Long> targetEmployeeIds) {
+        return new EmployeeAuthorityResolverImpl(
+                teamService.findAll().stream()
+                        .filter(team -> targetEmployeeIds.contains(team.projectManagerId()))
+                        .collect(Collectors.toSet()));
+    }
+
+    public EmployeeAuthorityResolver createAuthorityResolver(Long employeeId) {
+        return createAuthorityResolver(Set.of(employeeId));
+    }
+
     private static Role convertRole(boolean isAdmin) {
     	return isAdmin ? Role.getAdminRole() : Role.EMPLOYEE;
     }
