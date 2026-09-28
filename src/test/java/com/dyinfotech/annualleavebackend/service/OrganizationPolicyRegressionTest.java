@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -488,4 +489,69 @@ class OrganizationPolicyRegressionTest {
         verify(teamManagerRepository, never()).save(any(TeamManager.class));
         verify(cacheInvalidator, never()).afterTeamManagerChange(any());
     }
+
+    @Test
+    void createTeam_sameIdempotencyKeyAndPayload_replaysOriginalTeamId() {
+        TeamDto.CreateRequest request = new TeamDto.CreateRequest();
+        setField(request, "teamName", "플랫폼팀");
+        setField(request, "departmentId", 1L);
+
+        Department department = mock(Department.class);
+        when(department.getEnabled()).thenReturn(true);
+        when(departmentRepository.findById(1L)).thenReturn(Optional.of(department));
+        when(teamRepository.findByTeamName("플랫폼팀")).thenReturn(Optional.empty());
+
+        AtomicReference<Team> created = new AtomicReference<>();
+        when(teamRepository.findByCreateRequestKey("request-key-0001"))
+                .thenAnswer(invocation -> Optional.ofNullable(created.get()));
+        when(teamRepository.saveAndFlush(any(Team.class))).thenAnswer(invocation -> {
+            Team team = invocation.getArgument(0);
+            setField(team, "teamId", 99L);
+            created.set(team);
+            return team;
+        });
+
+        Long first = teamService.createTeam(100L, request, "request-key-0001");
+        Long replay = teamService.createTeam(100L, request, "request-key-0001");
+
+        assertEquals(99L, first);
+        assertEquals(99L, replay);
+        verify(teamRepository).saveAndFlush(any(Team.class));
+    }
+
+    @Test
+    void createTeam_sameIdempotencyKeyDifferentPayload_isRejected() {
+        TeamDto.CreateRequest firstRequest = new TeamDto.CreateRequest();
+        setField(firstRequest, "teamName", "플랫폼팀");
+        setField(firstRequest, "departmentId", 1L);
+
+        TeamDto.CreateRequest secondRequest = new TeamDto.CreateRequest();
+        setField(secondRequest, "teamName", "운영팀");
+        setField(secondRequest, "departmentId", 1L);
+
+        Department department = mock(Department.class);
+        when(department.getEnabled()).thenReturn(true);
+        when(departmentRepository.findById(1L)).thenReturn(Optional.of(department));
+        when(teamRepository.findByTeamName("플랫폼팀")).thenReturn(Optional.empty());
+
+        AtomicReference<Team> created = new AtomicReference<>();
+        when(teamRepository.findByCreateRequestKey("request-key-0002"))
+                .thenAnswer(invocation -> Optional.ofNullable(created.get()));
+        when(teamRepository.saveAndFlush(any(Team.class))).thenAnswer(invocation -> {
+            Team team = invocation.getArgument(0);
+            setField(team, "teamId", 100L);
+            created.set(team);
+            return team;
+        });
+
+        teamService.createTeam(100L, firstRequest, "request-key-0002");
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.createTeam(100L, secondRequest, "request-key-0002"));
+
+        assertEquals(409, exception.getStatusCode().value());
+        verify(teamRepository).saveAndFlush(any(Team.class));
+    }
+
 }
