@@ -385,6 +385,21 @@ public class TeamService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    public Employee resolveCurrentApprover(Employee employee) {
+        Set<Employee> resolvedApprovers = resolveApprovers(employee);
+        if (resolvedApprovers.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 조직 기준 결재자를 찾을 수 없습니다.");
+        }
+
+        Long storedApproverId = employee.getApproverId();
+        return resolvedApprovers.stream()
+                .filter(approver -> approver.getEmployeeId().equals(storedApproverId))
+                .findFirst()
+                .orElseGet(() -> resolvedApprovers.stream()
+                        .min(java.util.Comparator.comparing(Employee::getEmployeeId))
+                        .orElseThrow());
+    }
+
     public Set<Long> refreshApproverIds(Employee employee) {
         Set<Employee> resolvedApprovers = resolveApprovers(employee);
         boolean hasApproverId = resolvedApprovers.stream()

@@ -24,6 +24,18 @@ public class EmployeeCacheInvalidator {
         afterCommitExecutor.execute(() -> employeeViewCacheKey.bumpEmployee(employeeId));
     }
 
+    public void afterEmployeeViewChange(Collection<Long> employeeIds) {
+        afterCommitExecutor.execute(() -> {
+            if (employeeIds == null) {
+                return;
+            }
+            employeeIds.stream()
+                    .filter(id -> id != null)
+                    .distinct()
+                    .forEach(employeeViewCacheKey::bumpEmployee);
+        });
+    }
+
     public void afterEmployeeChange(
             Long employeeId,
             Collection<String> names,

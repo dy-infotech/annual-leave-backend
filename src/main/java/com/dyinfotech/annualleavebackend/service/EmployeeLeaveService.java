@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.Period;
+import java.util.ArrayList;
 import java.time.Year;
 import java.util.Collection;
 import java.util.Collections;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
@@ -42,6 +44,7 @@ public class EmployeeLeaveService {
     private final TeamService teamService;
     // XXX: EmployeeService가 EmployeeLeaveService를 참조하고 있다. 상호 참조 이슈를 방지하기 위해 EmployeeRepository를 사용하도록 허용한다
     private final EmployeeRepository employeeRepository;
+    private final EmployeeCacheInvalidator employeeCacheInvalidator;
     
     private final Clock clock;
     
@@ -54,6 +57,7 @@ public class EmployeeLeaveService {
     public void renewAllActiveEmployeesLeave(String currentYear) {
         // 1. 퇴사자를 제외한 전직원 목록 조회 (필요 시 패치 조인이나 벌크 연산 고려)
         List<Employee> activeEmployees = employeeRepository.findAllByFireDateIsNullOrFireDateGreaterThanEqual(LocalDate.now(clock));
+        List<Long> renewedEmployeeIds = new ArrayList<>();
         
         // 2. 루프를 돌며 안전하게 연차 갱신
         for (Employee employee : activeEmployees) {
@@ -64,6 +68,7 @@ public class EmployeeLeaveService {
             		employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
             		employee.setCurrYear(currentYear);
             		employee.setCurrYearLeaveDays(getCalculatedCurrYearLeaveDays(employee));
+                    renewedEmployeeIds.add(employee.getEmployeeId());
                     log.info("직원 번호 [{}] 연차 갱신 완료", employee.getEmployeeNumber());
             	} else {
             		log.error("직원 번호 [{}] 연차 갱신 실패", employee.getEmployeeNumber());
@@ -72,6 +77,10 @@ public class EmployeeLeaveService {
                 // 한 명이 에러 나도 다른 직원들은 갱신되어야 하므로 예외 처리 개별 적용
                 log.error("직원 번호 [{}] 연차 갱신 중 에러 발생: {}", employee.getEmployeeNumber(), e.getMessage());
             }
+        }
+
+        if (!renewedEmployeeIds.isEmpty()) {
+            employeeCacheInvalidator.afterEmployeeViewChange(renewedEmployeeIds);
         }
     }
     

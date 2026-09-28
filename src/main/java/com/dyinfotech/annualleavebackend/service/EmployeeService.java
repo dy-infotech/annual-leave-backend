@@ -59,12 +59,7 @@ public class EmployeeService {
                 	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
-        Employee approver = employeeRepository.findById(employee.getApproverId())
-                .orElseThrow(() -> {
-                    String errorMsg = "존재하지 않는 직원(결재자)입니다.";
-                    log.error(errorMsg + " " + "employeeId: " + employeeId + ", approverId: " + employee.getApproverId());
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
-                });
+        Employee approver = teamService.resolveCurrentApprover(employee);
         float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         Float remainingDays = commonService.getRemainingDaysByCurrTotalLeaveDays(employee, currTotalLeaveDays);
 
