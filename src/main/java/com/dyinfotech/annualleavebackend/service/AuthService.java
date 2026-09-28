@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -228,6 +229,18 @@ public class AuthService {
         if (!newTeam && !makeAdminAccount) {
             teamService.requireActiveManager(team.getTeamId());
         }
+        Long plannedParentTeamId = null;
+        Set<Long> registrationTeamLocks = new java.util.HashSet<>();
+        registrationTeamLocks.add(team.getTeamId());
+        if (newTeam) {
+            plannedParentTeamId = approver.getTeamId();
+            registrationTeamLocks.add(plannedParentTeamId);
+        } else if (makeAdminAccount) {
+            plannedParentTeamId = teamService.resolveParentTeamId(request.getTeam())
+                    .orElse(approver.getTeamId());
+            registrationTeamLocks.add(plannedParentTeamId);
+        }
+        teamService.lockTeamsForUpdate(registrationTeamLocks);
         LocalDate hireDate = LocalDate.parse(request.getHireDate());
         Employee employee = Employee.builder()
                 .employeeNumber(request.getEmployeeNumber())
@@ -251,11 +264,10 @@ public class AuthService {
                     .parentTeam(approver.getTeam())
                     .build());
         } else if (makeAdminAccount) {
-            Long parentTeamId = teamService.resolveParentTeamId(request.getTeam())
-                    .orElse(approver.getTeamId());
-            teamService.addManager(request.getTeam(), employee.getEmployeeId(), parentTeamId);
+            teamService.addManager(request.getTeam(), employee.getEmployeeId(), plannedParentTeamId);
         }
 
+        teamService.validateFutureApprovalCoverage(Set.of(team.getTeamId()));
         return RegisterDto.RegisterResponse.builder()
                 .employeeId(employee.getEmployeeId())
                 .employeeNumber(employee.getEmployeeNumber())
