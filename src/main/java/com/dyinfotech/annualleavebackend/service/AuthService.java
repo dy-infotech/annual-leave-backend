@@ -37,8 +37,10 @@ import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.common.util.MaskingUtils;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto; // 추가됨
 import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
@@ -49,6 +51,7 @@ import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
+import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -64,6 +67,7 @@ public class AuthService {
     private final JwtProvider jwtProvider;
     private final EmployeeLeaveService employeeLeaveService;
     private final NotificationService notificationService;
+    private final DepartmentService departmentService;
     private final EmployeeService employeeService;
     private final TeamService teamService;
     
@@ -81,6 +85,14 @@ public class AuthService {
     	}
     }
     
+    public void checkPersonnelAuthority(Long employeeId) {
+        Employee requester = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        if (!requester.isActive(LocalDate.now(clock)) || !requester.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "인사권을 가진 관리자가 아닙니다.");
+        }
+    }
+    
     public CompletableFuture<Void> syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
 		// FCM topic 동기화 완료 후 DB 저장(UPSERT)
         return notificationService.syncToken(
@@ -96,14 +108,23 @@ public class AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
         PositionType requesterPosition = PositionType.getType(requester.getPosition());
 
+        java.util.Collection<String> accessibleTeams;
+        if (requester.hasPersonnelAuthority()) {
+            accessibleTeams = teamService.findAllTeamInfo().stream()
+                    .map(team -> team.teamName())
+                    .collect(Collectors.toSet());
+        } else {
+            accessibleTeams = teamService.findManagedTeams(employeeId).stream()
+                    .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                    .map(ManagedTeam::teamName)
+                    .collect(Collectors.toSet());
+        }
+
         return RegisterCommonDto.RegisterCommonResponse.builder()
                 .department(departmentService.findAll().stream()
                         .map(department -> department.departmentName())
                         .toList())
-                .accessibleTeam(teamService.findManagedTeams(employeeId).stream()
-                        .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                        .map(ManagedTeam::teamName)
-                        .collect(Collectors.toSet()))
+                .accessibleTeam(accessibleTeams)
                 .position(Arrays.asList(PositionType.values()).stream()
                         .filter(position -> position.ordinal() < requesterPosition.ordinal())
                         .map(PositionType::getName)

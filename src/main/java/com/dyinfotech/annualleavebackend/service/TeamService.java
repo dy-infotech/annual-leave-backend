@@ -105,6 +105,10 @@ public class TeamService {
         return teamCache.get(teamName).stream().findFirst();
     }
 
+    public List<TeamCacheRow> findAllTeamInfo() {
+        return teamCache.get(CacheConfig.TOTAL_KEY);
+    }
+
     public Optional<TeamCacheRow> findTeamInfo(Long teamId) {
         if (teamId == null) {
             return Optional.empty();
@@ -413,10 +417,20 @@ public class TeamService {
     @Transactional
     public void removeManager(Long teamId, Long employeeId) {
         TeamManagerId id = new TeamManagerId(teamId, employeeId);
-        if (teamManagerRepository.existsById(id)) {
-            teamManagerRepository.deleteById(id);
-            cacheInvalidator.afterTeamManagerChange(Set.of(teamId));
+        if (!teamManagerRepository.existsById(id)) {
+            return;
         }
+
+        List<TeamManager> managers = teamManagerRepository.findAllByTeam_TeamId(teamId);
+        if (managers.size() <= 1
+                && employeeRepository.existsActiveEmployeeInTeam(teamId, LocalDate.now(clock))) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "소속 사원이 있는 팀의 마지막 관리자는 해제할 수 없습니다. 다른 관리자를 먼저 지정해주세요.");
+        }
+
+        teamManagerRepository.deleteById(id);
+        cacheInvalidator.afterTeamManagerChange(Set.of(teamId));
     }
 
     @Transactional
