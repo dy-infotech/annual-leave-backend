@@ -18,9 +18,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
@@ -28,6 +28,7 @@ import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
+import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EmployeeService {
 
 	private final TeamService teamService;
+	private final DepartmentService departmentService;
 	private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
     private final EmployeeRepository employeeRepository;
@@ -220,73 +222,65 @@ public class EmployeeService {
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
+        Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
+
         Collection<String> targetTeams = request.getTargetTeamsForRoleSwap();
         if (targetTeams == null || targetTeams.isEmpty()) {
             targetTeams = Collections.emptyList();
-        } else {
-            if (!approver.hasPersonnelAuthority()) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "팀 내부 역할 변경은 " + PositionType.CEO.getName() + "만 할 수 있습니다."
-                );
-            }
         }
+
+        Map<String, ManagedTeam> managedByEmployee = teamService.findManagedTeams(employee.getEmployeeId()).stream()
+                .collect(Collectors.toMap(ManagedTeam::teamName, team -> team, (left, right) -> left));
 
         for (String targetTeam : targetTeams) {
-            Team teamEntity = null;
-            for (Team team : employee.getTeams()) {
-                if (team.getTeam().equals(targetTeam)) {
-                    teamEntity = team;
-                    break;
-                }
-            }
-
-            if (teamEntity != null) {
+            ManagedTeam managedTeam = managedByEmployee.get(targetTeam);
+            if (managedTeam != null) {
                 // 관리자 -> 멤버
-                teamService.deleteTeam(teamEntity);
+                teamService.removeManager(managedTeam.teamId(), employee.getEmployeeId());
             } else {
                 // 멤버 -> 관리자
-                approver.getTeams()
-                        .stream()
-                        .flatMap(e -> teamService.getSelfAndDescendants(e.getTeam()).stream())
-                        .filter(e -> e.getTeam().equals(targetTeam))
-                        .findAny()
-                        .ifPresentOrElse(
-                                team -> teamService.saveTeam(new Team(team.getTeam(), employee, team.getParentTeam())),
-                                () -> {
-                                    String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
-                                    log.error(errorMsg + " employeeNumber: " + employeeNumber);
-                                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
-                                }
-                        );
+                var teamInfo = teamService.findTeamInfo(targetTeam)
+                        .orElseThrow(() -> {
+                            String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
+                            log.error(errorMsg + " employeeNumber: " + employeeNumber);
+                            return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+                        });
+                Long parentTeamId = teamService.resolveParentTeamId(targetTeam)
+                        .orElse(approver.getTeamId());
+                teamService.addManager(teamInfo.teamName(), employee.getEmployeeId(), parentTeamId);
             }
         }
 
-        String finalTeam = request.getTeam() != null && !request.getTeam().trim().isEmpty()
-                ? request.getTeam()
-                : employee.getTeam();
+        Team team = employee.getTeam();
+        if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
+            team = teamService.findByTeamName(request.getTeam())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
+        }
+
         String finalPosition = request.getPosition() != null && !request.getPosition().trim().isEmpty()
                 ? request.getPosition()
                 : employee.getPosition();
 
-        if (DepartmentType.getType(request.getDepartment()) == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다.");
-        }
         if (PositionType.getType(finalPosition) == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "직급 정보가 잘못되었습니다.");
-        }
-        if (teamService.findAllByTeam(finalTeam).isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다.");
         }
         if (request.getFireDate() != null && request.getFireDate().isBefore(request.getHireDate())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "퇴사일은 입사일 이후여야 합니다.");
         }
 
+        // 팀-부서 1:N 불변식을 우선한다. 요청 부서와 다르면 팀의 부서를 사용한다.
+        Department department = team.getDepartment();
+        if (!department.getDepartmentId().equals(requestedDepartment.getDepartmentId())) {
+            log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartment: {}",
+                    requestedDepartment.getDepartmentName(), department.getDepartmentName());
+        }
+
         employee.updateInfoByAdmin(
                 request.getName() != null ? request.getName() : employee.getName(),
                 request.getEmail() != null ? request.getEmail() : employee.getEmail(),
-                request.getDepartment() != null ? request.getDepartment() : employee.getDepartment(),
-                finalTeam,
+                department,
+                team,
                 finalPosition,
                 request.getHireDate(),
                 request.getFireDate(),
