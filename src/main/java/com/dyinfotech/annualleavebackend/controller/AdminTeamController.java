@@ -10,12 +10,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.dto.TeamDto;
 import com.dyinfotech.annualleavebackend.service.AuthService;
+import com.dyinfotech.annualleavebackend.service.TeamCreateCoordinator;
 import com.dyinfotech.annualleavebackend.service.TeamService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,6 +33,7 @@ public class AdminTeamController {
 
     private final AuthService authService;
     private final TeamService teamService;
+    private final TeamCreateCoordinator teamCreateCoordinator;
 
     @Operation(summary = "팀 전체 조회", description = "전체 팀을 담당자, 상위 팀 정보와 함께 조회한다. (소프트 딜리트된 팀 제외)")
     @GetMapping
@@ -43,9 +46,13 @@ public class AdminTeamController {
     @PostMapping
     public ResponseEntity<TeamDto.CreateResponse> createTeam(
             @AuthenticationPrincipal EmployeePrincipal principal,
+            @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody TeamDto.CreateRequest request) {
         authService.checkPersonnelAuthority(principal.employeeId());
-        Long teamId = teamService.createTeam(principal.employeeId(), request);
+        Long teamId = teamCreateCoordinator.createTeam(
+                principal.employeeId(),
+                request,
+                idempotencyKey);
         return ResponseEntity.ok(TeamDto.CreateResponse.builder()
                 .teamId(teamId)
                 .build());
