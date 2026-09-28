@@ -4,9 +4,12 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.cache.annotation.Cacheable;
@@ -211,9 +214,13 @@ public class EmployeeService {
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
 
+        Long employeeId = employee.getEmployeeId();
         String oldEmployeeName = employee.getName();
-
-        List<Long> managedTeamIdsBeforeUpdate = teamManagerRepository.findTeamIdsByProjectManagerId(employee.getEmployeeId());
+        List<Long> managedTeamIdsBeforeUpdate = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
 
         Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
@@ -223,32 +230,79 @@ public class EmployeeService {
             targetTeams = Collections.emptyList();
         }
 
-        Map<String, ManagedTeam> managedByEmployee = teamService.findManagedTeams(employee.getEmployeeId()).stream()
-                .collect(Collectors.toMap(ManagedTeam::teamName, team -> team, (left, right) -> left));
+        Set<Long> plannedTeamIds = new HashSet<>(managedTeamIdsBeforeUpdate);
+        if (employee.getTeamId() != null) {
+            plannedTeamIds.add(employee.getTeamId());
+        }
+
+        Map<String, Long> requestedTeamIds = new HashMap<>();
+        Map<String, Long> requestedParentTeamIds = new HashMap<>();
+        for (String targetTeam : targetTeams) {
+            var teamInfo = teamService.findTeamInfo(targetTeam)
+                    .orElseThrow(() -> {
+                        String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
+                        log.error(errorMsg + " employeeNumber: " + employeeNumber);
+                        return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+                    });
+            Long parentTeamId = teamService.resolveParentTeamId(targetTeam)
+                    .orElse(approver.getTeamId());
+            requestedTeamIds.put(targetTeam, teamInfo.teamId());
+            requestedParentTeamIds.put(targetTeam, parentTeamId);
+            plannedTeamIds.add(teamInfo.teamId());
+            plannedTeamIds.add(parentTeamId);
+        }
+
+        Long requestedEmployeeTeamId = null;
+        if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
+            var teamInfo = teamService.findTeamInfo(request.getTeam())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
+            requestedEmployeeTeamId = teamInfo.teamId();
+            plannedTeamIds.add(requestedEmployeeTeamId);
+        }
+
+        // TEAM 잠금을 전체 집합에 대해 ID 오름차순으로 먼저 획득한 뒤 Employee 잠금을 잡는다.
+        teamService.lockTeamsForUpdate(plannedTeamIds);
+        employee = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        if (!plannedTeamIds.containsAll(currentManagedTeamIds)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "담당 팀 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
+        }
+
+        Map<String, Long> managedByEmployee = new HashMap<>();
+        for (Long managedTeamId : currentManagedTeamIds) {
+            teamService.findTeamInfo(managedTeamId)
+                    .ifPresent(teamInfo -> managedByEmployee.put(teamInfo.teamName(), teamInfo.teamId()));
+        }
 
         for (String targetTeam : targetTeams) {
-            ManagedTeam managedTeam = managedByEmployee.get(targetTeam);
-            if (managedTeam != null) {
-                // 관리자 -> 멤버
-                teamService.removeManager(managedTeam.teamId(), employee.getEmployeeId());
+            Long managedTeamId = managedByEmployee.get(targetTeam);
+            if (managedTeamId != null) {
+                teamService.removeManager(managedTeamId, employeeId);
             } else {
-                // 멤버 -> 관리자
-                var teamInfo = teamService.findTeamInfo(targetTeam)
-                        .orElseThrow(() -> {
-                            String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
-                            log.error(errorMsg + " employeeNumber: " + employeeNumber);
-                            return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
-                        });
-                Long parentTeamId = teamService.resolveParentTeamId(targetTeam)
-                        .orElse(approver.getTeamId());
-                teamService.addManager(teamInfo.teamName(), employee.getEmployeeId(), parentTeamId);
+                Long targetTeamId = requestedTeamIds.get(targetTeam);
+                Long parentTeamId = requestedParentTeamIds.get(targetTeam);
+                String targetTeamName = teamService.findTeamInfo(targetTeamId)
+                        .map(info -> info.teamName())
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "팀 정보가 동시에 변경되었습니다."));
+                teamService.addManager(targetTeamName, employeeId, parentTeamId);
             }
         }
 
         Team team = employee.getTeam();
-        if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
+        if (requestedEmployeeTeamId != null) {
             team = teamService.findByTeamName(request.getTeam())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
+            if (!team.getTeamId().equals(requestedEmployeeTeamId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "팀 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
+            }
         }
 
         String finalPosition = request.getPosition() != null && !request.getPosition().trim().isEmpty()
@@ -262,10 +316,9 @@ public class EmployeeService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "퇴사일은 입사일 이후여야 합니다.");
         }
 
-        teamService.validateManagerDeactivation(employee.getEmployeeId(), request.getFireDate());
+        teamService.validateManagerDeactivation(employeeId, request.getFireDate());
         teamService.requireActiveManager(team.getTeamId());
 
-        // 팀-부서 1:N 불변식을 우선한다. 요청 부서와 다르면 팀의 부서를 사용한다.
         Department department = team.getDepartment();
         if (!department.getDepartmentId().equals(requestedDepartment.getDepartmentId())) {
             log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartment: {}",
@@ -283,10 +336,14 @@ public class EmployeeService {
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
 
+        Set<Long> coverageTeamIds = new HashSet<>();
+        coverageTeamIds.add(team.getTeamId());
+        coverageTeamIds.addAll(teamManagerRepository.findTeamIdsByProjectManagerId(employeeId));
+        teamService.validateFutureApprovalCoverage(coverageTeamIds);
+
         cacheInvalidator.afterEmployeeOrganizationChange(managedTeamIdsBeforeUpdate);
         employeeCacheInvalidator.afterEmailLookupChange(
                 List.of(oldEmployeeName, employee.getName()),
                 employee.getEmployeeNumber());
     }
-
 }
