@@ -18,11 +18,12 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.domain.Employee;
-import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.LeaveRequestStatusCount;
+
+import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 
 import lombok.RequiredArgsConstructor;
 
