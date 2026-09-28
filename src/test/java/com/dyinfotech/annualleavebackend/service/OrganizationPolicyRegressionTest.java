@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeViewCacheKey;
@@ -35,6 +36,7 @@ import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
+import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.domain.TeamManager.TeamManagerId;
 import com.dyinfotech.annualleavebackend.dto.TeamDto;
 import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
@@ -201,9 +203,10 @@ class OrganizationPolicyRegressionTest {
         );
 
         assertEquals(400, exception.getStatusCode().value());
-        assertTrue(exception.getReason().contains("마지막 재직 담당자"));
+        assertTrue(exception.getReason().contains("결재 의존성"));
         verify(teamRepository).findByIdForUpdate(10L);
-        verify(teamManagerRepository, never()).deleteById(id);
+        // 삭제 후 최종 상태 검증에서 실패하고 실제 transaction은 rollback된다.
+        verify(teamManagerRepository).deleteById(id);
     }
 
     @Test
@@ -228,6 +231,110 @@ class OrganizationPolicyRegressionTest {
         assertEquals(400, exception.getStatusCode().value());
         assertTrue(exception.getReason().contains("퇴사 처리된 사원"));
         verify(teamManagerRepository, never()).deleteAll(any());
+    }
+
+    @Test
+    void scheduledRetirement_thenOtherManagerRemoval_rejectsFutureGap() {
+        TeamManagerId removedId = new TeamManagerId(10L, 2L);
+        TeamManager remainingRow = mock(TeamManager.class);
+        Employee scheduledManager = mock(Employee.class);
+        Employee indefiniteEmployee = mock(Employee.class);
+
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(mock(Team.class)));
+        when(teamManagerRepository.existsById(removedId)).thenReturn(true);
+        when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(remainingRow));
+        when(remainingRow.getProjectManager()).thenReturn(scheduledManager);
+        when(scheduledManager.isActive(TODAY)).thenReturn(true);
+        when(scheduledManager.getFireDate()).thenReturn(TODAY.plusDays(30));
+        when(employeeRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(indefiniteEmployee));
+        when(indefiniteEmployee.isActive(TODAY)).thenReturn(true);
+        when(indefiniteEmployee.getFireDate()).thenReturn(null);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.removeManager(10L, 2L)
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("미래 결재 공백"));
+        verify(teamManagerRepository).deleteById(removedId);
+    }
+
+    @Test
+    void scheduledRetirementManager_cannotBecomeSoleManagerForIndefiniteDependents() {
+        Team team = mock(Team.class);
+        Team parent = mock(Team.class);
+        TeamManager oldManager = mock(TeamManager.class);
+        TeamManager replacementRow = mock(TeamManager.class);
+        Employee scheduledManager = mock(Employee.class);
+        Employee indefiniteEmployee = mock(Employee.class);
+        TeamDto.UpdateRequest request = new TeamDto.UpdateRequest();
+        setField(request, "projectManagerId", 99L);
+        setField(request, "parentTeamId", 20L);
+
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
+        when(teamRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(parent));
+        when(team.getTeamId()).thenReturn(10L);
+        when(team.getEnabled()).thenReturn(true);
+        when(team.getTeamName()).thenReturn("플랫폼팀");
+        when(parent.getTeamId()).thenReturn(20L);
+        when(parent.getEnabled()).thenReturn(true);
+        when(teamManagerRepository.existsActiveManagerInTeam(20L, TODAY)).thenReturn(true);
+        when(teamManagerRepository.findAllByTeam_TeamId(10L))
+                .thenReturn(List.of(oldManager), List.of(replacementRow));
+        when(teamManagerRepository.findAllByTeam_TeamId(20L)).thenReturn(List.of());
+        when(oldManager.getParentTeamId()).thenReturn(20L);
+        when(employeeRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(scheduledManager));
+        when(scheduledManager.isActive(TODAY)).thenReturn(true);
+        when(scheduledManager.getFireDate()).thenReturn(TODAY.plusDays(30));
+        when(replacementRow.getProjectManager()).thenReturn(scheduledManager);
+        when(employeeRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(indefiniteEmployee));
+        when(indefiniteEmployee.isActive(TODAY)).thenReturn(true);
+        when(indefiniteEmployee.getFireDate()).thenReturn(null);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.updateTeam(10L, request)
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("미래 결재 공백"));
+    }
+
+    @Test
+    void newIndefiniteDependent_rejectsScheduledOnlyManagerCoverage() {
+        TeamManager managerRow = mock(TeamManager.class);
+        Employee scheduledManager = mock(Employee.class);
+        Employee indefiniteEmployee = mock(Employee.class);
+
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(mock(Team.class)));
+        when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(managerRow));
+        when(managerRow.getProjectManager()).thenReturn(scheduledManager);
+        when(scheduledManager.isActive(TODAY)).thenReturn(true);
+        when(scheduledManager.getFireDate()).thenReturn(TODAY.plusDays(30));
+        when(employeeRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(indefiniteEmployee));
+        when(indefiniteEmployee.isActive(TODAY)).thenReturn(true);
+        when(indefiniteEmployee.getFireDate()).thenReturn(null);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.validateFutureApprovalCoverage(Set.of(10L))
+        );
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("미래 결재 공백"));
+    }
+
+    @Test
+    void teamLocks_areAcquiredInAscendingOrder() {
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(mock(Team.class)));
+        when(teamRepository.findByIdForUpdate(20L)).thenReturn(Optional.of(mock(Team.class)));
+
+        teamService.lockTeamsForUpdate(List.of(20L, 10L, 20L));
+
+        InOrder inOrder = inOrder(teamRepository);
+        inOrder.verify(teamRepository).findByIdForUpdate(10L);
+        inOrder.verify(teamRepository).findByIdForUpdate(20L);
     }
 
     @Test
