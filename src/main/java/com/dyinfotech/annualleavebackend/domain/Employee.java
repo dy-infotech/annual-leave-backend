@@ -9,7 +9,6 @@ import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.common.type.Role;
-import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.support.CreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasCreatedAudit;
 import com.dyinfotech.annualleavebackend.domain.support.HasUpdatedAudit;
@@ -142,11 +141,7 @@ public class Employee implements HasCreatedAudit, HasUpdatedAudit {
         this.accessedAt = now;
     }
 
-    public void changeEmail(String email) {
-        this.email = email;
-        CacheConfig.EMAIL_BY_NAME_CACHE.invalidate(name);
-        CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.put(employeeNumber, email);
-    }
+    public void changeEmail(String email) { this.email = email; }
 
     public void setCurrYear(String year) { this.currYear = year; }
     public void setCurrYearLeaveDays(Float leaveDays) { this.currTotalLeaveDays = leaveDays; }

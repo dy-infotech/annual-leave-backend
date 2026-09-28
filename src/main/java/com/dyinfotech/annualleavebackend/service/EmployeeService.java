@@ -9,15 +9,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
@@ -48,9 +47,10 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final TeamManagerRepository teamManagerRepository;
     private final OrganizationCacheInvalidator cacheInvalidator;
+    private final EmployeeCacheInvalidator employeeCacheInvalidator;
     private final PasswordEncoder passwordEncoder;
     
-    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
+    @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "@employeeViewCacheKey.key(#a0)")
     public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
@@ -97,12 +97,6 @@ public class EmployeeService {
     }
 
     @Transactional
-    @Caching(evict = {
-    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
-    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    	})
     public void changeEmail(Long employeeId, String email) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
@@ -111,13 +105,13 @@ public class EmployeeService {
                 	return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
         employee.changeEmail(email);
+        employeeCacheInvalidator.afterEmployeeChange(
+                employeeId,
+                List.of(employee.getName()),
+                employee.getEmployeeNumber());
     }
 
     @Transactional
-    @Caching(evict = {
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    	})
     public void changePassword(Long employeeId, EmployeeDto.PasswordChangeRequest request) {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> {
@@ -154,9 +148,9 @@ public class EmployeeService {
     }
     // 로그인 성공시 올해 총 연차 수 업데이트
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0")
     public void updateCurrTotalLeaveDays(Long employeeId, float days) {
         employeeRepository.updateCurrTotalLeaveDays(employeeId, days);
+        employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
     }
     
     public Optional<Employee> findByPrefixEmployeeNumber(String prefix) {	// 신규 사번 등록 실패도 있으므로 캐싱 미처리
@@ -195,7 +189,10 @@ public class EmployeeService {
     @Transactional
     public void saveEmployee(Employee employee) {
     	employeeRepository.save(employee);
-    	cacheInvalidator.afterEmployeeViewChange();
+    	employeeCacheInvalidator.afterEmployeeChange(
+    			employee.getEmployeeId(),
+    			List.of(employee.getName()),
+    			employee.getEmployeeNumber());
     }
     
     // 사원 정보가 수정되면 커밋 후 관련 캐시만 무효화하여 데이터 정합성을 유지합니다.
@@ -218,6 +215,8 @@ public class EmployeeService {
                     log.error(errorMsg + " employeeNumber: " + employeeNumber);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, errorMsg);
                 });
+
+        String oldEmployeeName = employee.getName();
 
         List<Long> managedTeamIdsBeforeUpdate = teamManagerRepository.findTeamIdsByProjectManagerId(employee.getEmployeeId());
 
@@ -290,6 +289,9 @@ public class EmployeeService {
         );
 
         cacheInvalidator.afterEmployeeOrganizationChange(managedTeamIdsBeforeUpdate);
+        employeeCacheInvalidator.afterEmailLookupChange(
+                List.of(oldEmployeeName, employee.getName()),
+                employee.getEmployeeNumber());
     }
 
 }

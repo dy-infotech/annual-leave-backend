@@ -22,18 +22,21 @@ public class OrganizationCacheInvalidator {
     private final LoadingCache<String, java.util.List<TeamManagerCacheRow>> teamManagerCache;
     private final CacheManager cacheManager;
     private final AfterCommitExecutor afterCommitExecutor;
+    private final EmployeeViewCacheKey employeeViewCacheKey;
 
     public OrganizationCacheInvalidator(
             @Qualifier("departmentLoadingCache") LoadingCache<String, java.util.List<DepartmentCacheRow>> departmentCache,
             @Qualifier("teamLoadingCache") LoadingCache<String, java.util.List<TeamCacheRow>> teamCache,
             @Qualifier("teamManagerLoadingCache") LoadingCache<String, java.util.List<TeamManagerCacheRow>> teamManagerCache,
             CacheManager cacheManager,
-            AfterCommitExecutor afterCommitExecutor) {
+            AfterCommitExecutor afterCommitExecutor,
+            EmployeeViewCacheKey employeeViewCacheKey) {
         this.departmentCache = departmentCache;
         this.teamCache = teamCache;
         this.teamManagerCache = teamManagerCache;
         this.cacheManager = cacheManager;
         this.afterCommitExecutor = afterCommitExecutor;
+        this.employeeViewCacheKey = employeeViewCacheKey;
     }
 
     public void afterEmployeeViewChange() {
@@ -52,7 +55,7 @@ public class OrganizationCacheInvalidator {
             }
 
             clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
-            clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
+            invalidateEmployeeViews();
         });
     }
 
@@ -63,7 +66,7 @@ public class OrganizationCacheInvalidator {
                     .filter(name -> name != null && !name.isBlank())
                     .forEach(departmentCache::invalidate);
             if (evictEmployeeCache) {
-                clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
+                invalidateEmployeeViews();
             }
         });
     }
@@ -76,7 +79,7 @@ public class OrganizationCacheInvalidator {
                     .forEach(teamCache::invalidate);
             clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
             if (evictEmployeeCache) {
-                clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
+                invalidateEmployeeViews();
             }
         });
     }
@@ -89,8 +92,13 @@ public class OrganizationCacheInvalidator {
                     .map(String::valueOf)
                     .forEach(teamManagerCache::invalidate);
             clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
-            clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
+            invalidateEmployeeViews();
         });
+    }
+
+    private void invalidateEmployeeViews() {
+        employeeViewCacheKey.bumpOrganization();
+        clearSpringCache(CacheConfig.CACHE_EMPLOYEES);
     }
 
     private void clearSpringCache(String cacheName) {
