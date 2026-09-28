@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
@@ -45,6 +46,7 @@ class LeaveRequestRegressionTest {
     private HolidaySyncService holidaySyncService;
     private CommonService commonService;
     private TeamService teamService;
+    private EmployeeCacheInvalidator employeeCacheInvalidator;
     private LeaveRequestService leaveRequestService;
 
     @BeforeEach
@@ -56,6 +58,7 @@ class LeaveRequestRegressionTest {
         holidaySyncService = mock(HolidaySyncService.class);
         commonService = mock(CommonService.class);
         teamService = mock(TeamService.class);
+        employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
 
         leaveRequestService = new LeaveRequestService(
                 leaveRequestRepository,
@@ -65,6 +68,7 @@ class LeaveRequestRegressionTest {
                 holidaySyncService,
                 commonService,
                 teamService,
+                employeeCacheInvalidator,
                 clock
         );
     }

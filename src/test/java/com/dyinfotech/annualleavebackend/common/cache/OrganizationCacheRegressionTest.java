@@ -67,7 +67,8 @@ class OrganizationCacheRegressionTest {
                 teamCache,
                 teamManagerCache,
                 cacheManager,
-                new AfterCommitExecutor()
+                new AfterCommitExecutor(),
+                new EmployeeViewCacheKey()
         );
 
         TransactionSynchronizationManager.setActualTransactionActive(true);
