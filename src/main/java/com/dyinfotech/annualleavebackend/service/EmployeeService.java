@@ -193,6 +193,119 @@ public class EmployeeService {
     			employee.getEmployeeNumber());
     }
     
+    @Transactional
+    public void updateManagedTeamsByAdmin(
+            Long approverId,
+            String employeeNumber,
+            EmployeeDto.ManagedTeamsUpdateRequest request) {
+        Employee approver = employeeRepository.findById(approverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        if (!approver.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인사권을 가진 관리자가 아닙니다.");
+        }
+
+        Employee employee = employeeRepository.findByEmployeeNumber(employeeNumber)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        Long employeeId = employee.getEmployeeId();
+
+        Set<String> expectedManagedTeams = normalizeManagedTeamNames(request.getExpectedManagedTeams());
+        Set<String> desiredManagedTeams = normalizeManagedTeamNames(request.getManagedTeams());
+
+        List<Long> managedTeamIdsBeforeUpdate = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+
+        Set<Long> plannedTeamIds = new HashSet<>(managedTeamIdsBeforeUpdate);
+        Map<String, Long> desiredTeamIds = new HashMap<>();
+        Map<String, Long> desiredParentTeamIds = new HashMap<>();
+
+        for (String teamName : desiredManagedTeams) {
+            var teamInfo = teamService.findTeamInfo(teamName)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "존재하지 않는 관리 팀입니다. requestedTeam: " + teamName));
+            Long parentTeamId = teamService.resolveParentTeamId(teamName)
+                    .orElse(approver.getTeamId());
+            desiredTeamIds.put(teamName, teamInfo.teamId());
+            desiredParentTeamIds.put(teamName, parentTeamId);
+            plannedTeamIds.add(teamInfo.teamId());
+            if (parentTeamId != null) {
+                plannedTeamIds.add(parentTeamId);
+            }
+        }
+
+        for (String teamName : expectedManagedTeams) {
+            var teamInfo = teamService.findTeamInfo(teamName)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "관리 팀 정보가 변경되었습니다. 다시 조회해주세요."));
+            plannedTeamIds.add(teamInfo.teamId());
+        }
+
+        // 모든 관련 TEAM을 ID 오름차순으로 잠근 뒤 Employee를 잠가 동일 직원의 관리팀 변경을 직렬화한다.
+        teamService.lockTeamsForUpdate(plannedTeamIds);
+        employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        if (!plannedTeamIds.containsAll(currentManagedTeamIds)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "담당 팀 정보가 동시에 변경되었습니다. 다시 조회해주세요.");
+        }
+
+        Map<String, Long> currentManagedByName = new HashMap<>();
+        for (Long managedTeamId : currentManagedTeamIds) {
+            teamService.findTeamInfo(managedTeamId)
+                    .ifPresent(teamInfo -> currentManagedByName.put(teamInfo.teamName(), teamInfo.teamId()));
+        }
+        Set<String> currentManagedTeams = new java.util.LinkedHashSet<>(currentManagedByName.keySet());
+
+        // 동일 요청 재전송: 첫 요청이 이미 반영됐다면 expected가 과거 상태여도 성공 no-op으로 처리한다.
+        if (currentManagedTeams.equals(desiredManagedTeams)) {
+            return;
+        }
+
+        // 서로 다른 관리자가 같은 과거 화면에서 수정한 경우 뒤늦은 저장으로 덮어쓰지 않는다.
+        if (!currentManagedTeams.equals(expectedManagedTeams)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "관리 팀 정보가 다른 요청에 의해 변경되었습니다. 다시 조회해주세요.");
+        }
+
+        Set<String> teamsToRemove = new java.util.LinkedHashSet<>(currentManagedTeams);
+        teamsToRemove.removeAll(desiredManagedTeams);
+
+        Set<String> teamsToAdd = new java.util.LinkedHashSet<>(desiredManagedTeams);
+        teamsToAdd.removeAll(currentManagedTeams);
+
+        for (String teamName : teamsToRemove) {
+            teamService.removeManager(currentManagedByName.get(teamName), employeeId);
+        }
+        for (String teamName : teamsToAdd) {
+            Long teamId = desiredTeamIds.get(teamName);
+            Long parentTeamId = desiredParentTeamIds.get(teamName);
+            teamService.addManager(teamName, employeeId, parentTeamId);
+        }
+    }
+
+    private Set<String> normalizeManagedTeamNames(Collection<String> teamNames) {
+        if (teamNames == null || teamNames.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return teamNames.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(teamName -> !teamName.isEmpty())
+                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
     // 사원 정보가 수정되면 커밋 후 관련 캐시만 무효화하여 데이터 정합성을 유지합니다.
     @Transactional
     public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
