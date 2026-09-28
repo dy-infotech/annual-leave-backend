@@ -305,4 +305,146 @@ class EmployeeOrganizationLockRegressionTest {
         verify(teamService).addManager("T2", 1L, 30L);
     }
 
+
+    @Test
+    void employeeAdminUpdate_replayedDesiredState_isIdempotentNoOp() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        CommonService commonService = mock(CommonService.class);
+        EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        OrganizationCacheInvalidator cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, commonService, employeeLeaveService,
+                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeCacheInvalidator, passwordEncoder);
+
+        Employee approver = mock(Employee.class);
+        Employee initialEmployee = mock(Employee.class);
+        Employee lockedEmployee = mock(Employee.class);
+        Department department = mock(Department.class);
+        EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
+        EmployeeDto.EmployeeAdminExpectedState expected = mock(EmployeeDto.EmployeeAdminExpectedState.class);
+        TeamCacheRow teamInfo = new TeamCacheRow(10L, "T1", 1L, true);
+        LocalDate hireDate = LocalDate.of(2024, 1, 1);
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
+        when(initialEmployee.getEmployeeId()).thenReturn(1L);
+        when(initialEmployee.getName()).thenReturn("과거이름");
+        when(initialEmployee.getTeamId()).thenReturn(10L);
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of());
+
+        when(request.getDepartment()).thenReturn("개발부");
+        when(request.getTeam()).thenReturn("T1");
+        when(request.getName()).thenReturn("현재이름");
+        when(request.getEmail()).thenReturn("current@example.com");
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(hireDate);
+        when(request.getFireDate()).thenReturn(null);
+        when(request.getExpected()).thenReturn(expected);
+        when(request.getManagedTeams()).thenReturn(null);
+        when(request.getTargetTeamsForRoleSwap()).thenReturn(null);
+
+        when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
+        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
+
+        when(lockedEmployee.getName()).thenReturn("현재이름");
+        when(lockedEmployee.getEmail()).thenReturn("current@example.com");
+        when(lockedEmployee.getDepartmentName()).thenReturn("개발부");
+        when(lockedEmployee.getTeamName()).thenReturn("T1");
+        when(lockedEmployee.getPosition()).thenReturn("사원");
+        when(lockedEmployee.getHireDate()).thenReturn(hireDate);
+        when(lockedEmployee.getFireDate()).thenReturn(null);
+
+        service.updateEmployeeByAdmin(100L, "E001", request);
+
+        verify(lockedEmployee, never()).updateInfoByAdmin(
+                any(), any(), any(), any(), any(), any(), any(), any());
+        verify(teamService, never()).removeManager(any(), any());
+        verify(teamService, never()).addManager(any(), any(), any());
+    }
+
+    @Test
+    void employeeAdminUpdate_staleExpectedState_isRejectedWithoutWrite() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        CommonService commonService = mock(CommonService.class);
+        EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        OrganizationCacheInvalidator cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, commonService, employeeLeaveService,
+                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeCacheInvalidator, passwordEncoder);
+
+        Employee approver = mock(Employee.class);
+        Employee initialEmployee = mock(Employee.class);
+        Employee lockedEmployee = mock(Employee.class);
+        Department department = mock(Department.class);
+        EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
+        EmployeeDto.EmployeeAdminExpectedState expected = mock(EmployeeDto.EmployeeAdminExpectedState.class);
+        TeamCacheRow teamInfo = new TeamCacheRow(10L, "T1", 1L, true);
+        LocalDate hireDate = LocalDate.of(2024, 1, 1);
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
+        when(initialEmployee.getEmployeeId()).thenReturn(1L);
+        when(initialEmployee.getName()).thenReturn("과거이름");
+        when(initialEmployee.getTeamId()).thenReturn(10L);
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of());
+
+        when(request.getDepartment()).thenReturn("개발부");
+        when(request.getTeam()).thenReturn("T1");
+        when(request.getName()).thenReturn("내수정");
+        when(request.getEmail()).thenReturn("mine@example.com");
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(hireDate);
+        when(request.getFireDate()).thenReturn(null);
+        when(request.getExpected()).thenReturn(expected);
+        when(request.getManagedTeams()).thenReturn(null);
+        when(request.getTargetTeamsForRoleSwap()).thenReturn(null);
+
+        when(expected.getName()).thenReturn("과거이름");
+        when(expected.getEmail()).thenReturn("old@example.com");
+        when(expected.getDepartment()).thenReturn("개발부");
+        when(expected.getTeam()).thenReturn("T1");
+        when(expected.getPosition()).thenReturn("사원");
+        when(expected.getHireDate()).thenReturn(hireDate);
+        when(expected.getFireDate()).thenReturn(null);
+
+        when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
+        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
+
+        when(lockedEmployee.getName()).thenReturn("다른관리자수정");
+        when(lockedEmployee.getEmail()).thenReturn("other@example.com");
+        when(lockedEmployee.getDepartmentName()).thenReturn("개발부");
+        when(lockedEmployee.getTeamName()).thenReturn("T1");
+        when(lockedEmployee.getPosition()).thenReturn("사원");
+        when(lockedEmployee.getHireDate()).thenReturn(hireDate);
+        when(lockedEmployee.getFireDate()).thenReturn(null);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.updateEmployeeByAdmin(100L, "E001", request));
+
+        assertEquals(409, exception.getStatusCode().value());
+        verify(lockedEmployee, never()).updateInfoByAdmin(
+                any(), any(), any(), any(), any(), any(), any(), any());
+        verify(teamService, never()).removeManager(any(), any());
+        verify(teamService, never()).addManager(any(), any(), any());
+    }
+
 }
