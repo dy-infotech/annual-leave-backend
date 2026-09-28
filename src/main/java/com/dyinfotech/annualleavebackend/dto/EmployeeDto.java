@@ -112,6 +112,13 @@ public final class EmployeeDto {
         
         private String team;
         
+        /**
+         * 최종 관리팀 집합. null이면 기존 targetTeamsForRoleSwap 토글 방식을 사용한다.
+         * 동일 요청 재전송에 안전한 멱등 경로다.
+         */
+        private Collection<String> managedTeams;
+
+        /** 하위 호환용 토글 목록. managedTeams가 전달되면 무시한다. */
         private Collection<String> targetTeamsForRoleSwap;
 
         private String position;

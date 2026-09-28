@@ -661,6 +661,21 @@ public class TeamService {
         }
 
         List<TeamManager> currentManagers = teamManagerRepository.findAllByTeam_TeamId(team.getTeamId());
+        Optional<TeamManager> existingManager = currentManagers.stream()
+                .filter(manager -> employeeId.equals(manager.getProjectManagerId()))
+                .findFirst();
+        if (existingManager.isPresent()) {
+            if (!parentTeamId.equals(existingManager.get().getParentTeamId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "이미 해당 팀의 담당자이지만 상위 팀 정보가 다릅니다.");
+            }
+            // 동일한 add 요청은 상태를 다시 쓰지 않고 성공 처리한다.
+            validateFutureApprovalCoverageLocked(team.getTeamId());
+            validateFutureApprovalCoverageLocked(parent.getTeamId());
+            return;
+        }
+
         if (currentManagers.stream().anyMatch(manager -> !manager.getParentTeamId().equals(parentTeamId))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "동일 팀의 담당자들은 같은 상위 팀을 사용해야 합니다.");
         }
@@ -875,24 +890,33 @@ public class TeamService {
             }
             validateParentTeam(team, finalParentTeam);
 
-            teamManagerRepository.deleteAll(currentManagers);
-            teamManagerRepository.flush();
-            teamManagerRepository.save(TeamManager.builder()
-                    .team(team)
-                    .projectManager(manager)
-                    .parentTeam(finalParentTeam)
-                    .build());
-            managerChanged = true;
+            boolean alreadyDesiredManagerState = currentManagers.size() == 1
+                    && request.getProjectManagerId().equals(currentManagers.get(0).getProjectManagerId())
+                    && finalParentTeam.getTeamId().equals(currentManagers.get(0).getParentTeamId());
+            if (!alreadyDesiredManagerState) {
+                teamManagerRepository.deleteAll(currentManagers);
+                teamManagerRepository.flush();
+                teamManagerRepository.save(TeamManager.builder()
+                        .team(team)
+                        .projectManager(manager)
+                        .parentTeam(finalParentTeam)
+                        .build());
+                managerChanged = true;
+            }
         } else if (newParentTeam != null) {
             if (currentManagers.isEmpty()) {
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "담당자가 없는 팀은 상위 팀 결재선을 지정할 수 없습니다.");
             }
-            for (TeamManager teamManager : currentManagers) {
-                teamManager.changeParentTeam(newParentTeam);
+            boolean alreadyDesiredParent = currentManagers.stream()
+                    .allMatch(teamManager -> newParentTeam.getTeamId().equals(teamManager.getParentTeamId()));
+            if (!alreadyDesiredParent) {
+                for (TeamManager teamManager : currentManagers) {
+                    teamManager.changeParentTeam(newParentTeam);
+                }
+                managerChanged = true;
             }
-            managerChanged = true;
         }
 
         try {
