@@ -19,6 +19,8 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
 
     Optional<Team> findByTeamName(String teamName);
 
+    Optional<Team> findByCreateRequestKey(String createRequestKey);
+
     Optional<Team> findByTeamNameAndEnabledTrue(String teamName);
 
     boolean existsByDepartment_DepartmentIdAndEnabledTrue(Long departmentId);
