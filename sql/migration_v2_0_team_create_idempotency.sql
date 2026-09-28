@@ -23,7 +23,18 @@ BEGIN
 
     IF v_count = 0 THEN
         EXECUTE IMMEDIATE
-            'ALTER TABLE team ADD (create_request_key VARCHAR2(128 CHAR), create_request_hash VARCHAR2(64 CHAR))';
+            'ALTER TABLE team ADD (create_request_key VARCHAR2(128 CHAR))';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'TEAM'
+       AND column_name = 'CREATE_REQUEST_HASH';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE team ADD (create_request_hash VARCHAR2(64 CHAR))';
     END IF;
 END;
 /
