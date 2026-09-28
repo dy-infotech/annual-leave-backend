@@ -441,4 +441,51 @@ class OrganizationPolicyRegressionTest {
             throw new AssertionError(e);
         }
     }
+    @Test
+    void addManager_sameRelationship_isIdempotentNoOp() {
+        TeamCacheRow teamInfo = new TeamCacheRow(10L, "플랫폼팀", 1L, true);
+        Team team = mock(Team.class);
+        Employee manager = mock(Employee.class);
+        TeamManager existing = mock(TeamManager.class);
+
+        when(teamCache.get("플랫폼팀")).thenReturn(List.of(teamInfo));
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
+        when(team.getTeamId()).thenReturn(10L);
+        when(team.getEnabled()).thenReturn(true);
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(manager));
+        when(manager.isActive(TODAY)).thenReturn(true);
+        when(existing.getProjectManagerId()).thenReturn(1L);
+        when(existing.getParentTeamId()).thenReturn(10L);
+        when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(existing));
+
+        teamService.addManager("플랫폼팀", 1L, 10L);
+
+        verify(teamManagerRepository, never()).save(any(TeamManager.class));
+        verify(cacheInvalidator, never()).afterTeamManagerChange(any());
+    }
+
+    @Test
+    void updateTeam_sameManagerAndParent_isIdempotentNoOp() {
+        Team team = mock(Team.class);
+        Employee manager = mock(Employee.class);
+        TeamManager existing = mock(TeamManager.class);
+        TeamDto.UpdateRequest request = new TeamDto.UpdateRequest();
+        setField(request, "projectManagerId", 1L);
+
+        when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of(existing));
+        when(existing.getParentTeamId()).thenReturn(10L);
+        when(existing.getProjectManagerId()).thenReturn(1L);
+        when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
+        when(team.getTeamId()).thenReturn(10L);
+        when(team.getEnabled()).thenReturn(true);
+        when(team.getTeamName()).thenReturn("플랫폼팀");
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(manager));
+        when(manager.isActive(TODAY)).thenReturn(true);
+
+        teamService.updateTeam(10L, request);
+
+        verify(teamManagerRepository, never()).deleteAll(any());
+        verify(teamManagerRepository, never()).save(any(TeamManager.class));
+        verify(cacheInvalidator, never()).afterTeamManagerChange(any());
+    }
 }
