@@ -416,8 +416,31 @@ public class TeamService {
 
     @Transactional
     public void saveTeam(TeamManager teamManager) {
-        teamManagerRepository.save(teamManager);
-        cacheInvalidator.afterTeamManagerChange(Set.of(teamManager.getTeamId()));
+        Long teamId = teamManager.getTeamId();
+        Long parentTeamId = teamManager.getParentTeamId();
+        Long managerId = teamManager.getProjectManagerId();
+        Map<Long, Team> lockedTeams = lockTeams(List.of(teamId, parentTeamId));
+        Team team = lockedTeams.get(teamId);
+        Team parent = lockedTeams.get(parentTeamId);
+        Employee manager = employeeRepository.findByIdForUpdate(managerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
+
+        validateManager(manager);
+        validateParentTeam(team, parent);
+        List<TeamManager> currentManagers = teamManagerRepository.findAllByTeam_TeamId(teamId);
+        if (currentManagers.stream().anyMatch(row -> !row.getParentTeamId().equals(parentTeamId))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "동일 팀의 담당자들은 같은 상위 팀을 사용해야 합니다.");
+        }
+
+        teamManagerRepository.save(TeamManager.builder()
+                .team(team)
+                .projectManager(manager)
+                .parentTeam(parent)
+                .build());
+        teamManagerRepository.flush();
+        validateFutureApprovalCoverageLocked(teamId);
+        validateFutureApprovalCoverageLocked(parentTeamId);
+        cacheInvalidator.afterTeamManagerChange(Set.of(teamId));
     }
 
     @Transactional
@@ -450,6 +473,83 @@ public class TeamService {
                 .sorted()
                 .forEach(teamId -> locked.put(teamId, lockTeam(teamId)));
         return locked;
+    }
+
+    @Transactional
+    public void lockTeamsForUpdate(Collection<Long> teamIds) {
+        lockTeams(teamIds);
+    }
+
+    @Transactional
+    public void validateFutureApprovalCoverage(Collection<Long> teamIds) {
+        Map<Long, Team> locked = lockTeams(teamIds);
+        locked.keySet().stream()
+                .sorted()
+                .forEach(this::validateFutureApprovalCoverageLocked);
+    }
+
+    private void validateFutureApprovalCoverageLocked(Long teamId) {
+        LocalDate today = LocalDate.now(clock);
+        boolean hasChildTeam = teamManagerRepository
+                .existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId);
+
+        List<Employee> dependents = employeeRepository.findAllByTeam_TeamId(teamId).stream()
+                .filter(employee -> employee.isActive(today))
+                .toList();
+
+        if (!hasChildTeam && dependents.isEmpty()) {
+            return;
+        }
+
+        List<Employee> activeManagers = teamManagerRepository.findAllByTeam_TeamId(teamId).stream()
+                .map(TeamManager::getProjectManager)
+                .filter(manager -> manager.isActive(today))
+                .toList();
+
+        if (activeManagers.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "현재 또는 미래 결재 의존성이 있는 팀에는 재직 담당자가 필요합니다.");
+        }
+
+        boolean dependentOpenEnded = hasChildTeam || dependents.stream()
+                .anyMatch(employee -> isOpenEnded(employee.getFireDate()));
+        boolean managerOpenEnded = activeManagers.stream()
+                .anyMatch(manager -> isOpenEnded(manager.getFireDate()));
+
+        if (dependentOpenEnded) {
+            if (!managerOpenEnded) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "예약 퇴사 이후 미래 결재 공백이 발생합니다. 퇴사 예정이 없는 담당자를 지정해주세요.");
+            }
+            return;
+        }
+
+        if (managerOpenEnded) {
+            return;
+        }
+
+        LocalDate dependentThrough = dependents.stream()
+                .map(Employee::getFireDate)
+                .filter(java.util.Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(today);
+        LocalDate managerThrough = activeManagers.stream()
+                .map(Employee::getFireDate)
+                .filter(java.util.Objects::nonNull)
+                .max(LocalDate::compareTo)
+                .orElse(today.minusDays(1));
+
+        if (managerThrough.isBefore(dependentThrough)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "예약 퇴사 이후 미래 결재 공백이 발생합니다. 담당자 재직 기간을 확인해주세요.");
+        }
+    }
+
+    private boolean isOpenEnded(LocalDate fireDate) {
+        return fireDate == null || LocalDate.MAX.equals(fireDate);
     }
 
     public boolean hasActiveManager(Long teamId) {
@@ -538,15 +638,9 @@ public class TeamService {
             return;
         }
 
-        LocalDate today = LocalDate.now(clock);
-        if (!teamManagerRepository.existsOtherActiveManagerInTeam(teamId, employeeId, today)
-                && hasApprovalDependents(teamId, today)) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "활성 사원 또는 하위 팀이 의존하는 팀의 마지막 재직 담당자는 해제할 수 없습니다.");
-        }
-
         teamManagerRepository.deleteById(id);
+        teamManagerRepository.flush();
+        validateFutureApprovalCoverageLocked(teamId);
         cacheInvalidator.afterTeamManagerChange(Set.of(teamId));
     }
 
@@ -576,6 +670,9 @@ public class TeamService {
                 .projectManager(employee)
                 .parentTeam(parent)
                 .build());
+        teamManagerRepository.flush();
+        validateFutureApprovalCoverageLocked(team.getTeamId());
+        validateFutureApprovalCoverageLocked(parent.getTeamId());
         cacheInvalidator.afterTeamManagerChange(Set.of(teamInfo.teamId()));
     }
 
@@ -663,7 +760,9 @@ public class TeamService {
                 parentTeamId = requester.getTeamId();
             }
 
-            Team parentTeam = lockTeam(parentTeamId);
+            Map<Long, Team> lockedTeams = lockTeams(List.of(team.getTeamId(), parentTeamId));
+            team = lockedTeams.get(team.getTeamId());
+            Team parentTeam = lockedTeams.get(parentTeamId);
             manager = employeeRepository.findByIdForUpdate(request.getProjectManagerId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
             validateManager(manager);
@@ -673,6 +772,9 @@ public class TeamService {
                     .projectManager(manager)
                     .parentTeam(parentTeam)
                     .build());
+            teamManagerRepository.flush();
+            validateFutureApprovalCoverageLocked(team.getTeamId());
+            validateFutureApprovalCoverageLocked(parentTeam.getTeamId());
             cacheInvalidator.afterTeamManagerChange(Set.of(team.getTeamId()));
         }
 
@@ -681,9 +783,20 @@ public class TeamService {
 
     @Transactional
     public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
-        Map<Long, Team> lockedTeams = lockTeams(request.getParentTeamId() == null
-                ? List.of(teamId)
-                : List.of(teamId, request.getParentTeamId()));
+        Long plannedParentTeamId = request.getParentTeamId();
+        if (plannedParentTeamId == null && request.getProjectManagerId() != null) {
+            plannedParentTeamId = teamManagerRepository.findAllByTeam_TeamId(teamId).stream()
+                    .findFirst()
+                    .map(TeamManager::getParentTeamId)
+                    .orElse(null);
+        }
+
+        List<Long> teamIdsToLock = new ArrayList<>();
+        teamIdsToLock.add(teamId);
+        if (plannedParentTeamId != null) {
+            teamIdsToLock.add(plannedParentTeamId);
+        }
+        Map<Long, Team> lockedTeams = lockTeams(teamIdsToLock);
         Team team = lockedTeams.get(teamId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
@@ -723,6 +836,12 @@ public class TeamService {
         }
 
         List<TeamManager> currentManagers = teamManagerRepository.findAllByTeam_TeamId(teamId);
+        if (request.getProjectManagerId() != null && request.getParentTeamId() == null
+                && !currentManagers.isEmpty()
+                && !java.util.Objects.equals(plannedParentTeamId, currentManagers.get(0).getParentTeamId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "팀의 상위 조직 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
+        }
+
         Team newParentTeam = null;
         if (request.getParentTeamId() != null) {
             if (request.getParentTeamId().equals(teamId)) {
@@ -736,28 +855,32 @@ public class TeamService {
             validateNoCycle(teamId, newParentTeam);
         }
 
+        Team finalParentTeam = newParentTeam;
         if (request.getProjectManagerId() != null) {
             Employee manager = employeeRepository.findByIdForUpdate(request.getProjectManagerId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "담당자로 지정할 사원이 존재하지 않습니다."));
             validateManager(manager);
 
-            Team parentTeam = newParentTeam;
-            if (parentTeam == null) {
+            if (finalParentTeam == null) {
                 if (currentManagers.isEmpty()) {
                     throw new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
                             "담당자 정보가 없는 팀입니다. 상위 팀을 함께 지정해주세요.");
                 }
-                parentTeam = currentManagers.get(0).getParentTeam();
+                Long currentParentId = currentManagers.get(0).getParentTeamId();
+                finalParentTeam = lockedTeams.get(currentParentId);
+                if (finalParentTeam == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "팀의 상위 조직 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
+                }
             }
-            validateParentTeam(team, parentTeam);
+            validateParentTeam(team, finalParentTeam);
 
             teamManagerRepository.deleteAll(currentManagers);
             teamManagerRepository.flush();
             teamManagerRepository.save(TeamManager.builder()
                     .team(team)
                     .projectManager(manager)
-                    .parentTeam(parentTeam)
+                    .parentTeam(finalParentTeam)
                     .build());
             managerChanged = true;
         } else if (newParentTeam != null) {
@@ -777,6 +900,13 @@ public class TeamService {
             teamManagerRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
+        }
+
+        if (managerChanged) {
+            validateFutureApprovalCoverageLocked(teamId);
+            if (finalParentTeam != null) {
+                validateFutureApprovalCoverageLocked(finalParentTeam.getTeamId());
+            }
         }
 
         if (teamChanged) {
