@@ -14,17 +14,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.util.DateUtils;
-import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
@@ -47,8 +44,7 @@ public class LeaveApprovalService {
 	private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeService employeeService;
     private final TeamService teamService;
-    
-    private final CacheManager cacheManager;
+    private final EmployeeCacheInvalidator employeeCacheInvalidator;
     
     private final Clock clock;
 
@@ -231,7 +227,6 @@ public class LeaveApprovalService {
     }
     
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
     	// 소속 확인 및 기본 검증
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
@@ -253,11 +248,7 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
 
-        // 캐시 비우기
-        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
-        if (employeeCache != null) {
-            employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
-        }
+        employeeCacheInvalidator.afterEmployeeViewChange(leaveRequest.getEmployee().getEmployeeId());
 
         // 영속성 컨텍스트가 초기화되었으므로 최신 데이터 재조회 후 응답 생성
         LeaveRequest updatedRequest = leaveRequestRepository.findById(requestId)
@@ -267,7 +258,6 @@ public class LeaveApprovalService {
     }
 
     @Transactional
-    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
     	// 소속 확인 및 기본 검증
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
@@ -289,11 +279,7 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
 
-        // 캐시 비우기
-        Cache employeeCache = cacheManager.getCache(CacheConfig.CACHE_EMPLOYEES);
-        if (employeeCache != null) {
-            employeeCache.evict(leaveRequest.getEmployee().getEmployeeId());
-        }
+        employeeCacheInvalidator.afterEmployeeViewChange(leaveRequest.getEmployee().getEmployeeId());
 
         // 영속성 컨텍스트가 초기화되었으므로 최신 데이터 재조회 후 응답 생성
         LeaveRequest updatedRequest = leaveRequestRepository.findById(requestId)

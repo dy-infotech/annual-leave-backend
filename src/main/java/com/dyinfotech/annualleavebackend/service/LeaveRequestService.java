@@ -10,17 +10,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.common.type.LeaveType;
 import com.dyinfotech.annualleavebackend.common.util.DateUtils;
-import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
@@ -47,16 +45,11 @@ public class LeaveRequestService {
     private final HolidaySyncService holidaySyncService;
     private final CommonService commonService;
     private final TeamService teamService;
+    private final EmployeeCacheInvalidator employeeCacheInvalidator;
     
     private final Clock clock;
 
     @Transactional
-    @Caching(evict = {
-    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
-    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    	})
     public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
         LeaveType leaveType = LeaveType.fromName(request.getLeaveType());
         // XXX: 클라에서 받은 정보의 LeaveType을 검증한다.
@@ -172,6 +165,7 @@ public class LeaveRequestService {
                 .build();
 
         leaveRequestRepository.save(leaveRequest);
+        employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
  
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
         Set<Long> resolvedApproverIds = teamService.refreshApproverIds(employee);
@@ -393,12 +387,6 @@ public class LeaveRequestService {
     }
 
     @Transactional
-    @Caching(evict = {
-    	    // 1. 해당 직원의 단건 캐시(getMyInfo) 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "#a0"),
-    	    // 2. 재직 중인 직원 전체 목록 캐시('active')도 같이 날리기
-    	    @CacheEvict(value = CacheConfig.CACHE_EMPLOYEES, key = "'active'")
-    	})
     public void cancel(Long employeeId, Long requestId) {
     	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
@@ -427,5 +415,7 @@ public class LeaveRequestService {
         if (leaveRequestRepository.cancelLeaveRequest(requestId, employeeId, today) == 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
+
+        employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
     }
 }
