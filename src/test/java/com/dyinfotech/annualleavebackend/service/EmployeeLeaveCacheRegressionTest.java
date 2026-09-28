@@ -61,7 +61,8 @@ class EmployeeLeaveCacheRegressionTest {
         verify(employee).setCurrYear("2026");
         verify(employee).setCurrYearLeaveDays(15.0f);
         verify(employeeCacheInvalidator).afterEmployeeViewChange(
-                argThat(ids -> ids != null && ids.size() == 1 && ids.contains(1L))
+                org.mockito.ArgumentMatchers.<java.util.Collection<Long>>argThat(
+                        ids -> ids != null && ids.size() == 1 && ids.contains(1L))
         );
     }
 }
