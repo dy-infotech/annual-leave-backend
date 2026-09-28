@@ -92,145 +92,146 @@ public class AuthService {
     
     @Transactional(readOnly = true)
     public RegisterCommonDto.RegisterCommonResponse getCommonData(Long employeeId) {
-    	Employee requester = employeeRepository.findById(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-    	PositionType requesterPosition = PositionType.getType(requester.getPosition());
-    	return RegisterCommonDto.RegisterCommonResponse.builder()
-    													.department(Arrays.asList(DepartmentType.values()).stream()
-    																										.map(DepartmentType::getName)
-    																										.toList())
-    													.accessibleTeam(requester.getTeams().stream()
-		    																				.flatMap(team -> teamService.getSelfAndDescendants(team.getTeam()).stream())
-		    																				.map(Team::getTeam)
-		    																				.collect(Collectors.toSet()))
-    													.position(Arrays.asList(PositionType.values()).stream()
-    																									.filter(e -> e.ordinal() < requesterPosition.ordinal())
-    																									.map(PositionType::getName)
-    																									.toList())
-    													.build();
+        Employee requester = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        PositionType requesterPosition = PositionType.getType(requester.getPosition());
+
+        return RegisterCommonDto.RegisterCommonResponse.builder()
+                .department(departmentService.findAll().stream()
+                        .map(department -> department.departmentName())
+                        .toList())
+                .accessibleTeam(teamService.findManagedTeams(employeeId).stream()
+                        .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                        .map(ManagedTeam::teamName)
+                        .collect(Collectors.toSet()))
+                .position(Arrays.asList(PositionType.values()).stream()
+                        .filter(position -> position.ordinal() < requesterPosition.ordinal())
+                        .map(PositionType::getName)
+                        .toList())
+                .build();
     }
     
     @Transactional
     public RegisterDto.RegisterResponse registerEmployee(Long employeeId, RegisterDto.RegisterRequest request) {
-    	// 사번 채번용 접두사 정보 검증 (서버 데이터)
-    	LocalDate now = LocalDate.now(clock);
-    	String currentYear = String.valueOf(now.getYear());
-//    	String prefix = basisDataFactory.getAsString(BasisDataType.EMPLOYEE_NUMBER_PREFIX)
-//    									.orElseThrow(() -> {
-//    										String errorMsg = "사번 접두사 정보가 없습니다. target: BasisDataType." + BasisDataType.EMPLOYEE_NUMBER_PREFIX;
-//    							    		log.error(errorMsg);
-//    										return new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg);
-//    									})
-//    									.replace("#{YEAR}", currentYear);
-    	
-    	// 현재 승인자 직급과 신청받은 직급을 비교
-    	Employee approver = employeeRepository.findById(employeeId)
-    											.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-    	
-    	// 부서와 직급 검증
-    	DepartmentType department = DepartmentType.getType(request.getDepartment());
-    	PositionType targetPosition = PositionType.getType(request.getPosition());
-    	int validationResult = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
-    	if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
-    		String errorMsg;
-    		String detailMsg = "approverId: " + employeeId + "approverDepartment: " + approver.getDepartment() + ", requestedDepartment: " + department;
-    		DepartmentType parent = DepartmentType.getParentDepartmentType();
-    		if (parent.equals(department)) {
-    			errorMsg = parent.getName() + " 부서는 " + PositionType.CEO.getName() + "만 등록할 수 있습니다.";
-    			detailMsg += ", approverPosition: " + approver.getPosition();
-    		} else {
-    			errorMsg = "승인자의 부서와 동일한 부서만 선택할 수 있습니다.";
-    		}
-    		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
-    	}
-    	if (!ManageType.IS_VALID_POSITION.contains(validationResult)) {
-    		String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
-    		String detailMsg = "approverId: " + employeeId + "approverPosition: " + approver.getPosition() + ", targetPosition: " + targetPosition;
-    		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
-    	}
-    	
-    	// 팀 정보와 관리자 매칭
-    	Entry<Integer, String> teamData = teamService.getTeamManagerData(request.getTeam(), approver);
-    	if (!ManageType.IS_TEAM_MANAGER.contains(teamData.getKey()) && !ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
-    		String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
-    		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverTeam=[" + teamData.getValue() + "]";
-    		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
-    	}
-    	
-    	// 팀의 관리자로 등록되는 건지 확인
-    	boolean makeAdminAccount = false;
-    	if (Role.isAdmin(request.getRole())) {
-    		if (approver.hasPersonnelAuthority()) {
-    			makeAdminAccount = true;
-    		} else {
-        		String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";
-        		String detailMsg = "team : " + request.getTeam() + ",approverId : " + employeeId + ",approverPosition : " + approver.getPosition();
-        		log.error(errorMsg + " " + detailMsg);
-    			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
-    		}
-    	} else if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
-    		String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
-    		String detailMsg = "team : " + request.getTeam() + ",role : " + request.getRole() + ",approverId : " + employeeId + ",approverPosition : " + approver.getPosition();
-    		log.error(errorMsg + " " + detailMsg);
-			throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
-    	}
+        LocalDate now = LocalDate.now(clock);
+        String currentYear = String.valueOf(now.getYear());
 
-  //  	Optional<Employee> lastPrefixEmployee = employeeService.findByPrefixEmployeeNumber(prefix);
-    	
-//    	// 사번 설정
-//    	String formatString = "%03d";
-//    	String employeeNumber = null;
-//    	if (lastPrefixEmployee.isPresent()) {
-//			String lastEmployeeNumber = lastPrefixEmployee.get().getEmployeeNumber();
-//			int lastNumber = Integer.parseInt(lastEmployeeNumber.substring(prefix.length()));
-//			employeeNumber = prefix + String.format(formatString, lastNumber + 1);
-//		} else {
-//			employeeNumber = prefix + String.format(formatString, 1);
-//		}
-//    	
-    	// 근로자 정보 등록
-    	LocalDate hireDate = LocalDate.parse(request.getHireDate());
-    	Employee employee = Employee.builder()
-				.employeeNumber(request.getEmployeeNumber())
-				.name(request.getName())
-				.department(request.getDepartment())
-				.team(request.getTeam())
-				.position(request.getPosition())
-				.email(request.getEmail())
-				.hireDate(hireDate)
-				.currYear(currentYear)
-				.currTotalLeaveDays(employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate))
-				.approver(approver)
-				.build();
-    	
-    	employeeService.saveEmployee(employee);
-    	
-    	// 신규 팀이 만들어져야 한다면
-    	if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
-    		teamService.saveTeam(Team.builder()
-									.team(request.getTeam())
-									.projectManager(employee)
-									// XXX: 대표이사만 등록 가능하므로 대표이사 팀을 넣으면 될 것 같다. 차후에 문제가 생기면 getParentTeam으로 수정.
-									.parentTeam(approver.getTeam())
-									.build());
-    	}
-    	// 신규 팀은 아니지만 관리자로 등록되어야 한다면
-    	else if (makeAdminAccount) {
-    		teamService.saveTeam(Team.builder()
-									.team(request.getTeam())
-									.projectManager(employee)
-									// XXX: getTeamManagerData 호출될 때 해당 팀이 존재하는 걸 확인했으므로 get(0)으로 처리한다.
-									.parentTeam(teamService.findAllByTeam(request.getTeam()).get(0).getParentTeam())
-									.build());
-    	}
-    	
+        Employee approver = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        Department department = departmentService.findByDepartmentName(request.getDepartment())
+                .orElseThrow(() -> {
+                    String errorMsg = "일치하는 부서 정보가 없습니다. departmentName:" + request.getDepartment();
+                    log.error(errorMsg);
+                    return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+                });
+
+        PositionType targetPosition = PositionType.getType(request.getPosition());
+        int validationResult = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
+        if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
+            String errorMsg;
+            String detailMsg = "approverId: " + employeeId
+                    + ", approverDepartment: " + approver.getDepartmentName()
+                    + ", requestedDepartment: " + department.getDepartmentName();
+            DepartmentType parent = DepartmentType.getParentDepartmentType();
+            if (parent.equals(DepartmentType.getType(department.getDepartmentName()))) {
+                errorMsg = parent.getName() + " 부서는 " + PositionType.CEO.getName() + "만 등록할 수 있습니다.";
+                detailMsg += ", approverPosition: " + approver.getPosition();
+            } else {
+                errorMsg = "승인자의 부서와 동일한 부서만 선택할 수 있습니다.";
+            }
+            log.error(errorMsg + " " + detailMsg);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+        }
+        if (!ManageType.IS_VALID_POSITION.contains(validationResult)) {
+            String errorMsg = "나와 동등 또는 상위 직급을 설정했거나 직급 정보가 잘못되었습니다.";
+            String detailMsg = "approverId: " + employeeId
+                    + ", approverPosition: " + approver.getPosition()
+                    + ", targetPosition: " + targetPosition;
+            log.error(errorMsg + " " + detailMsg);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
+        }
+
+        // 팀의 존재 여부와 팀 관리자 존재 여부를 분리해서 판단한다.
+        Entry<Integer, String> teamData = teamService.getTeamManagerData(request.getTeam(), approver);
+        if (!ManageType.IS_TEAM_MANAGER.contains(teamData.getKey())
+                && !ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
+            String errorMsg = "해당 팀을 관리하는 관리자가 아닙니다.";
+            String detailMsg = "team : " + request.getTeam()
+                    + ", approverId : " + employeeId
+                    + ", approverTeam=[" + teamData.getValue() + "]";
+            log.error(errorMsg + " " + detailMsg);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
+        }
+
+        boolean makeAdminAccount = false;
+        if (Role.isAdmin(request.getRole())) {
+            if (approver.hasPersonnelAuthority()) {
+                makeAdminAccount = true;
+            } else {
+                String errorMsg = "해당 팀의 관리자로 등록할 권한이 부족합니다.";
+                log.error(errorMsg + " team: {}, approverId: {}", request.getTeam(), employeeId);
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
+            }
+        } else if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
+            String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
+            log.error(errorMsg + " team: {}, role: {}, approverId: {}", request.getTeam(), request.getRole(), employeeId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
+        }
+
+        Team team;
+        boolean newTeam = ManageType.IS_NEW_TEAM.contains(teamData.getKey());
+        if (newTeam) {
+            team = Team.builder()
+                    .teamName(request.getTeam())
+                    .enabled(Boolean.TRUE)
+                    .department(department)
+                    .build();
+            teamService.saveTeam(team);
+        } else {
+            team = teamService.findByTeamName(request.getTeam())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 없습니다."));
+
+            if (!team.getDepartment().getDepartmentId().equals(department.getDepartmentId())) {
+                log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartmentId: {}",
+                        department.getDepartmentName(), team.getDepartment().getDepartmentId());
+                department = team.getDepartment();
+            }
+        }
+
+        LocalDate hireDate = LocalDate.parse(request.getHireDate());
+        Employee employee = Employee.builder()
+                .employeeNumber(request.getEmployeeNumber())
+                .name(request.getName())
+                .department(department)
+                .team(team)
+                .position(request.getPosition())
+                .email(request.getEmail())
+                .hireDate(hireDate)
+                .currYear(currentYear)
+                .currTotalLeaveDays(employeeLeaveService.getCalculatedCurrYearLeaveDays(hireDate))
+                .approver(approver)
+                .build();
+
+        employeeService.saveEmployee(employee);
+
+        if (newTeam) {
+            teamService.saveTeam(TeamManager.builder()
+                    .team(team)
+                    .projectManager(employee)
+                    .parentTeam(approver.getTeam())
+                    .build());
+        } else if (makeAdminAccount) {
+            Long parentTeamId = teamService.resolveParentTeamId(request.getTeam())
+                    .orElse(approver.getTeamId());
+            teamService.addManager(request.getTeam(), employee.getEmployeeId(), parentTeamId);
+        }
+
         return RegisterDto.RegisterResponse.builder()
                 .employeeId(employee.getEmployeeId())
                 .employeeNumber(employee.getEmployeeNumber())
                 .build();
-	}
+    }
 
     @Transactional
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
