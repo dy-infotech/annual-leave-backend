@@ -41,6 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class LeaveApprovalService {
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE = 10000;
 	private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeService employeeService;
     private final TeamService teamService;
