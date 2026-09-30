@@ -78,6 +78,17 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
 
     @Override
+    public boolean existsEmployeeRequiringTeam(Long teamId, LocalDate date) {
+        return queryFactory.selectOne()
+                .from(qEmployee)
+                .where(
+                        qEmployee.team.teamId.eq(teamId),
+                        qEmployee.fireDate.isNull().or(qEmployee.fireDate.goe(date))
+                )
+                .fetchFirst() != null;
+    }
+
+    @Override
     public boolean existsActiveEmployeeInTeamExcludingEmployee(Long teamId, Long employeeId, LocalDate date) {
         return queryFactory.selectOne()
                 .from(qEmployee)

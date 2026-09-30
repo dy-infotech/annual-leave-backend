@@ -88,7 +88,7 @@ public class DepartmentService {
 
     @Transactional
     public void renameDepartment(Long departmentId, String departmentName) {
-        Department department = departmentRepository.findById(departmentId)
+        Department department = departmentRepository.findByIdForUpdate(departmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
 
         if (DepartmentType.getParentDepartmentType().getName().equals(department.getDepartmentName())) {

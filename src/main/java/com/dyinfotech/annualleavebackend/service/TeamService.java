@@ -858,7 +858,8 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
         }
 
-        Department department = departmentRepository.findById(request.getDepartmentId())
+        // 부서 삭제와 팀 생성이 교차하지 않도록 department row를 먼저 잠근다.
+        Department department = departmentRepository.findByIdForUpdate(request.getDepartmentId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
         if (!Boolean.TRUE.equals(department.getEnabled())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서에는 팀을 생성할 수 없습니다.");
@@ -958,6 +959,16 @@ public class TeamService {
 
     @Transactional
     public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
+        // department -> team 순서로 잠금 순서를 고정해 deleteDepartment/createTeam과 교착을 피한다.
+        Department lockedRequestedDepartment = null;
+        if (request.getDepartmentId() != null) {
+            lockedRequestedDepartment = departmentRepository.findByIdForUpdate(request.getDepartmentId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
+            if (!Boolean.TRUE.equals(lockedRequestedDepartment.getEnabled())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서로는 변경할 수 없습니다.");
+            }
+        }
+
         Long plannedParentTeamId = request.getParentTeamId();
         if (plannedParentTeamId == null && request.getProjectManagerId() != null) {
             plannedParentTeamId = teamManagerRepository.findAllByTeam_TeamId(teamId).stream()
@@ -994,12 +1005,8 @@ public class TeamService {
             }
         }
 
-        if (request.getDepartmentId() != null) {
-            Department newDepartment = departmentRepository.findById(request.getDepartmentId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
-            if (!Boolean.TRUE.equals(newDepartment.getEnabled())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서로는 변경할 수 없습니다.");
-            }
+        if (lockedRequestedDepartment != null) {
+            Department newDepartment = lockedRequestedDepartment;
             if (!newDepartment.getDepartmentId().equals(team.getDepartment().getDepartmentId())) {
                 team.changeDepartment(newDepartment);
                 for (Employee member : employeeRepository.findAllByTeam_TeamId(teamId)) {
@@ -1136,10 +1143,10 @@ public class TeamService {
                     "하위 팀이 있는 팀은 삭제할 수 없습니다. 하위 팀을 먼저 정리해주세요.");
         }
 
-        if (employeeRepository.existsActiveEmployeeInTeam(teamId, LocalDate.now(clock))) {
+        if (employeeRepository.existsEmployeeRequiringTeam(teamId, LocalDate.now(clock))) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "소속 사원이 있는 팀은 삭제할 수 없습니다. 사원의 팀을 먼저 변경해주세요.");
+                    "현재 또는 입사 예정 사원이 있는 팀은 삭제할 수 없습니다. 사원의 팀을 먼저 변경해주세요.");
         }
 
         String teamName = team.getTeamName();
