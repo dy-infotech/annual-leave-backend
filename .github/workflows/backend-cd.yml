@@ -13,6 +13,21 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    services:
+      oracle:
+        image: gvenzl/oracle-xe:21-slim-faststart
+        env:
+          ORACLE_PASSWORD: oracle-test-system
+          APP_USER: annual_leave_test
+          APP_USER_PASSWORD: annual_leave_test
+        ports:
+          - 1521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
     steps:
 
       # 1. SSH 접속 테스트 (Fail Fast)
@@ -43,14 +58,34 @@ jobs:
           cache: gradle
 
 
-      # 4. Gradle Build
-      - name: 4. Gradle Build
+      # 4. Oracle 21c XE 테스트 스키마
+      - name: 4. Oracle 21c XE 테스트 스키마 준비
+        run: |
+          set -e
+          ORACLE_ID=$(docker ps --filter "ancestor=gvenzl/oracle-xe:21-slim-faststart" --format "{{.ID}}" | head -n 1)
+          test -n "$ORACLE_ID"
+
+          docker cp sql/schema.sql "$ORACLE_ID:/tmp/schema.sql"
+          docker cp sql/data.sql "$ORACLE_ID:/tmp/data.sql"
+
+          docker exec "$ORACLE_ID" bash -lc \
+            "sqlplus -s annual_leave_test/annual_leave_test@//localhost:1521/XEPDB1 @/tmp/schema.sql"
+          docker exec "$ORACLE_ID" bash -lc \
+            "sqlplus -s annual_leave_test/annual_leave_test@//localhost:1521/XEPDB1 @/tmp/data.sql"
+
+      # 5. Gradle Build
+      - name: 5. Gradle Build
+        env:
+          RUN_ORACLE_INTEGRATION_TESTS: "true"
+          TEST_DB_URL: jdbc:oracle:thin:@localhost:1521/XEPDB1
+          TEST_DB_USERNAME: annual_leave_test
+          TEST_DB_PASSWORD: annual_leave_test
         run: |
           chmod +x gradlew
           ./gradlew test bootJar
 
 
-      # 5. 서버 배포 디렉터리 준비
+      # 6. 서버 배포 디렉터리 준비
       - name: 5. 서버 배포 디렉터리 준비
         if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@v1.2.5
@@ -74,7 +109,7 @@ jobs:
 
 
       # 6. JAR 업로드
-      - name: 6. Build JAR Upload
+      - name: 7. Build JAR Upload
         if: github.ref == 'refs/heads/release'
         uses: appleboy/scp-action@v1
         with:
@@ -88,7 +123,7 @@ jobs:
 
 
       # 7. 배포 및 재시작
-      - name: 7. Deploy & Restart
+      - name: 8. Deploy & Restart
         if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@v1.2.5
         with:
