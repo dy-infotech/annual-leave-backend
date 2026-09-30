@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,44 +24,38 @@ public class LeaveApprovalController {
 
     private final LeaveApprovalService leaveApprovalService;
 
-    @Operation(summary = "승인 대기 상태 휴가 조회", description = "관리자가 승인 대기 상태인 휴가를 cursor 기반으로 조회한다.")
+    @Operation(summary = "승인 대기 상태 휴가 조회", description = "관리자가 승인 대기 상태인 휴가를 page/size 기반으로 조회한다.")
     @GetMapping("/pending")
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
-            @RequestParam(value = "cursorCreatedAt", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
-            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
-            @RequestParam(value = "size", defaultValue = "51") int size,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.getPendingRequests(
-                principal.employeeId(), cursorCreatedAt, cursorRequestId, size);
+                principal.employeeId(), page, size);
     }
 
-    @Operation(summary = "승인 상태 휴가 조회", description = "관리자가 하위팀의 승인 상태 휴가를 cursor 기반으로 조회한다.")
+    @Operation(summary = "승인 상태 휴가 조회", description = "관리자가 하위팀의 승인 상태 휴가를 page/size 기반으로 조회한다.")
     @GetMapping("/approved")
     public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
             @RequestParam(value = "team", required = false) String team,
             @RequestParam(value = "employeeParam", required = false) String employeeParam,
-            @RequestParam(value = "cursorCreatedAt", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
-            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
-            @RequestParam(value = "size", defaultValue = "51") int size,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.getApprovedRequests(
-                principal.employeeId(), team, employeeParam, cursorCreatedAt, cursorRequestId, size);
+                principal.employeeId(), team, employeeParam, page, size);
     }
 
-    @Operation(summary = "반려 상태 휴가 조회", description = "관리자가 하위팀의 반려 상태 휴가를 cursor 기반으로 조회한다.")
+    @Operation(summary = "반려 상태 휴가 조회", description = "관리자가 하위팀의 반려 상태 휴가를 page/size 기반으로 조회한다.")
     @GetMapping("/rejected")
     public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
             @RequestParam(value = "team", required = false) String team,
             @RequestParam(value = "employeeParam", required = false) String employeeParam,
-            @RequestParam(value = "cursorCreatedAt", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
-            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
-            @RequestParam(value = "size", defaultValue = "51") int size,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "50") int size,
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.getRejectedRequests(
-                principal.employeeId(), team, employeeParam, cursorCreatedAt, cursorRequestId, size);
+                principal.employeeId(), team, employeeParam, page, size);
     }
 
     @Operation(summary = "휴가 승인", description = "관리자가 휴가 요청을 승인한다.")

@@ -1,7 +1,6 @@
 package com.dyinfotech.annualleavebackend.repository.query;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -33,11 +32,11 @@ public interface LeaveRequestRepositoryCustom {
     		LocalDate startRange,
     		LocalDate endRange
     );
-    List<LeaveRequest> findByStatusAndTeamsInRangeCursor(
+    List<LeaveRequest> findByStatusAndTeamsInRangePage(
             Long excludeId, LeaveRequestStatus status,
             Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds,
             LocalDate startRange, LocalDate endRange,
-            LocalDateTime cursorCreatedAt, Long cursorRequestId, int size
+            int page, int size
     );
     
     // 휴가 결재 승인 또는 반려 처리
@@ -62,10 +61,10 @@ public interface LeaveRequestRepositoryCustom {
             Collection<String> team,
             String searchEmployeeParam
     );
-    List<LeaveRequest> searchLeaveRequestsCursor(
+    List<LeaveRequest> searchLeaveRequestsPage(
             Long employeeId, LocalDate startDate, LocalDate endDate,
             LeaveRequestStatus status, Collection<String> team, String searchEmployeeParam,
-            LocalDateTime cursorCreatedAt, Long cursorRequestId, int size
+            int page, int size
     );
 
     // 검색 기간이 7/1 ~ 7/10이고, 휴가 신청 기간이 7/8 ~ 7/12일 경우, 7/8 ~ 7/10 구간이 겹치니 결과에 포함

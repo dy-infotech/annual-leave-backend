@@ -204,14 +204,14 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequest> findByStatusAndTeamsInRangeCursor(
+	public List<LeaveRequest> findByStatusAndTeamsInRangePage(
 			Long excludeId, LeaveRequestStatus status,
 			Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds,
 			LocalDate startDate, LocalDate endDate,
-			LocalDateTime cursorCreatedAt, Long cursorRequestId, int size) {
+			int page, int size) {
 		BooleanExpression targetCondition = pendingTargetCondition(excludeId, directTeams, childTeamProjectManagerIds);
 		return pendingBaseQuery(status, targetCondition, startDate, endDate)
-				.where(cursorAfterAscending(cursorCreatedAt, cursorRequestId))
+				.offset((long) page * size)
 				.limit(size)
 				.fetch();
 	}
@@ -298,13 +298,13 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
-	public List<LeaveRequest> searchLeaveRequestsCursor(
+	public List<LeaveRequest> searchLeaveRequestsPage(
 			Long employeeId, LocalDate startDate, LocalDate endDate,
 			LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam,
-			LocalDateTime cursorCreatedAt, Long cursorRequestId, int size) {
+			int page, int size) {
 		BooleanBuilder builder = searchCondition(employeeId, status, teams, searchEmployeeParam);
 		return searchBaseQuery(builder, startDate, endDate)
-				.where(cursorBeforeDescending(cursorCreatedAt, cursorRequestId))
+				.offset((long) page * size)
 				.limit(size)
 				.fetch();
 	}
@@ -321,20 +321,6 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				.orderBy(
 						qLeaveRequest.createdAudit.createdAt.desc(),
 						qLeaveRequest.requestId.desc());
-	}
-
-	private BooleanExpression cursorAfterAscending(LocalDateTime cursorCreatedAt, Long cursorRequestId) {
-		if (cursorCreatedAt == null || cursorRequestId == null) return null;
-		return qLeaveRequest.createdAudit.createdAt.gt(cursorCreatedAt)
-				.or(qLeaveRequest.createdAudit.createdAt.eq(cursorCreatedAt)
-						.and(qLeaveRequest.requestId.gt(cursorRequestId)));
-	}
-
-	private BooleanExpression cursorBeforeDescending(LocalDateTime cursorCreatedAt, Long cursorRequestId) {
-		if (cursorCreatedAt == null || cursorRequestId == null) return null;
-		return qLeaveRequest.createdAudit.createdAt.lt(cursorCreatedAt)
-				.or(qLeaveRequest.createdAudit.createdAt.eq(cursorCreatedAt)
-						.and(qLeaveRequest.requestId.lt(cursorRequestId)));
 	}
 
 	private BooleanBuilder searchCondition(
