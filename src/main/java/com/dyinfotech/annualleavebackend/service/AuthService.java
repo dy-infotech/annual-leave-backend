@@ -112,9 +112,11 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "직급 정보가 잘못되었습니다.");
         }
 
+        var departments = departmentService.findAll();
         java.util.Collection<String> accessibleTeams;
         if (requester.hasPersonnelAuthority()) {
             accessibleTeams = teamService.findAllTeamInfo().stream()
+                    .filter(team -> Boolean.TRUE.equals(team.enabled()))
                     .map(team -> team.teamName())
                     .collect(Collectors.toSet());
         } else {
@@ -124,11 +126,27 @@ public class AuthService {
                     .collect(Collectors.toSet());
         }
 
+        var accessibleTeamInfo = teamService.findAllTeamInfo().stream()
+                .filter(team -> Boolean.TRUE.equals(team.enabled()))
+                .filter(team -> accessibleTeams.contains(team.teamName()))
+                .map(team -> RegisterCommonDto.TeamOptionResponse.builder()
+                        .teamId(team.teamId())
+                        .teamName(team.teamName())
+                        .departmentId(team.departmentId())
+                        .departmentName(departments.stream()
+                                .filter(department -> Objects.equals(department.departmentId(), team.departmentId()))
+                                .map(department -> department.departmentName())
+                                .findFirst()
+                                .orElse(null))
+                        .build())
+                .toList();
+
         return RegisterCommonDto.RegisterCommonResponse.builder()
-                .department(departmentService.findAll().stream()
+                .department(departments.stream()
                         .map(department -> department.departmentName())
                         .toList())
                 .accessibleTeam(accessibleTeams)
+                .accessibleTeamInfo(accessibleTeamInfo)
                 .position(Arrays.asList(PositionType.values()).stream()
                         .filter(position -> position.ordinal() < requesterPosition.ordinal())
                         .map(PositionType::getName)
@@ -218,9 +236,9 @@ public class AuthService {
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 없습니다."));
 
             if (!team.getDepartment().getDepartmentId().equals(department.getDepartmentId())) {
-                log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartmentId: {}",
-                        department.getDepartmentName(), team.getDepartment().getDepartmentId());
-                department = team.getDepartment();
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "선택한 팀은 선택한 부서에 속하지 않습니다.");
             }
         }
 

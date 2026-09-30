@@ -440,8 +440,9 @@ public class EmployeeService {
 
         Department department = team.getDepartment();
         if (!department.getDepartmentId().equals(requestedDepartment.getDepartmentId())) {
-            log.warn("요청 부서와 팀의 소속 부서가 달라 팀의 부서로 저장합니다. requested: {}, teamDepartment: {}",
-                    requestedDepartment.getDepartmentName(), department.getDepartmentName());
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "선택한 팀은 선택한 부서에 속하지 않습니다.");
         }
 
         boolean managerSnapshotChanged =

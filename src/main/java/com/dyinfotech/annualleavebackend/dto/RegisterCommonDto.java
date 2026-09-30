@@ -19,9 +19,19 @@ public final class RegisterCommonDto {
     @Getter
     @Builder
     public static class RegisterCommonResponse {
-        private Collection<String> department;		// 부서
-        private Collection<String> accessibleTeam;	// 관리 대상 팀 (현재 관리자인 팀. 관리자에서 내려올 수도 있는 대상들)
-        private Collection<String> position;		// 직급
+        private Collection<String> department;        // 부서
+        private Collection<String> accessibleTeam;    // 하위 호환용 팀명 목록
+        private Collection<TeamOptionResponse> accessibleTeamInfo; // 팀-부서 관계 포함
+        private Collection<String> position;          // 직급
+    }
+
+    @Getter
+    @Builder
+    public static class TeamOptionResponse {
+        private Long teamId;
+        private String teamName;
+        private Long departmentId;
+        private String departmentName;
     }
 
 }
