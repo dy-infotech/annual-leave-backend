@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -19,7 +20,6 @@ import com.google.firebase.messaging.TopicManagementResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import reactor.core.publisher.Flux;
 
 @Slf4j
 @Service
@@ -100,64 +100,39 @@ public class FcmService {
 	
 	@Async("fcmExecutor")
 	public void sendConditionNotification(Collection<Long> approverIds, String title, String body) {
-	    if (approverIds == null || approverIds.isEmpty()) {
-	        return;
-	    }
-	    // topic 단위로 FCM Push를 보낼 경우 최대 5개의 topic만 전송 가능하다
-	    int maxTopicCount = 5;
-	    
-//		// Iterator 기준 코드 (WebFlux 의존성 걷어낼 경우 필요한 코드)
-//	    Iterator<Long> iterator = approverIds.iterator();
-//
-//	    // Iterator 순회 (모든 요소를 비울 때까지)
-//		List<Long> partition = new ArrayList<>(maxTopicCount);
-//	    while (iterator.hasNext()) {
-//	        // 5개를 채우거나, 남은 데이터가 끝날 때까지 수집
-//	        while (iterator.hasNext() && partition.size() < maxTopicCount) {
-//	            partition.add(iterator.next());
-//	        }
-//
-//	        // 5개 묶음(또는 남은 묶음) 발송 처리
-//            String condition = partition.stream()
-//                    .map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
-//                    .collect(Collectors.joining(" || "));
-//
-//            Message message = Message.builder()
-//                    .setNotification(Notification.builder().setTitle(title).setBody(body).build())
-//                    .setCondition(condition)
-//                    .build();
-//	        try {
-//	            String response = firebaseMessaging.send(message);
-//	            log.info("조건부 알림 발송 성공 (대상: {}명): {}", partition.size(), response);
-//	        } catch (Exception e) {
-//	            // 특정 묶음 발송이 실패해도 다음 묶음 발송을 위해 예외 로그만 남기고 루프 계속 진행
-//	            log.error("조건부 알림 발송 실패 (대상: {})", partition, e);
-//	        } finally {
-//	        	partition.clear();
-//	        }
-//	    }
-
-	    Flux.fromIterable(approverIds)
-	            .buffer(maxTopicCount)
-	            .subscribe(partition -> {
-                    String condition = partition.stream()
-                            .map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
-                            .collect(Collectors.joining(" || "));
-
-                    Message message = Message.builder()
-                            .setNotification(Notification.builder().setTitle(title).setBody(body).build())
-                            .setCondition(condition)
-                            .build();
-	                try {
-	                    String response = firebaseMessaging.send(message);
-	                    log.info("조건부 알림 발송 성공 (대상: {}명): {}", partition.size(), response);
-	                } catch (Exception e) {
-	                    // 특정 5개 묶음 발송이 실패하더라도 다음 5개 묶음 발송은 계속 진행되도록 try-catch 감싸기
-	                    log.error("조건부 알림 발송 실패 (대상: {})", partition, e);
-	                }
-	            });
+		sendConditionNotificationNow(approverIds, title, body);
 	}
-	
+
+	/**
+	 * 비동기 executor가 포화된 경우 retryExecutor에서 직접 호출할 수 있는 동기 발송 경로.
+	 * 각 partition 실패는 로그로 격리해 휴가 신청 커밋 결과에 영향을 주지 않는다.
+	 */
+	public void sendConditionNotificationNow(Collection<Long> approverIds, String title, String body) {
+		if (approverIds == null || approverIds.isEmpty()) {
+			return;
+		}
+
+		final int maxTopicCount = 5;
+		List<Long> ids = new ArrayList<>(approverIds);
+		for (int from = 0; from < ids.size(); from += maxTopicCount) {
+			List<Long> partition = ids.subList(from, Math.min(from + maxTopicCount, ids.size()));
+			String condition = partition.stream()
+					.map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
+					.collect(Collectors.joining(" || "));
+
+			Message message = Message.builder()
+					.setNotification(Notification.builder().setTitle(title).setBody(body).build())
+					.setCondition(condition)
+					.build();
+			try {
+				String response = firebaseMessaging.send(message);
+				log.info("조건부 알림 발송 성공 (대상: {}명): {}", partition.size(), response);
+			} catch (Exception e) {
+				log.error("조건부 알림 발송 실패 (대상: {})", partition, e);
+			}
+		}
+	}
+
 	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
 		List<FcmToken> inactiveTokens =
 				fcmTokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));

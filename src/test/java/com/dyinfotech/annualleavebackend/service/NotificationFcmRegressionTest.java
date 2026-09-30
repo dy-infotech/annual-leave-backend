@@ -24,6 +24,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.task.TaskRejectedException;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
@@ -181,4 +182,27 @@ class NotificationFcmRegressionTest {
 
         verify(tokenRepository, never()).deleteByToken(TOKEN);
     }
+
+    @Test
+    void notificationQueueRejection_doesNotEscapeAndFallsBack() throws Exception {
+        org.mockito.Mockito.doThrow(new TaskRejectedException("queue full"))
+                .when(fcmService)
+                .sendConditionNotification(
+                        org.mockito.ArgumentMatchers.anyCollection(),
+                        eq("title"),
+                        eq("body"));
+
+        notificationService.sendNotificationToTeams(
+                java.util.List.of(NEW_EMPLOYEE_ID),
+                "title",
+                "body");
+
+        Thread.sleep(100L);
+
+        verify(fcmService, times(1)).sendConditionNotificationNow(
+                org.mockito.ArgumentMatchers.anyCollection(),
+                eq("title"),
+                eq("body"));
+    }
+
 }

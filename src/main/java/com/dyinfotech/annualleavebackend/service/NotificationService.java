@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -265,6 +266,46 @@ public class NotificationService {
      * ③ 알림 발송 공통 메서드
      */
     public void sendNotificationToTeams(Collection<Long> approverIds, String title, String body) {
-        fcmService.sendConditionNotification(approverIds, title, body);
+        try {
+            fcmService.sendConditionNotification(approverIds, title, body);
+        } catch (TaskRejectedException e) {
+            // DB commit은 이미 완료됐다. 알림 executor 포화가 API 성공을 실패로 뒤집지 않게 격리한다.
+            log.warn("FCM executor 포화로 fallback 발송을 예약합니다. approverCount={}",
+                    approverIds != null ? approverIds.size() : 0, e);
+            scheduleNotificationFallback(approverIds, title, body, 1);
+        } catch (RuntimeException e) {
+            // afterCommit callback에서 예외가 요청 스레드로 전파되지 않도록 방어한다.
+            log.error("FCM 비동기 작업 제출 실패. fallback 발송을 예약합니다.", e);
+            scheduleNotificationFallback(approverIds, title, body, 1);
+        }
+    }
+
+    private void scheduleNotificationFallback(
+            Collection<Long> approverIds,
+            String title,
+            String body,
+            int retryCount) {
+        long delayMillis = retryCount <= 1 ? 0L : 100L << (retryCount - 2);
+        try {
+            retryExecutor.schedule(() -> {
+                try {
+                    fcmService.sendConditionNotificationNow(approverIds, title, body);
+                } catch (RuntimeException e) {
+                    if (retryCount < MAX_RETRY_COUNT) {
+                        log.warn("FCM fallback 발송 재시도. retry={}/{}", retryCount, MAX_RETRY_COUNT, e);
+                        scheduleNotificationFallback(
+                                approverIds,
+                                title,
+                                body,
+                                retryCount + 1);
+                    } else {
+                        log.error("FCM fallback 발송 최종 실패. retry={}/{}", retryCount, MAX_RETRY_COUNT, e);
+                    }
+                }
+            }, delayMillis, TimeUnit.MILLISECONDS);
+        } catch (RuntimeException e) {
+            // retry executor까지 종료/포화된 경우에도 이미 커밋된 비즈니스 결과는 성공으로 유지한다.
+            log.error("FCM fallback 작업 예약 실패. 알림은 유실될 수 있습니다.", e);
+        }
     }
 }
