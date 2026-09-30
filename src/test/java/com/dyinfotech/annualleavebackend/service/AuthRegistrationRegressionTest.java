@@ -44,6 +44,7 @@ class AuthRegistrationRegressionTest {
                 departmentService,
                 mock(EmployeeService.class),
                 mock(TeamService.class),
+                mock(AuthRateLimitService.class),
                 Clock.fixed(
                         Instant.parse("2026-09-30T00:00:00Z"),
                         ZoneId.of("Asia/Seoul")),

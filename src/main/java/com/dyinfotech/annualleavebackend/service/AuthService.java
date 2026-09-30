@@ -71,6 +71,7 @@ public class AuthService {
     private final DepartmentService departmentService;
     private final EmployeeService employeeService;
     private final TeamService teamService;
+    private final AuthRateLimitService authRateLimitService;
     
     private final Clock clock;
     
@@ -316,99 +317,104 @@ public class AuthService {
     private static final Pattern BCRYPT_PATTERN = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
     private static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     public void validateLogin(Employee employee, String password) throws ResponseStatusException {
-        // 로그인 실패 최대 횟수 제한
         int loginFailMaxCount = basisDataFactory.getAsInteger(BasisDataType.LOGIN_FAIL_MAX_COUNT).orElse(30);
         int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
-        if (employee.getAccessCount() >= loginFailMaxCount) {
-        	LocalDateTime unblockTime = employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
-        	LocalDateTime now = LocalDateTime.now(clock);
-        	if (now.isAfter(unblockTime)) {
-            	employeeService.resetAccessCount(employee.getEmployeeId(), now);
-        	} else {
-                throw new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : " + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
-        	}
-        }
-        
-        String currentPassword = employee.getPassword();
-
-        // 현재 DB에 저장된 비밀번호가 BCrypt 형식인지 확인
-        boolean isBcrypt = StringUtils.hasText(currentPassword) 
-			        		&& passwordEncoder instanceof BCryptPasswordEncoder 
-			        		&& BCRYPT_PATTERN.matcher(currentPassword).matches();
-        
-        // 비밀번호 일치 여부 검증 (BCrypt와 평문 분기)
-        boolean isPasswordValid;
-        if (isBcrypt) {
-        	isPasswordValid = passwordEncoder.matches(password, currentPassword);
-        } else {
-        	// 평문 데이터 마이그레이션 대상: 단순 문자열 비교
-        	isPasswordValid = Objects.equals(password, currentPassword);
-        }
-        
-        // 비밀번호가 틀린 경우 실패 처리
         LocalDateTime now = LocalDateTime.now(clock);
+
+        // 오래된 실패 횟수는 누적하지 않는다. 기존 구현은 29회가 수개월 뒤에도 남아
+        // 한 번의 오타로 24시간 잠길 수 있었다.
+        if (employee.getAccessCount() > 0 && employee.getAccessedAt() != null
+                && now.isAfter(employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS))) {
+            employeeService.resetAccessCount(employee.getEmployeeId(), now);
+            employee.initAccessCount(now);
+        }
+
+        if (employee.getAccessCount() >= loginFailMaxCount) {
+            LocalDateTime unblockTime = employee.getAccessedAt() == null
+                    ? now.plus(loginUnblockHour, ChronoUnit.HOURS)
+                    : employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour
+                            + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : "
+                            + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
+        }
+
+        String currentPassword = employee.getPassword();
+        boolean isBcrypt = StringUtils.hasText(currentPassword)
+                && passwordEncoder instanceof BCryptPasswordEncoder
+                && BCRYPT_PATTERN.matcher(currentPassword).matches();
+
+        boolean isPasswordValid = isBcrypt
+                ? passwordEncoder.matches(password, currentPassword)
+                : Objects.equals(password, currentPassword);
+
         if (!isPasswordValid) {
-        	employeeService.increaseAccessCount(employee.getEmployeeId(), now);
-        	log.error("비밀번호 에러 employeeId : {}, failCount : {}", employee.getEmployeeId(), employee.getAccessCount());
-        	throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
-        } else {
-        	employeeService.resetAccessCount(employee.getEmployeeId(), now);
+            employeeService.increaseAccessCount(employee.getEmployeeId(), now);
+            employee.increaseAccessCount(now);
+            log.error("비밀번호 에러 employeeId : {}, failCount : {}",
+                    employee.getEmployeeId(), employee.getAccessCount());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         }
-        
-        // 로그인 성공 && 기존이 평문이었던 경우: BCrypt로 암호화하여 DB 업데이트 (마이그레이션)
+
+        employeeService.resetAccessCount(employee.getEmployeeId(), now);
+        employee.initAccessCount(now);
+
         if (!isBcrypt && passwordEncoder instanceof BCryptPasswordEncoder) {
-        	employeeService.updatePassword(employee.getEmployeeId(), passwordEncoder.encode(password));
+            String encodedPassword = passwordEncoder.encode(password);
+            employeeService.updatePassword(employee.getEmployeeId(), encodedPassword);
+            // 이후 JWT credentialVersion이 DB와 동일한 hash를 사용하도록 detached 객체도 맞춘다.
+            employee.changePassword(encodedPassword);
         }
-        
-        // 현재 연도 연차일수 계산 및 설정
+
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
         if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {
-        	employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), calculatedCurrYearLeaveDays);
-        	employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
+            employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), calculatedCurrYearLeaveDays);
+            employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
         }
-        
-        // 로그인시 현재 팀의 프로젝트 매니저가 승인자인지 확인하고, 그렇지 않은 경우 업데이트
-        // (팀 소속만 변경됐다고 가정한다. 이후에 팀 변경 창이 생기면 오류가 해소되나, SQL로 별도 처리할 경우를 대비한 코드)
-        Long approverId = employee.getApproverId();
-        teamService.refreshApproverIds(employee);
-        if (!Objects.equals(approverId, employee.getApproverId())) {
-        	employeeService.saveEmployee(employee);
+
+        // 로그인 self-heal은 detached Employee 전체를 merge하지 않고 approver FK만 targeted update한다.
+        Long storedApproverId = employee.getApproverId();
+        Set<Long> currentApproverIds = teamService.resolveCurrentApproverIds(employee);
+        if (!currentApproverIds.isEmpty()
+                && (storedApproverId == null || !currentApproverIds.contains(storedApproverId))) {
+            Long currentApproverId = currentApproverIds.stream().min(Long::compareTo).orElseThrow();
+            employeeService.updateApprover(employee.getEmployeeId(), currentApproverId);
         }
     }
     
     public SignInDto.SignInResponse signIn(SignInDto.SignInRequest request) {
-        // employeeNumber(=사번)로 직원 조회
+        authRateLimitService.checkSignIn(request.getEmployeeNumber());
+
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber())
                 .orElseThrow(() -> {
-                	log.error("사번이 존재하지 않습니다. employeeNumber: " + request.getEmployeeNumber());
-                	return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
+                    log.error("사번이 존재하지 않습니다. employeeNumber: " + request.getEmployeeNumber());
+                    return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
                 });
-        
+
         if (!employee.isActive(LocalDate.now(clock))) {
-			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "퇴사 처리된 사원입니다.");
-		}
-        
-        // 사용 등록 여부 확인
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "퇴사 처리된 사원입니다.");
+        }
+
         if (employee.getPassword() == null) {
-			log.error("사용 등록이 되지 않은 사원입니다. employeeNumber: " + request.getEmployeeNumber());
-			throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용 등록이 되지 않은 사원입니다.");
-		}
-        
-        // 로그인 횟수 검증 및 비밀번호 일치 여부 확인 (예외 발생시 바로 중단되어야 하므로 try-catch를 쓰지 않음)
+            log.error("사용 등록이 되지 않은 사원입니다. employeeNumber: " + request.getEmployeeNumber());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사용 등록이 되지 않은 사원입니다.");
+        }
+
         validateLogin(employee, request.getPassword());
-        
-        // JWT 발급
+
         EmployeeAuthorityResolver roleResolver = employeeLeaveService.createAuthorityResolver(employee.getEmployeeId());
         Role role = roleResolver.resolveRole(employee.getEmployeeId());
-        String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name());
+        String credentialVersion = jwtProvider.createCredentialVersion(employee.getPassword());
+        String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name(), credentialVersion);
+        authRateLimitService.clearSignIn(request.getEmployeeNumber());
 
         return SignInDto.SignInResponse.builder()
                 .token(token)
                 .employeeId(employee.getEmployeeId())
                 .name(employee.getName())
                 .role(role.name())
-				.email(employee.getEmail())
+                .email(employee.getEmail())
                 .build();
     }
 
@@ -448,6 +454,7 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public void findId(FindDataDto.FindIdRequest request) {
+        authRateLimitService.checkRecovery("find-id:" + request.getName() + ":" + request.getEmail());
         // 성함과 이메일로 회원 조회
     	List<String> emailList = CacheConfig.EMAIL_BY_NAME_CACHE.get(request.getName(), employeeService::findEmailsByName)
 					    										.stream()
@@ -488,38 +495,55 @@ public class AuthService {
     }
  
  
-    @Transactional
     public void forgotPassword(FindDataDto.FindPasswordRequest request) {
-        // 사원번호와 이메일로 일치하는 회원 조회 (없으면 예외 발생)
-    	String realEmail = CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(request.getEmployeeNumber(), employeeService::findEmailsByEmployeeNumber);
-    	Entry<HttpStatus, String> emptyUserErrorEntry = new java.util.AbstractMap.SimpleEntry<>(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
-    	String requestedEmail = request.getEmail() != null ? request.getEmail().trim() : null;
-    	if (realEmail == null || requestedEmail == null || !realEmail.equalsIgnoreCase(requestedEmail)) {
-    		throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
-    	}
+        authRateLimitService.checkRecovery("forgot-password:" + request.getEmployeeNumber());
+
+        String realEmail = CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(
+                request.getEmployeeNumber(),
+                employeeService::findEmailsByEmployeeNumber);
+        Entry<HttpStatus, String> emptyUserErrorEntry =
+                new java.util.AbstractMap.SimpleEntry<>(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
+        String requestedEmail = request.getEmail() != null ? request.getEmail().trim() : null;
+        if (realEmail == null || requestedEmail == null || !realEmail.equalsIgnoreCase(requestedEmail)) {
+            throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
+        }
+
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), realEmail)
-                .orElseThrow(() -> new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue()));
+                .orElseThrow(() -> new ResponseStatusException(
+                        emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue()));
+        if (!employee.isRegisted()) {
+            throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
+        }
 
-        // 임시 비밀번호 생성 (소문자 16진수 + 하이픈 10자리)
         String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
+        String oldPassword = employee.getPassword();
+        String encodedPassword = passwordEncoder.encode(temporaryPassword);
 
-        // 임시 비밀번호 이메일 전송
+        // 메일 발송 전에 DB에 CAS로 반영하고 commit한다. 발송 실패 시 기존 hash로 보상 복구한다.
+        // AuthService 자체 transaction을 사용하지 않아 각 CAS가 독립적으로 commit되게 한다.
+        if (!employeeService.compareAndSetPassword(employee.getEmployeeId(), oldPassword, encodedPassword)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "비밀번호 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
+        }
+
         String to = employee.getEmail();
         String subject = "[(주)디와이정보기술] 휴가관리 시스템 임시 비밀번호 발급";
-    	String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n" +
-                "요청하신 임시 비밀번호는 다음과 같습니다.\n" +
-                "임시 비밀번호: " + temporaryPassword + "\n\n" +
-                "로그인 후 반드시 비밀번호를 변경해 주세요.";
+        String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n"
+                + "요청하신 임시 비밀번호는 다음과 같습니다.\n"
+                + "임시 비밀번호: " + temporaryPassword + "\n\n"
+                + "로그인 후 반드시 비밀번호를 변경해 주세요.";
         try {
-        	// 메일 전송
-        	sendMail(to, subject, text);
-        	
-            // 비밀번호 암호화 후 업데이트
-            String encodedPassword = passwordEncoder.encode(temporaryPassword);
-            employee.changePassword(encodedPassword);
+            sendMail(to, subject, text);
         } catch (Exception e) {
-        	log.error("패스워드 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
-        	throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
+            boolean restored = employeeService.compareAndSetPassword(
+                    employee.getEmployeeId(), encodedPassword, oldPassword);
+            if (!restored) {
+                log.error("임시 비밀번호 메일 실패 후 기존 비밀번호 복구도 실패했습니다. employeeId={}",
+                        employee.getEmployeeId());
+            }
+            log.error("패스워드 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
         }
     }
     

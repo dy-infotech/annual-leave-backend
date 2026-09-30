@@ -128,6 +128,17 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
     
     @Override
+    public long compareAndSetPassword(Long employeeId, String expectedPassword, String newPassword) {
+        return queryFactory.update(qEmployee)
+                .set(qEmployee.password, newPassword)
+                .where(
+                        qEmployee.employeeId.eq(employeeId),
+                        qEmployee.password.eq(expectedPassword)
+                )
+                .execute();
+    }
+
+    @Override
     public long updateCurrTotalLeaveDays(Long employeeId, float days) {
         return queryFactory.update(qEmployee)
 			                .set(qEmployee.currTotalLeaveDays, days)

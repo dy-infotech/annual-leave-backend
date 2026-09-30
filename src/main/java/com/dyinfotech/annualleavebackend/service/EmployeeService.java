@@ -147,6 +147,11 @@ public class EmployeeService {
     public void updatePassword(Long employeeId, String password) {
         employeeRepository.updatePassword(employeeId, password);
     }
+
+    @Transactional
+    public boolean compareAndSetPassword(Long employeeId, String expectedPassword, String newPassword) {
+        return employeeRepository.compareAndSetPassword(employeeId, expectedPassword, newPassword) == 1;
+    }
     // 로그인 성공시 올해 총 연차 수 업데이트
     @Transactional
     public void updateCurrTotalLeaveDays(Long employeeId, float days) {
@@ -194,6 +199,18 @@ public class EmployeeService {
     			employee.getEmployeeId(),
     			List.of(employee.getName()),
     			employee.getEmployeeNumber());
+    }
+
+    @Transactional
+    public void updateApprover(Long employeeId, Long approverId) {
+        Employee employee = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        Employee approver = employeeRepository.findById(approverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 결재자 정보를 찾을 수 없습니다."));
+        if (!Objects.equals(employee.getApproverId(), approverId)) {
+            employee.changeApprover(approver);
+            employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
+        }
     }
     
     @Transactional
