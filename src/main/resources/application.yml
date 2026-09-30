@@ -12,6 +12,8 @@ spring:
     driver-class-name: oracle.jdbc.OracleDriver # mysql -> oracle
 
   jpa:
+   hibernate:
+    ddl-auto: validate
    show-sql: false         # ⚠️ 파일 로그에도 기록하기 위해 false로 두고 아래 logging에서 제어합니다.
    properties:
     hibernate:
