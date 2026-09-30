@@ -172,7 +172,7 @@ class EmployeeOrganizationLockRegressionTest {
         InOrder inOrder = inOrder(employee, teamService);
         inOrder.verify(employee).updateInfoByAdmin(
                 any(), any(), any(), eq(targetTeam), any(), eq(hireDate), any(), any());
-        inOrder.verify(teamService).refreshApproverIds(employee);
+        inOrder.verify(teamService).refreshApproverIds(employee, Set.of(), Map.of());
     }
 
     @Test
