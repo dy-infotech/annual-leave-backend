@@ -132,7 +132,7 @@ public class EmployeeService {
         if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
         	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccessCount());
             throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
+                    HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
         }
 
         String expectedPassword = employee.getPassword();

@@ -467,9 +467,7 @@ public class AuthService {
         
         mailSender.send(message);
     }
-
-    @Transactional(readOnly = true)
-    public void findId(FindDataDto.FindIdRequest request) {
+        public void findId(FindDataDto.FindIdRequest request) {
         authRateLimitService.checkRecovery("find-id:" + request.getName() + ":" + request.getEmail());
         // 성함과 이메일로 회원 조회
     	List<String> emailList = CacheConfig.EMAIL_BY_NAME_CACHE.get(request.getName(), employeeService::findEmailsByName)
