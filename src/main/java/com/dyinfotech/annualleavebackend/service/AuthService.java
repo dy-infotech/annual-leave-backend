@@ -41,7 +41,6 @@ import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
-import com.dyinfotech.annualleavebackend.domain.TeamManager;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto; // 추가됨
 import com.dyinfotech.annualleavebackend.dto.FindDataDto.EmailResponse;
@@ -207,6 +206,12 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
         }
 
+        if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "존재하지 않는 팀입니다. 부서 및 팀 관리 화면에서 팀을 먼저 생성해주세요.");
+        }
+
         boolean makeAdminAccount = false;
         if (Role.isAdmin(request.getRole())) {
             if (approver.hasPersonnelAuthority()) {
@@ -216,44 +221,25 @@ public class AuthService {
                 log.error(errorMsg + " team: {}, approverId: {}", request.getTeam(), employeeId);
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
             }
-        } else if (ManageType.IS_NEW_TEAM.contains(teamData.getKey())) {
-            String errorMsg = "새로운 팀 생성 시 프로젝트 매니저부터 등록하십시오.";
-            log.error(errorMsg + " team: {}, role: {}, approverId: {}", request.getTeam(), request.getRole(), employeeId);
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
         }
 
-        Team team;
-        boolean newTeam = ManageType.IS_NEW_TEAM.contains(teamData.getKey());
-        if (newTeam) {
-            team = Team.builder()
-                    .teamName(request.getTeam())
-                    .enabled(Boolean.TRUE)
-                    .department(department)
-                    .build();
-            teamService.saveTeam(team);
-        } else {
-            team = teamService.findByTeamName(request.getTeam())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 없습니다."));
+        Team team = teamService.findByTeamName(request.getTeam())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 없습니다."));
 
-            if (!team.getDepartment().getDepartmentId().equals(department.getDepartmentId())) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "선택한 팀은 선택한 부서에 속하지 않습니다.");
-            }
+        if (!team.getDepartment().getDepartmentId().equals(department.getDepartmentId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "선택한 팀은 선택한 부서에 속하지 않습니다.");
         }
 
-        // 팀은 담당자 없이 준비 상태로 생성할 수 있지만, 일반 사원 배정 전에는 재직 담당자가 필요하다.
-        // ADMIN 등록은 같은 트랜잭션에서 해당 사원을 담당자로 연결하므로 예외로 허용한다.
-        if (!newTeam && !makeAdminAccount) {
+        if (!makeAdminAccount) {
             teamService.requireActiveManager(team.getTeamId());
         }
+
         Long plannedParentTeamId = null;
         Set<Long> registrationTeamLocks = new java.util.HashSet<>();
         registrationTeamLocks.add(team.getTeamId());
-        if (newTeam) {
-            plannedParentTeamId = approver.getTeamId();
-            registrationTeamLocks.add(plannedParentTeamId);
-        } else if (makeAdminAccount) {
+        if (makeAdminAccount) {
             plannedParentTeamId = teamService.resolveParentTeamId(request.getTeam())
                     .orElse(approver.getTeamId());
             registrationTeamLocks.add(plannedParentTeamId);
@@ -275,14 +261,14 @@ public class AuthService {
 
         employeeService.saveEmployee(employee);
 
-        if (newTeam) {
-            teamService.saveTeam(TeamManager.builder()
-                    .team(team)
-                    .projectManager(employee)
-                    .parentTeam(approver.getTeam())
-                    .build());
-        } else if (makeAdminAccount) {
+        if (makeAdminAccount) {
             teamService.addManager(request.getTeam(), employee.getEmployeeId(), plannedParentTeamId);
+            teamService.refreshApproverIds(
+                    employee,
+                    Set.of(),
+                    Map.of(team.getTeamId(), plannedParentTeamId));
+        } else {
+            teamService.refreshApproverIds(employee);
         }
 
         teamService.validateFutureApprovalCoverage(Set.of(team.getTeamId()));
