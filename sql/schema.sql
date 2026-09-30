@@ -2,8 +2,9 @@
 -- annual-leave develop_v2.0
 -- Oracle 21c XE canonical fresh-install schema
 --
--- Fresh database: use this file.
--- Existing develop_v1.0 database: use migration_v2_0_oracle.sql instead.
+-- Fresh database: use this file after DBA creates COMMON_DATA / COMMON_INDEX.
+-- Existing develop_v1.0 database: use migration_v2_0_oracle.sql, then
+-- migrate_common_auth_refresh_session.sql to prepare the shared SSO session table.
 -- Oracle DDL performs implicit commits; back up an existing database first.
 -- =====================================================================
 
@@ -70,6 +71,45 @@ CREATE TABLE employee (
     CONSTRAINT fk_employee_approver
         FOREIGN KEY (approver_id) REFERENCES employee(employee_id)
 );
+
+-- =====================================================================
+-- 공통 SSO Refresh Token Rotation session
+--
+-- 연차/자산관리가 같은 refresh family/session row를 사용한다.
+-- COMMON_DATA / COMMON_INDEX는 sql/dba_prepare_common_auth_tablespace.sql로 DBA가 먼저 준비한다.
+-- =====================================================================
+CREATE TABLE auth_refresh_session (
+    session_id                VARCHAR2(36)      NOT NULL,
+    employee_id               NUMBER(19)        NOT NULL,
+    token_hash                VARCHAR2(64)      NOT NULL,
+    previous_token_hash       VARCHAR2(64),
+    previous_valid_until      TIMESTAMP(6),
+    created_at                TIMESTAMP(6)      NOT NULL,
+    last_rotated_at           TIMESTAMP(6)      NOT NULL,
+    idle_expires_at           TIMESTAMP(6)      NOT NULL,
+    absolute_expires_at       TIMESTAMP(6)      NOT NULL,
+    revoked_at                TIMESTAMP(6),
+    revoked_reason            VARCHAR2(40),
+    rotation_count            NUMBER(10) DEFAULT 0 NOT NULL,
+    CONSTRAINT pk_auth_refresh_session
+        PRIMARY KEY (session_id) USING INDEX TABLESPACE COMMON_INDEX,
+    CONSTRAINT fk_ars_employee
+        FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
+    CONSTRAINT ck_ars_rotation_count CHECK (rotation_count >= 0),
+    CONSTRAINT ck_ars_expiry_order CHECK (idle_expires_at <= absolute_expires_at)
+)
+TABLESPACE COMMON_DATA;
+
+CREATE INDEX ix_ars_employee
+    ON auth_refresh_session(employee_id)
+    TABLESPACE COMMON_INDEX;
+
+CREATE INDEX ix_ars_expiry
+    ON auth_refresh_session(absolute_expires_at, idle_expires_at)
+    TABLESPACE COMMON_INDEX;
+
+COMMENT ON TABLE auth_refresh_session
+    IS '연차/자산관리 공통 Web SSO Refresh Token Rotation 세션. 원문 token은 저장하지 않는다.';
 
 CREATE TABLE team_manager (
     team_id            NUMBER(19) NOT NULL,

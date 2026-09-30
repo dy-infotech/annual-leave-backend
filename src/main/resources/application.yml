@@ -40,7 +40,7 @@ spring:
     
 jwt:
   secret: ${JWT_SECRET}
-  expiration: ${JWT_TIMEOUT:3600000}   # 1시간
+  expiration: ${JWT_TIMEOUT:900000}   # 공통 SSO access JWT 기본 15분
 
 openapi:
   service-key: ${SERVICE_KEY}
@@ -49,6 +49,20 @@ fcm:
   certification: ${FIREBASE_CREDENTIAL_PATH:classpath:firebase-service-account.json}
 
 app:
+  auth:
+    refresh-idle-ttl: ${AUTH_REFRESH_IDLE_TTL:7d}
+    refresh-absolute-ttl: ${AUTH_REFRESH_ABSOLUTE_TTL:30d}
+    refresh-replay-grace: ${AUTH_REFRESH_REPLAY_GRACE:5s}
+    refresh-session-retention: ${AUTH_REFRESH_SESSION_RETENTION:7d}
+    refresh-token-bytes: ${AUTH_REFRESH_TOKEN_BYTES:32}
+    refresh-signing-secret: ${AUTH_REFRESH_SIGNING_SECRET:${JWT_SECRET}}
+    refresh-cookie-name: ${AUTH_REFRESH_COOKIE_NAME:DY_SSO_REFRESH}
+    refresh-cookie-path: ${AUTH_REFRESH_COOKIE_PATH:/}
+    refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:true}
+    refresh-cookie-same-site: ${AUTH_REFRESH_COOKIE_SAME_SITE:Strict}
+    # 공유 AUTH_REFRESH_SESSION 정리의 기본 소유자는 resource-management.
+    # annual-leave가 정리를 대신 수행해야 하는 환경에서만 cron을 명시한다.
+    refresh-cleanup-cron: ${AUTH_REFRESH_CLEANUP_CRON:-}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,https://app.dyinfotech.com}
 

@@ -47,10 +47,9 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**"
                         ).permitAll()
-                		// 로그아웃은 인증 필요
-                		.requestMatchers("/api/auth/logout").authenticated()
-                        // 인증 없이 접근 가능한 경로
-                		.requestMatchers("/api/auth/**").permitAll()
+                        // signin/refresh/logout 등 인증 lifecycle은 HttpOnly refresh cookie와
+                        // X-SSO-Refresh 헤더로 보호하므로 access JWT가 없어도 접근할 수 있다.
+                        .requestMatchers("/api/auth/**").permitAll()
 
                         // JWT role은 로그인 시점 snapshot이므로 최종 권한 근거로 사용하지 않는다.
                         // /api/admin/**의 현재 권한은 AdminAuthorizationInterceptor가 중앙 검증한다.
@@ -73,7 +72,7 @@ public class SecurityConfig {
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));                   // Authorization, Content-Type 포함
         config.setExposedHeaders(List.of("Authorization"));       // 응답에서 토큰 헤더 읽어야 하면
-        config.setAllowCredentials(false);                        // JWT를 헤더로 보내므로 쿠키 불필요
+        config.setAllowCredentials(true);                         // 공통 HttpOnly refresh cookie 사용
         config.setMaxAge(3600L);                                  // 프리플라이트 캐시(초)
      
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

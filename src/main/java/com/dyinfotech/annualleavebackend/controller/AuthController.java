@@ -2,12 +2,16 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto;
@@ -17,7 +21,11 @@ import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.service.AuthService;
 import com.dyinfotech.annualleavebackend.service.PasswordResetService;
+import com.dyinfotech.annualleavebackend.service.RefreshTokenCookieService;
+import com.dyinfotech.annualleavebackend.service.RefreshTokenService;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -29,9 +37,12 @@ import io.swagger.v3.oas.annotations.Operation;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+    private static final String REFRESH_REQUEST_HEADER = "X-SSO-Refresh";
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final RefreshTokenService refreshTokenService;
+    private final RefreshTokenCookieService refreshTokenCookieService;
 
     @Operation(summary = "사용 등록", description = "관리자가 등록한 계정 정보를 이용하여 사용 등록(회원 가입)을 한다.")
     @PostMapping("/signup")
@@ -39,10 +50,45 @@ public class AuthController {
         return ResponseEntity.ok(authService.signUp(request));
     }
 
-    @Operation(summary = "로그인", description = "사용 등록 이후에 등록된 계정 정보로 로그인 가능하다.")
+    @Operation(summary = "로그인", description = "Access JWT와 공통 HttpOnly refresh cookie session을 발급한다.")
     @PostMapping("/signin")
-    public ResponseEntity<SignInDto.SignInResponse> signIn(@Valid @RequestBody SignInDto.SignInRequest request) {
-        return ResponseEntity.ok(authService.signIn(request));
+    public ResponseEntity<SignInDto.SignInResponse> signIn(
+            @Valid @RequestBody SignInDto.SignInRequest request) {
+        SignInDto.SignInResponse access = authService.signIn(request);
+        RefreshTokenService.IssuedRefreshToken refresh =
+                refreshTokenService.issue(access.getEmployeeId());
+
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(refresh).toString())
+                .body(access);
+    }
+
+    @Operation(summary = "Access Token 갱신", description = "공통 Refresh Token Rotation으로 annual-leave Access JWT를 재발급한다.")
+    @PostMapping("/refresh")
+    public ResponseEntity<SignInDto.SignInResponse> refresh(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        requireRefreshRequestHeader(request);
+
+        String token = refreshTokenCookieService.read(request);
+        if (token == null) {
+            response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString());
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh token이 없습니다.");
+        }
+
+        try {
+            RefreshTokenService.RefreshResult result = refreshTokenService.rotate(token);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(result.refresh()).toString())
+                    .body(result.access());
+        } catch (ResponseStatusException e) {
+            if (e.getStatusCode().value() != HttpStatus.CONFLICT.value()) {
+                response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString());
+            }
+            throw e;
+        }
     }
     
     @Operation(summary = "이름으로 이메일 찾기", description = "이름으로 이메일 리스트 조회 후에 선택해서 사번 조회 가능하다.")
@@ -78,11 +124,39 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "로그아웃", description = "FCM 토큰을 폐기한다.(DB에서 삭제, FCM 서버에서 토픽 해제)")
+    @Operation(summary = "로그아웃", description = "공통 refresh session과 FCM 토큰을 폐기한다.")
     @PostMapping("/logout")
-    public CompletableFuture<ResponseEntity<Void>> logout(@AuthenticationPrincipal EmployeePrincipal principal,
-            							@RequestBody(required = false) LogoutDto.LogoutRequest request) {
-        return authService.logout(principal.employeeId(), request == null ? null : request.getFcmToken())
-                .thenApply(v -> ResponseEntity.ok().build());
+    public CompletableFuture<ResponseEntity<Void>> logout(
+            HttpServletRequest servletRequest,
+            @AuthenticationPrincipal EmployeePrincipal principal,
+            @RequestBody(required = false) LogoutDto.LogoutRequest request) {
+        requireRefreshRequestHeader(servletRequest);
+
+        String refreshToken = refreshTokenCookieService.read(servletRequest);
+        Long refreshEmployeeId =
+                refreshToken == null ? null : refreshTokenService.revoke(refreshToken);
+        Long employeeId = refreshEmployeeId != null
+                ? refreshEmployeeId
+                : principal != null ? principal.employeeId() : null;
+
+        CompletableFuture<Void> cleanup = employeeId == null
+                ? CompletableFuture.completedFuture(null)
+                : authService.logout(
+                        employeeId,
+                        request == null ? null : request.getFcmToken());
+
+        return cleanup.thenApply(v -> ResponseEntity.noContent()
+                .cacheControl(CacheControl.noStore())
+                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
+                .build());
     }
+
+    private void requireRefreshRequestHeader(HttpServletRequest request) {
+        if (!"1".equals(request.getHeader(REFRESH_REQUEST_HEADER))) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "유효하지 않은 인증 갱신 요청입니다.");
+        }
+    }
+}
 }

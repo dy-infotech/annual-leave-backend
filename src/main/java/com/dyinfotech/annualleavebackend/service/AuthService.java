@@ -413,12 +413,40 @@ public class AuthService {
         }
 
         validateLogin(employee, request.getPassword());
+        authRateLimitService.clearSignIn(request.getEmployeeNumber());
+        return issueAccessToken(employee);
+    }
 
-        EmployeeAuthorityResolver roleResolver = employeeLeaveService.createAuthorityResolver(employee.getEmployeeId());
+    @Transactional(readOnly = true)
+    public SignInDto.SignInResponse issueCurrentAccessToken(Long employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "현재 직원 정보를 확인할 수 없습니다."));
+
+        if (!employee.isActive(LocalDate.now(clock))) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "퇴사 처리된 사원입니다.");
+        }
+        if (employee.getPassword() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "사용 등록이 해제된 사용자입니다.");
+        }
+
+        return issueAccessToken(employee);
+    }
+
+    private SignInDto.SignInResponse issueAccessToken(Employee employee) {
+        EmployeeAuthorityResolver roleResolver =
+                employeeLeaveService.createAuthorityResolver(employee.getEmployeeId());
         Role role = roleResolver.resolveRole(employee.getEmployeeId());
         String credentialVersion = jwtProvider.createCredentialVersion(employee.getPassword());
-        String token = jwtProvider.generateToken(employee.getEmployeeId(), role.name(), credentialVersion);
-        authRateLimitService.clearSignIn(request.getEmployeeNumber());
+        String token = jwtProvider.generateToken(
+                employee.getEmployeeId(),
+                role.name(),
+                credentialVersion);
 
         return SignInDto.SignInResponse.builder()
                 .token(token)

@@ -120,6 +120,7 @@ public class PasswordResetService {
                     "비밀번호가 다른 요청에 의해 변경되었습니다. 재설정을 다시 요청해주세요.");
         }
 
+        employeeService.revokeRefreshSessions(employee.getEmployeeId(), "PASSWORD_RESET");
         token.consume(now);
     }
 

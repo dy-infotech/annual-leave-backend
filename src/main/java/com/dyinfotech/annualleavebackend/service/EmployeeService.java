@@ -31,6 +31,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto.EmployeeResponse;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.RefreshTokenSessionRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEmail;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
@@ -50,6 +51,7 @@ public class EmployeeService {
 	private final CommonService commonService;
     private final EmployeeLeaveService employeeLeaveService;
     private final EmployeeRepository employeeRepository;
+    private final RefreshTokenSessionRepository refreshTokenSessionRepository;
     private final TeamManagerRepository teamManagerRepository;
     private final OrganizationCacheInvalidator cacheInvalidator;
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
@@ -137,7 +139,16 @@ public class EmployeeService {
                     HttpStatus.CONFLICT,
                     "비밀번호가 다른 요청에 의해 변경되었습니다. 다시 로그인해주세요.");
         }
+        revokeRefreshSessions(employeeId, "PASSWORD_CHANGED");
     }
+    @Transactional
+    public void revokeRefreshSessions(Long employeeId, String reason) {
+        refreshTokenSessionRepository.revokeActiveByEmployeeId(
+                employeeId,
+                LocalDateTime.now(),
+                reason);
+    }
+
 	// 로그인 실패시 접근 횟수 추가
     @Transactional
     public void increaseAccessCount(Long employeeId, LocalDateTime now) {
