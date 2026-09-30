@@ -53,7 +53,7 @@ public class SecurityConfig {
                 		.requestMatchers("/api/auth/**").permitAll()
 
                         // JWT role은 로그인 시점 snapshot이므로 최종 권한 근거로 사용하지 않는다.
-                        // 현재 조직/직급 권한은 각 관리자 컨트롤러에서 다시 검증한다.
+                        // /api/admin/**의 현재 권한은 AdminAuthorizationInterceptor가 중앙 검증한다.
                         .requestMatchers("/api/admin/**").authenticated()
 
                         // 나머지는 인증 필요

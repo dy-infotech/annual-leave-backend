@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
 import com.dyinfotech.annualleavebackend.dto.TeamDto;
-import com.dyinfotech.annualleavebackend.service.AuthService;
 import com.dyinfotech.annualleavebackend.service.TeamCreateCoordinator;
 import com.dyinfotech.annualleavebackend.service.TeamService;
 
@@ -28,17 +28,16 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "관리자 전용 - 팀 관리", description = "팀 조회/등록/수정 API (대표이사 전용)")
 @RestController
 @RequestMapping("/api/admin/teams")
+@RequirePersonnelAuthority
 @RequiredArgsConstructor
 public class AdminTeamController {
 
-    private final AuthService authService;
     private final TeamService teamService;
     private final TeamCreateCoordinator teamCreateCoordinator;
 
     @Operation(summary = "팀 전체 조회", description = "전체 팀을 담당자, 상위 팀 정보와 함께 조회한다. (소프트 딜리트된 팀 제외)")
     @GetMapping
     public ResponseEntity<List<TeamDto.TeamResponse>> getTeams(@AuthenticationPrincipal EmployeePrincipal principal) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         return ResponseEntity.ok(teamService.findAllForAdmin());
     }
 
@@ -48,7 +47,6 @@ public class AdminTeamController {
             @AuthenticationPrincipal EmployeePrincipal principal,
             @RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody TeamDto.CreateRequest request) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         Long teamId = teamCreateCoordinator.createTeam(
                 principal.employeeId(),
                 request,
@@ -64,7 +62,6 @@ public class AdminTeamController {
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("teamId") Long teamId,
             @Valid @RequestBody TeamDto.UpdateRequest request) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         teamService.updateTeam(teamId, request);
         return ResponseEntity.ok().build();
     }
@@ -74,7 +71,6 @@ public class AdminTeamController {
     public ResponseEntity<Void> deleteTeam(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("teamId") Long teamId) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         teamService.deleteTeam(teamId);
         return ResponseEntity.ok().build();
     }

@@ -47,6 +47,7 @@ public class LeaveRequestService {
     private final HolidaySyncService holidaySyncService;
     private final CommonService commonService;
     private final TeamService teamService;
+    private final CurrentAuthorityService currentAuthorityService;
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
     
     private final Clock clock;
@@ -383,6 +384,14 @@ public class LeaveRequestService {
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition,
+            Long currentEmployeeId) {
+        boolean isAdmin = currentEmployeeId != null
+                && currentAuthorityService.isAdmin(currentEmployeeId);
+        return searchLeaveRequests(condition, currentEmployeeId, isAdmin);
+    }
+
+    private List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
+            LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
             boolean isAdmin) {
 
@@ -410,12 +419,12 @@ public class LeaveRequestService {
     @Transactional(readOnly = true)
     public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
             Long requestId,
-            Long currentEmployeeId,
-            boolean isAdmin) {
+            Long currentEmployeeId) {
         LeaveRequest leaveRequest = leaveRequestRepository.findDetailById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("휴가 신청을 찾을 수 없습니다. requestId: " + requestId));
 
         boolean isOwner = leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        boolean isAdmin = !isOwner && currentAuthorityService.isAdmin(currentEmployeeId);
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
                 isOwner || isAdmin);

@@ -12,12 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.support.WebDataBinderFactory;
@@ -28,27 +31,30 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.config.AdminAuthorizationInterceptor;
 import com.dyinfotech.annualleavebackend.controller.LeaveApprovalController;
-import com.dyinfotech.annualleavebackend.service.AuthService;
+import com.dyinfotech.annualleavebackend.service.CurrentAuthorityService;
 import com.dyinfotech.annualleavebackend.service.LeaveApprovalService;
 
 class LeaveApprovalApiContractRegressionTest {
 
     private static final Long EMPLOYEE_ID = 1L;
 
-    private AuthService authService;
+    private CurrentAuthorityService currentAuthorityService;
     private LeaveApprovalService leaveApprovalService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        authService = mock(AuthService.class);
+        currentAuthorityService = mock(CurrentAuthorityService.class);
         leaveApprovalService = mock(LeaveApprovalService.class);
 
-        LeaveApprovalController controller =
-                new LeaveApprovalController(authService, leaveApprovalService);
+        LeaveApprovalController controller = new LeaveApprovalController(leaveApprovalService);
 
         EmployeePrincipal principal = new EmployeePrincipal(EMPLOYEE_ID, Role.EMPLOYEE);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+
         HandlerMethodArgumentResolver principalResolver = new HandlerMethodArgumentResolver() {
             @Override
             public boolean supportsParameter(MethodParameter parameter) {
@@ -66,8 +72,14 @@ class LeaveApprovalApiContractRegressionTest {
         };
 
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .addInterceptors(new AdminAuthorizationInterceptor(currentAuthorityService))
                 .setCustomArgumentResolvers(principalResolver)
                 .build();
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -78,19 +90,19 @@ class LeaveApprovalApiContractRegressionTest {
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
 
-        verify(authService).checkAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
         verify(leaveApprovalService).getPendingRequests(EMPLOYEE_ID);
     }
 
     @Test
     void pending_currentAdminDenialIsReturnedAsForbidden() throws Exception {
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "인가되지 않은 사용자입니다."))
-                .when(authService).checkAdmin(EMPLOYEE_ID);
+                .when(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
 
         mockMvc.perform(get("/api/admin/leave-requests/pending"))
                 .andExpect(status().isForbidden());
 
-        verify(authService).checkAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
         verifyNoInteractions(leaveApprovalService);
     }
 
@@ -103,6 +115,7 @@ class LeaveApprovalApiContractRegressionTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
 
+        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
         verifyNoInteractions(leaveApprovalService);
     }
 }

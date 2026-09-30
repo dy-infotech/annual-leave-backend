@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
-import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
@@ -67,8 +66,7 @@ public class LeaveRequestController {
     ) {
         return leaveRequestService.searchLeaveRequests(
                 condition,
-                principal.employeeId(),
-                Role.isAdmin(principal.role()));
+                principal.employeeId());
     }
 
 //    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
@@ -85,8 +83,7 @@ public class LeaveRequestController {
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveRequestService.getLeaveRequestDetail(
                 requestId,
-                principal.employeeId(),
-                Role.isAdmin(principal.role()));
+                principal.employeeId());
     }
 
     @Operation(summary = "내 현재 연차기간 조회", description = "로그인한 직원의 현재 회계연도 연차기간을 조회한다.")
@@ -106,8 +103,7 @@ public class LeaveRequestController {
     	condition.setEmployeeId(principal.employeeId());
         return leaveRequestService.searchLeaveRequests(
                 condition,
-                principal.employeeId(),
-                Role.isAdmin(principal.role()));
+                principal.employeeId());
     }
 
     @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")

@@ -48,6 +48,7 @@ class LeaveRequestRegressionTest {
     private HolidaySyncService holidaySyncService;
     private CommonService commonService;
     private TeamService teamService;
+    private CurrentAuthorityService currentAuthorityService;
     private EmployeeCacheInvalidator employeeCacheInvalidator;
     private LeaveRequestService leaveRequestService;
 
@@ -60,6 +61,7 @@ class LeaveRequestRegressionTest {
         holidaySyncService = mock(HolidaySyncService.class);
         commonService = mock(CommonService.class);
         teamService = mock(TeamService.class);
+        currentAuthorityService = mock(CurrentAuthorityService.class);
         employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
 
         leaveRequestService = new LeaveRequestService(
@@ -70,6 +72,7 @@ class LeaveRequestRegressionTest {
                 holidaySyncService,
                 commonService,
                 teamService,
+                currentAuthorityService,
                 employeeCacheInvalidator,
                 clock
         );

@@ -14,8 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
 import com.dyinfotech.annualleavebackend.dto.DepartmentDto;
-import com.dyinfotech.annualleavebackend.service.AuthService;
 import com.dyinfotech.annualleavebackend.service.DepartmentService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,17 +26,16 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "관리자 전용 - 부서 관리", description = "부서 조회/등록/수정 API (대표이사 전용)")
 @RestController
 @RequestMapping("/api/admin/departments")
+@RequirePersonnelAuthority
 @RequiredArgsConstructor
 public class AdminDepartmentController {
 
-    private final AuthService authService;
     private final DepartmentService departmentService;
 
     @Operation(summary = "부서 전체 조회", description = "전체 부서를 조회한다. (소프트 딜리트된 부서 제외)")
     @GetMapping
     public ResponseEntity<List<DepartmentDto.DepartmentResponse>> getDepartments(
             @AuthenticationPrincipal EmployeePrincipal principal) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         return ResponseEntity.ok(departmentService.findAllForAdmin().stream()
                 .map(DepartmentDto.DepartmentResponse::from)
                 .toList());
@@ -47,7 +46,6 @@ public class AdminDepartmentController {
     public ResponseEntity<DepartmentDto.CreateResponse> createDepartment(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @Valid @RequestBody DepartmentDto.CreateRequest request) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         Long departmentId = departmentService.createDepartment(request.getDepartmentName());
         return ResponseEntity.ok(DepartmentDto.CreateResponse.builder()
                 .departmentId(departmentId)
@@ -60,7 +58,6 @@ public class AdminDepartmentController {
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("departmentId") Long departmentId,
             @Valid @RequestBody DepartmentDto.UpdateRequest request) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         departmentService.renameDepartment(departmentId, request.getDepartmentName());
         return ResponseEntity.ok().build();
     }
@@ -70,7 +67,6 @@ public class AdminDepartmentController {
     public ResponseEntity<Void> deleteDepartment(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("departmentId") Long departmentId) {
-        authService.checkPersonnelAuthority(principal.employeeId());
         departmentService.deleteDepartment(departmentId);
         return ResponseEntity.ok().build();
     }

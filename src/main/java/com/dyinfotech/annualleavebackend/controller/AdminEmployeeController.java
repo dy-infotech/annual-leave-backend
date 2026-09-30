@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
-import com.dyinfotech.annualleavebackend.service.AuthService;
 import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,14 +27,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminEmployeeController {
 
-    private final AuthService authService;
     private final EmployeeService employeeService;
 
     @Operation(summary = "전체 사원 조회", description = "관리자가 신규 사원 등록 시 채번된 사번을 조회한다.")
     @GetMapping("/all")
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(@AuthenticationPrincipal EmployeePrincipal principal, 
     															@RequestParam(name = "searchParam", required = false) String searchParam) {
-    	authService.checkAdmin(principal.employeeId());
     	return employeeService.getAllEmployees(searchParam);
     }
     
@@ -45,7 +42,6 @@ public class AdminEmployeeController {
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("employeeNumber") String employeeNumber,
             @Valid @RequestBody EmployeeDto.ManagedTeamsUpdateRequest request) {
-        authService.checkAdmin(principal.employeeId());
         employeeService.updateManagedTeamsByAdmin(principal.employeeId(), employeeNumber, request);
         return ResponseEntity.ok().build();
     }
@@ -56,7 +52,6 @@ public class AdminEmployeeController {
     		@AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("employeeNumber") String employeeNumber,
             @Valid @RequestBody EmployeeDto.EmployeeAdminUpdateRequest request) {
-    	authService.checkAdmin(principal.employeeId());
         employeeService.updateEmployeeByAdmin(principal.employeeId(), employeeNumber, request);
         return ResponseEntity.ok().build();
     }
