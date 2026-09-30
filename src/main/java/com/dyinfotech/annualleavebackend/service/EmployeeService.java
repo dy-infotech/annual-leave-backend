@@ -202,9 +202,20 @@ public class EmployeeService {
     }
 
     @Transactional
-    public void updateApprover(Long employeeId, Long approverId) {
+    public void updateApproverIfUnchanged(
+            Long employeeId,
+            Long expectedTeamId,
+            Long expectedApproverId,
+            Long approverId) {
         Employee employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        // 로그인 중 관리자 수정이 먼저 반영됐다면 과거 조직 snapshot으로 self-heal하지 않는다.
+        if (!Objects.equals(employee.getTeamId(), expectedTeamId)
+                || !Objects.equals(employee.getApproverId(), expectedApproverId)) {
+            return;
+        }
+
         Employee approver = employeeRepository.findById(approverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 결재자 정보를 찾을 수 없습니다."));
         if (!Objects.equals(employee.getApproverId(), approverId)) {

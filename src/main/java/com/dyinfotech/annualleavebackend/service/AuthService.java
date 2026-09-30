@@ -379,7 +379,11 @@ public class AuthService {
         if (!currentApproverIds.isEmpty()
                 && (storedApproverId == null || !currentApproverIds.contains(storedApproverId))) {
             Long currentApproverId = currentApproverIds.stream().min(Long::compareTo).orElseThrow();
-            employeeService.updateApprover(employee.getEmployeeId(), currentApproverId);
+            employeeService.updateApproverIfUnchanged(
+                    employee.getEmployeeId(),
+                    employee.getTeamId(),
+                    storedApproverId,
+                    currentApproverId);
         }
     }
     
