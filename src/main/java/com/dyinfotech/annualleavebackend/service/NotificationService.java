@@ -4,8 +4,11 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,12 @@ public class NotificationService {
 	private final ScheduledExecutorService retryExecutor;
     
     private static final int MAX_RETRY_COUNT = 3;
+
+    /**
+     * 동일 FCM token의 owner sync/logout은 외부 Firebase topic 작업까지 순서를 보장한다.
+     * 현재 단일 Backend 인스턴스에서 race를 막고, DB owner CAS는 교차 인스턴스 방어로 유지한다.
+     */
+    private final ConcurrentHashMap<String, CompletableFuture<Void>> tokenOperations = new ConcurrentHashMap<>();
     
 	private enum TopicSyncResult {
 		NONE, UNSUBSCRIBE_FAILED, SUBSCRIBE_FAILED, SUCCESS
@@ -118,7 +127,17 @@ public class NotificationService {
 	}
 	
 	public CompletableFuture<Void> syncToken(Long employeeId, String fcmToken, String deviceOs) {
-		String clientIp = IpContext.get();
+        String clientIp = IpContext.get();
+        return serializeTokenOperation(
+                fcmToken,
+                () -> syncTokenNow(employeeId, fcmToken, deviceOs, clientIp));
+    }
+
+    private CompletableFuture<Void> syncTokenNow(
+            Long employeeId,
+            String fcmToken,
+            String deviceOs,
+            String clientIp) {
 		LocalDateTime now = LocalDateTime.now(clock);
 		FcmToken existingToken = tokenRepository.findByToken(fcmToken).orElse(null);
 		if (existingToken != null) {
@@ -234,6 +253,12 @@ public class NotificationService {
      * TODO: 로그아웃 기능 구현 및 토큰 삭제 적용
      */
     public CompletableFuture<Void> logoutToken(String fcmToken, Long employeeId) {
+        return serializeTokenOperation(
+                fcmToken,
+                () -> logoutTokenNow(fcmToken, employeeId));
+    }
+
+    private CompletableFuture<Void> logoutTokenNow(String fcmToken, Long employeeId) {
         FcmToken existing = tokenRepository.findByToken(fcmToken).orElse(null);
         if (existing == null) {
             return CompletableFuture.completedFuture(null);
@@ -260,6 +285,25 @@ public class NotificationService {
                                 employeeId);
                     }
                 });
+    }
+
+    private CompletableFuture<Void> serializeTokenOperation(
+            String fcmToken,
+            Supplier<CompletableFuture<Void>> action) {
+        AtomicReference<CompletableFuture<Void>> queuedRef = new AtomicReference<>();
+
+        tokenOperations.compute(fcmToken, (token, previous) -> {
+            CompletableFuture<Void> predecessor = previous == null
+                    ? CompletableFuture.completedFuture(null)
+                    : previous.handle((ignored, error) -> null);
+            CompletableFuture<Void> queued = predecessor.thenCompose(ignored -> action.get());
+            queuedRef.set(queued);
+            return queued;
+        });
+
+        CompletableFuture<Void> queued = queuedRef.get();
+        queued.whenComplete((ignored, error) -> tokenOperations.remove(fcmToken, queued));
+        return queued;
     }
 
     /**
