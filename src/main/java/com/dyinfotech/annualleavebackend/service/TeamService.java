@@ -837,6 +837,12 @@ public class TeamService {
             TeamDto.CreateRequest request,
             String idempotencyKey) {
         String teamName = request.getTeamName().trim();
+        if (request.getProjectManagerId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "팀 담당자는 필수입니다.");
+        }
+
         String normalizedRequestKey = normalizeCreateRequestKey(idempotencyKey);
         String requestHash = normalizedRequestKey == null
                 ? null
@@ -863,12 +869,6 @@ public class TeamService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
         if (!Boolean.TRUE.equals(department.getEnabled())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서에는 팀을 생성할 수 없습니다.");
-        }
-
-        if (request.getProjectManagerId() == null && request.getParentTeamId() != null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "담당자가 없는 팀은 상위 팀 결재선을 지정할 수 없습니다.");
         }
 
         Team team = Team.builder()

@@ -41,7 +41,7 @@ public class AdminTeamController {
         return ResponseEntity.ok(teamService.findAllForAdmin());
     }
 
-    @Operation(summary = "팀 등록", description = "새로운 팀을 등록한다. 담당자는 선택 항목이며, 담당자 지정 시 상위 팀 미지정은 요청자의 팀으로 처리한다.")
+    @Operation(summary = "팀 등록", description = "새로운 팀을 등록한다. 담당자는 필수이며, 상위 팀 미지정 시 대표이사 팀을 기본 상위 팀으로 사용한다.")
     @PostMapping
     public ResponseEntity<TeamDto.CreateResponse> createTeam(
             @AuthenticationPrincipal EmployeePrincipal principal,

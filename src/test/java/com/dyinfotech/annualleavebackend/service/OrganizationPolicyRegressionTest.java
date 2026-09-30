@@ -605,15 +605,41 @@ class OrganizationPolicyRegressionTest {
     }
 
     @Test
+    void createTeam_withoutManager_isRejectedBeforeWrite() {
+        TeamDto.CreateRequest request = new TeamDto.CreateRequest();
+        setField(request, "teamName", "관리자없는팀");
+        setField(request, "departmentId", 1L);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> teamService.createTeam(100L, request, "request-key-no-manager"));
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertTrue(exception.getReason().contains("담당자"));
+        verifyNoInteractions(departmentRepository);
+        verify(teamRepository, never()).saveAndFlush(any(Team.class));
+    }
+
+    @Test
     void createTeam_sameIdempotencyKeyAndPayload_replaysOriginalTeamId() {
         TeamDto.CreateRequest request = new TeamDto.CreateRequest();
         setField(request, "teamName", "플랫폼팀");
         setField(request, "departmentId", 1L);
+        setField(request, "projectManagerId", 5L);
+        setField(request, "parentTeamId", 1L);
 
         Department department = mock(Department.class);
+        Team parent = mock(Team.class);
+        Employee manager = mock(Employee.class);
         when(department.getEnabled()).thenReturn(true);
         when(departmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(department));
         when(teamRepository.findByTeamName("플랫폼팀")).thenReturn(Optional.empty());
+        when(parent.getTeamId()).thenReturn(1L);
+        when(parent.getEnabled()).thenReturn(true);
+        when(teamRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(parent));
+        when(employeeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(manager));
+        when(manager.isActive(TODAY)).thenReturn(true);
+        when(teamManagerRepository.existsActiveManagerInTeam(1L, TODAY)).thenReturn(true);
 
         AtomicReference<Team> created = new AtomicReference<>();
         when(teamRepository.findByCreateRequestKey("request-key-0001"))
@@ -624,6 +650,8 @@ class OrganizationPolicyRegressionTest {
             created.set(team);
             return team;
         });
+        when(teamRepository.findByIdForUpdate(99L))
+                .thenAnswer(invocation -> Optional.ofNullable(created.get()));
 
         Long first = teamService.createTeam(100L, request, "request-key-0001");
         Long replay = teamService.createTeam(100L, request, "request-key-0001");
@@ -638,15 +666,27 @@ class OrganizationPolicyRegressionTest {
         TeamDto.CreateRequest firstRequest = new TeamDto.CreateRequest();
         setField(firstRequest, "teamName", "플랫폼팀");
         setField(firstRequest, "departmentId", 1L);
+        setField(firstRequest, "projectManagerId", 5L);
+        setField(firstRequest, "parentTeamId", 1L);
 
         TeamDto.CreateRequest secondRequest = new TeamDto.CreateRequest();
         setField(secondRequest, "teamName", "운영팀");
         setField(secondRequest, "departmentId", 1L);
+        setField(secondRequest, "projectManagerId", 5L);
+        setField(secondRequest, "parentTeamId", 1L);
 
         Department department = mock(Department.class);
+        Team parent = mock(Team.class);
+        Employee manager = mock(Employee.class);
         when(department.getEnabled()).thenReturn(true);
         when(departmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(department));
         when(teamRepository.findByTeamName("플랫폼팀")).thenReturn(Optional.empty());
+        when(parent.getTeamId()).thenReturn(1L);
+        when(parent.getEnabled()).thenReturn(true);
+        when(teamRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(parent));
+        when(employeeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(manager));
+        when(manager.isActive(TODAY)).thenReturn(true);
+        when(teamManagerRepository.existsActiveManagerInTeam(1L, TODAY)).thenReturn(true);
 
         AtomicReference<Team> created = new AtomicReference<>();
         when(teamRepository.findByCreateRequestKey("request-key-0002"))
@@ -657,6 +697,8 @@ class OrganizationPolicyRegressionTest {
             created.set(team);
             return team;
         });
+        when(teamRepository.findByIdForUpdate(100L))
+                .thenAnswer(invocation -> Optional.ofNullable(created.get()));
 
         teamService.createTeam(100L, firstRequest, "request-key-0002");
 

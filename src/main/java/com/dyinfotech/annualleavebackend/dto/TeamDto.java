@@ -20,7 +20,7 @@ public final class TeamDto {
         @Size(max = 30, message = "팀명은 30자 이하여야 합니다.")
         private String teamName;
 
-        // 팀만 먼저 생성할 수 있으므로 선택값이다.
+        @NotNull(message = "팀 담당자는 필수입니다.")
         private Long projectManagerId;
 
         @NotNull(message = "소속 부서는 필수입니다.")
