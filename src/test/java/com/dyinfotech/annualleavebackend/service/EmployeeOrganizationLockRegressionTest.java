@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -106,6 +107,72 @@ class EmployeeOrganizationLockRegressionTest {
         inOrder.verify(teamService).removeManager(20L, 1L);
         inOrder.verify(teamService).removeManager(10L, 1L);
     }
+    @Test
+    void employeeAdminUpdate_teamMove_repairsStoredApproverImmediately() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        CommonService commonService = mock(CommonService.class);
+        EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        OrganizationCacheInvalidator cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService,
+                departmentService,
+                commonService,
+                employeeLeaveService,
+                employeeRepository,
+                teamManagerRepository,
+                cacheInvalidator,
+                employeeCacheInvalidator,
+                passwordEncoder
+        );
+
+        Employee approver = mock(Employee.class);
+        Employee employee = mock(Employee.class);
+        Team currentTeam = mock(Team.class);
+        Team targetTeam = mock(Team.class);
+        Department department = mock(Department.class);
+        EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
+        LocalDate hireDate = LocalDate.of(2024, 1, 1);
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(employee.getName()).thenReturn("직원");
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getTeam()).thenReturn(currentTeam);
+        when(employee.getPosition()).thenReturn("사원");
+        when(currentTeam.getTeamId()).thenReturn(10L);
+
+        when(request.getDepartment()).thenReturn("개발부");
+        when(request.getTeam()).thenReturn("ABC");
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(hireDate);
+        when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
+
+        TeamCacheRow targetTeamInfo = new TeamCacheRow(20L, "ABC", 1L, true);
+        when(teamService.findTeamInfo("ABC")).thenReturn(Optional.of(targetTeamInfo));
+        when(teamService.findByTeamName("ABC")).thenReturn(Optional.of(targetTeam));
+        when(targetTeam.getTeamId()).thenReturn(20L);
+        when(targetTeam.getDepartment()).thenReturn(department);
+        when(department.getDepartmentId()).thenReturn(1L);
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of());
+
+        service.updateEmployeeByAdmin(100L, "E001", request);
+
+        InOrder inOrder = inOrder(employee, teamService);
+        inOrder.verify(employee).updateInfoByAdmin(
+                any(), any(), any(), eq(targetTeam), any(), eq(hireDate), any(), any());
+        inOrder.verify(teamService).refreshApproverIds(employee);
+    }
+
     @Test
     void employeeAdminUpdate_sameDesiredManagedTeams_doesNotToggleRoles() {
         TeamService teamService = mock(TeamService.class);

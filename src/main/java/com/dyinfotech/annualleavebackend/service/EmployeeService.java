@@ -493,6 +493,9 @@ public class EmployeeService {
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
 
+        // 팀 변경 직후 저장된 approver_id도 현재 조직 캐시 기준으로 같은 트랜잭션에서 교정한다.
+        teamService.refreshApproverIds(employee);
+
         Set<Long> coverageTeamIds = new HashSet<>();
         coverageTeamIds.add(team.getTeamId());
         coverageTeamIds.addAll(teamManagerRepository.findTeamIdsByProjectManagerId(employeeId));

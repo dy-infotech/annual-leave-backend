@@ -372,6 +372,26 @@ class OrganizationPolicyRegressionTest {
     }
 
     @Test
+    void refreshApproverIds_repairsStaleStoredPointerFromOrganizationCache() {
+        TeamCacheRow team = new TeamCacheRow(10L, "T팀", 1L, true);
+        TeamManagerCacheRow currentManager = manager(10L, 3L, 20L, null);
+        prepareCaches(List.of(team), List.of(currentManager));
+
+        Employee employee = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(2L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getApproverId()).thenReturn(1L);
+
+        Employee currentApprover = mock(Employee.class);
+        when(employeeRepository.getReferenceById(3L)).thenReturn(currentApprover);
+
+        Set<Long> approverIds = teamService.refreshApproverIds(employee);
+
+        assertEquals(Set.of(3L), approverIds);
+        verify(employee).changeApprover(currentApprover);
+    }
+
+    @Test
     void representativeDirectorAlias_mapsToCeo() {
         assertEquals(PositionType.CEO, PositionType.getType("대표이사"));
         assertEquals(PositionType.CEO, PositionType.getType("사장"));
