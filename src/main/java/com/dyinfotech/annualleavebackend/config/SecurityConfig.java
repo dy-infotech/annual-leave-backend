@@ -17,7 +17,6 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.filter.JwtAuthenticationFilter;
 
 import lombok.RequiredArgsConstructor;
@@ -53,8 +52,9 @@ public class SecurityConfig {
                         // 인증 없이 접근 가능한 경로
                 		.requestMatchers("/api/auth/**").permitAll()
 
-                        // 관리자 전용 경로
-                        .requestMatchers("/api/admin/**").hasRole(Role.ADMIN.name())
+                        // JWT role은 로그인 시점 snapshot이므로 최종 권한 근거로 사용하지 않는다.
+                        // 현재 조직/직급 권한은 각 관리자 컨트롤러에서 다시 검증한다.
+                        .requestMatchers("/api/admin/**").authenticated()
 
                         // 나머지는 인증 필요
                         .anyRequest().authenticated()
