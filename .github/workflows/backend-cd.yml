@@ -105,15 +105,17 @@ jobs:
             BACKUP_JAR=$APP_JAR.bak
 
 
-            # 서비스 기동 확인 함수
+            # systemd 상태뿐 아니라 Spring MVC가 실제 요청을 받을 수 있는지 확인한다.
+            # ddl-auto=validate가 v2 스키마 누락을 startup 단계에서 차단한다.
+            HEALTH_URL=${ANNUAL_LEAVE_HEALTH_URL:-http://127.0.0.1:8080/v3/api-docs}
             wait_for_service() {
-              for i in {1..6}
+              for i in {1..12}
               do
                 STATUS=$(sudo -n /usr/bin/systemctl is-active annual-leave.service || true)
 
                 echo "CHECK $i : $STATUS"
 
-                if [ "$STATUS" = "active" ]; then
+                if [ "$STATUS" = "active" ] && curl -fsS "$HEALTH_URL" >/dev/null; then
                   return 0
                 fi
 
