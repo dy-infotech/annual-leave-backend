@@ -358,40 +358,13 @@ public class EmployeeService {
         Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
 
-        boolean desiredManagedTeamsProvided = request.getManagedTeams() != null;
-        Collection<String> requestedManagementTeams = desiredManagedTeamsProvided
-                ? request.getManagedTeams()
-                : request.getTargetTeamsForRoleSwap();
-        if (requestedManagementTeams == null || requestedManagementTeams.isEmpty()) {
-            requestedManagementTeams = Collections.emptyList();
-        }
-        Set<String> normalizedManagementTeams = requestedManagementTeams.stream()
-                .filter(java.util.Objects::nonNull)
-                .map(String::trim)
-                .filter(teamName -> !teamName.isEmpty())
-                .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
-
+        // 관리팀 추가/삭제는 /managed-teams 전용 CAS 엔드포인트에서만 처리한다.
+        // full employee PUT은 기존 관리팀을 잠가 인사정보 변경과의 동시성만 보장한다.
         Set<Long> plannedTeamIds = new HashSet<>(managedTeamIdsBeforeUpdate);
         if (employee.getTeamId() != null) {
             plannedTeamIds.add(employee.getTeamId());
         }
 
-        Map<String, Long> requestedTeamIds = new HashMap<>();
-        Map<String, Long> requestedParentTeamIds = new HashMap<>();
-        for (String targetTeam : normalizedManagementTeams) {
-            var teamInfo = teamService.findTeamInfo(targetTeam)
-                    .orElseThrow(() -> {
-                        String errorMsg = "존재하지 않는 관리 팀으로 수정 요청했습니다. requestedTeam : " + targetTeam;
-                        log.error(errorMsg + " employeeNumber: " + employeeNumber);
-                        return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
-                    });
-            Long parentTeamId = teamService.resolveParentTeamId(targetTeam)
-                    .orElse(approver.getTeamId());
-            requestedTeamIds.put(targetTeam, teamInfo.teamId());
-            requestedParentTeamIds.put(targetTeam, parentTeamId);
-            plannedTeamIds.add(teamInfo.teamId());
-            plannedTeamIds.add(parentTeamId);
-        }
 
         Long requestedEmployeeTeamId = null;
         if (request.getTeam() != null && !request.getTeam().trim().isEmpty()) {
@@ -412,12 +385,7 @@ public class EmployeeService {
         LocalDate oldManagerFireDate = employee.getFireDate();
 
         if (request.getExpected() != null) {
-            boolean noManagedTeamMutationRequested =
-                    request.getManagedTeams() == null
-                            && (request.getTargetTeamsForRoleSwap() == null
-                                || request.getTargetTeamsForRoleSwap().isEmpty());
-
-            if (noManagedTeamMutationRequested && employeeMatchesDesiredState(employee, request)) {
+            if (employeeMatchesDesiredState(employee, request)) {
                 // 동일 full PUT 재전송이어도 legacy stale approver_id는 현재 조직 기준으로 self-heal한다.
                 Long oldApproverId = employee.getApproverId();
                 teamService.refreshApproverIds(employee);
@@ -445,51 +413,6 @@ public class EmployeeService {
                     "담당 팀 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
         }
 
-        Map<String, Long> managedByEmployee = new HashMap<>();
-        for (Long managedTeamId : currentManagedTeamIds) {
-            teamService.findTeamInfo(managedTeamId)
-                    .ifPresent(teamInfo -> managedByEmployee.put(teamInfo.teamName(), teamInfo.teamId()));
-        }
-
-        Set<String> teamsToRemove = new java.util.LinkedHashSet<>();
-        Set<String> teamsToAdd = new java.util.LinkedHashSet<>();
-        if (desiredManagedTeamsProvided) {
-            // desired-state PUT: 같은 요청을 반복해도 최종 관리팀 상태가 동일하다.
-            teamsToRemove.addAll(managedByEmployee.keySet());
-            teamsToRemove.removeAll(normalizedManagementTeams);
-
-            teamsToAdd.addAll(normalizedManagementTeams);
-            teamsToAdd.removeAll(managedByEmployee.keySet());
-        } else {
-            // 하위 호환용 legacy toggle. 프론트 전환 후 제거 대상이다.
-            for (String targetTeam : normalizedManagementTeams) {
-                if (managedByEmployee.containsKey(targetTeam)) {
-                    teamsToRemove.add(targetTeam);
-                } else {
-                    teamsToAdd.add(targetTeam);
-                }
-            }
-        }
-
-        Set<Long> removedManagerTeamIds = new HashSet<>();
-        Map<Long, Long> addedManagerParentTeamIds = new HashMap<>();
-
-        for (String teamNameToRemove : teamsToRemove) {
-            Long removedTeamId = managedByEmployee.get(teamNameToRemove);
-            if (removedTeamId != null) {
-                removedManagerTeamIds.add(removedTeamId);
-            }
-            teamService.removeManager(removedTeamId, employeeId);
-        }
-        for (String teamNameToAdd : teamsToAdd) {
-            Long targetTeamId = requestedTeamIds.get(teamNameToAdd);
-            Long parentTeamId = requestedParentTeamIds.get(teamNameToAdd);
-            String targetTeamName = teamService.findTeamInfo(targetTeamId)
-                    .map(info -> info.teamName())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "팀 정보가 동시에 변경되었습니다."));
-            addedManagerParentTeamIds.put(targetTeamId, parentTeamId);
-            teamService.addManager(targetTeamName, employeeId, parentTeamId);
-        }
         Team team = employee.getTeam();
         if (requestedEmployeeTeamId != null) {
             team = teamService.findByTeamName(request.getTeam())
@@ -538,19 +461,17 @@ public class EmployeeService {
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
 
-        // 1차 방어: committed cache snapshot + 이번 transaction의 TeamManager delta로 approver_id를 즉시 교정한다.
-        teamService.refreshApproverIds(employee, removedManagerTeamIds, addedManagerParentTeamIds);
+        // TeamManager 자체는 이 API에서 변경하지 않으므로 현재 조직 snapshot 기준으로 approver_id만 교정한다.
+        teamService.refreshApproverIds(employee);
 
         Set<Long> coverageTeamIds = new HashSet<>();
         coverageTeamIds.add(team.getTeamId());
         coverageTeamIds.addAll(teamManagerRepository.findTeamIdsByProjectManagerId(employeeId));
         teamService.validateFutureApprovalCoverage(coverageTeamIds);
 
-        Set<Long> retainedManagedTeamIds = new HashSet<>(currentManagedTeamIds);
-        retainedManagedTeamIds.removeAll(removedManagerTeamIds);
-        if (managerSnapshotChanged && !retainedManagedTeamIds.isEmpty()) {
+        if (managerSnapshotChanged && !currentManagedTeamIds.isEmpty()) {
             // TeamManagerCacheRow에 실제 포함되는 PM 필드가 바뀐 팀만 조직 snapshot을 무효화한다.
-            cacheInvalidator.afterEmployeeOrganizationChange(retainedManagedTeamIds);
+            cacheInvalidator.afterEmployeeOrganizationChange(currentManagedTeamIds);
         }
         // 단순 CCC -> ABC 이동은 전 조직 generation 대신 해당 직원 view만 새 세대로 보낸다.
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);

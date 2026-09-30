@@ -35,7 +35,7 @@ import com.dyinfotech.annualleavebackend.repository.projection.TeamCacheRow;
 class EmployeeOrganizationLockRegressionTest {
 
     @Test
-    void employeeAdminUpdate_prelocksWholeTeamSetBeforeEmployeeAndRoleChanges() {
+    void employeeAdminUpdate_prelocksCurrentManagedTeamsWithoutChangingAssignments() {
         TeamService teamService = mock(TeamService.class);
         DepartmentService departmentService = mock(DepartmentService.class);
         CommonService commonService = mock(CommonService.class);
@@ -47,17 +47,11 @@ class EmployeeOrganizationLockRegressionTest {
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
 
         EmployeeService service = new EmployeeService(
-                teamService,
-                departmentService,
-                commonService,
-                employeeLeaveService,
-                employeeRepository,
-                teamManagerRepository,
-                cacheInvalidator,
-                employeeCacheInvalidator,
-                passwordEncoder
-        );
+                teamService, departmentService, commonService, employeeLeaveService,
+                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeCacheInvalidator, passwordEncoder);
 
+        LocalDate hireDate = LocalDate.of(2024, 1, 1);
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
         Team currentTeam = mock(Team.class);
@@ -66,49 +60,40 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
-        when(approver.getTeamId()).thenReturn(30L);
-
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+
         when(employee.getEmployeeId()).thenReturn(1L);
         when(employee.getName()).thenReturn("직원");
+        when(employee.getPosition()).thenReturn("사원");
+        when(employee.getHireDate()).thenReturn(hireDate);
         when(employee.getTeamId()).thenReturn(10L);
         when(employee.getTeam()).thenReturn(currentTeam);
-        when(employee.getPosition()).thenReturn("사원");
         when(currentTeam.getTeamId()).thenReturn(10L);
         when(currentTeam.getDepartment()).thenReturn(department);
         when(department.getDepartmentId()).thenReturn(1L);
+        when(department.getDepartmentName()).thenReturn("SI사업팀");
 
         when(request.getDepartment()).thenReturn("SI사업팀");
-        when(request.getManagedTeams()).thenReturn(null);
-        when(request.getTargetTeamsForRoleSwap()).thenReturn(List.of("T2", "T1"));
-        when(request.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(hireDate);
         when(departmentService.findByDepartmentName("SI사업팀")).thenReturn(Optional.of(department));
-
-        TeamCacheRow t1 = new TeamCacheRow(10L, "T1", 1L, true);
-        TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
-        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(t1));
-        when(teamService.findTeamInfo("T2")).thenReturn(Optional.of(t2));
-        when(teamService.findTeamInfo(10L)).thenReturn(Optional.of(t1));
-        when(teamService.findTeamInfo(20L)).thenReturn(Optional.of(t2));
-        when(teamService.resolveParentTeamId("T1")).thenReturn(Optional.of(30L));
-        when(teamService.resolveParentTeamId("T2")).thenReturn(Optional.of(30L));
 
         when(teamManagerRepository.findTeamIdsByProjectManagerId(1L))
                 .thenReturn(List.of(10L, 20L), List.of(10L, 20L), List.of(10L, 20L));
-        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
 
         service.updateEmployeeByAdmin(100L, "E001", request);
 
         InOrder inOrder = inOrder(teamService, employeeRepository);
         inOrder.verify(teamService).lockTeamsForUpdate(argThat(teamIds ->
-                teamIds.size() == 3
+                teamIds.size() == 2
                         && teamIds.contains(10L)
-                        && teamIds.contains(20L)
-                        && teamIds.contains(30L)));
+                        && teamIds.contains(20L)));
         inOrder.verify(employeeRepository).findByIdForUpdate(1L);
-        inOrder.verify(teamService).removeManager(20L, 1L);
-        inOrder.verify(teamService).removeManager(10L, 1L);
+        verify(teamService, never()).removeManager(any(), any());
+        verify(teamService, never()).addManager(any(), any(), any());
     }
+
     @Test
     void employeeAdminUpdate_teamMove_repairsStoredApproverImmediately() {
         TeamService teamService = mock(TeamService.class);
@@ -172,11 +157,11 @@ class EmployeeOrganizationLockRegressionTest {
         InOrder inOrder = inOrder(employee, teamService);
         inOrder.verify(employee).updateInfoByAdmin(
                 any(), any(), any(), eq(targetTeam), any(), eq(hireDate), any(), any());
-        inOrder.verify(teamService).refreshApproverIds(employee, Set.of(), Map.of());
+        inOrder.verify(teamService).refreshApproverIds(employee);
     }
 
     @Test
-    void employeeAdminUpdate_sameDesiredManagedTeams_doesNotToggleRoles() {
+    void employeeAdminUpdate_fullPutLeavesManagedTeamAssignmentsUntouched() {
         TeamService teamService = mock(TeamService.class);
         DepartmentService departmentService = mock(DepartmentService.class);
         CommonService commonService = mock(CommonService.class);
@@ -192,6 +177,7 @@ class EmployeeOrganizationLockRegressionTest {
                 employeeRepository, teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
+        LocalDate hireDate = LocalDate.of(2024, 1, 1);
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
         Team currentTeam = mock(Team.class);
@@ -200,35 +186,34 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
-        when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+
         when(employee.getEmployeeId()).thenReturn(1L);
-        when(employee.getName()).thenReturn("직원");
+        when(employee.getName()).thenReturn("기존이름");
+        when(employee.getPosition()).thenReturn("사원");
+        when(employee.getHireDate()).thenReturn(hireDate);
         when(employee.getTeamId()).thenReturn(10L);
         when(employee.getTeam()).thenReturn(currentTeam);
-        when(employee.getPosition()).thenReturn("사원");
         when(currentTeam.getTeamId()).thenReturn(10L);
         when(currentTeam.getDepartment()).thenReturn(department);
         when(department.getDepartmentId()).thenReturn(1L);
         when(department.getDepartmentName()).thenReturn("SI사업팀");
+
+        when(request.getName()).thenReturn("변경이름");
         when(request.getDepartment()).thenReturn("SI사업팀");
-        when(request.getManagedTeams()).thenReturn(List.of("T1", "T2"));
-        when(request.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(hireDate);
         when(departmentService.findByDepartmentName("SI사업팀")).thenReturn(Optional.of(department));
 
-        TeamCacheRow t1 = new TeamCacheRow(10L, "T1", 1L, true);
-        TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
-        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(t1));
-        when(teamService.findTeamInfo("T2")).thenReturn(Optional.of(t2));
-        when(teamService.findTeamInfo(10L)).thenReturn(Optional.of(t1));
-        when(teamService.findTeamInfo(20L)).thenReturn(Optional.of(t2));
-        when(teamService.resolveParentTeamId("T1")).thenReturn(Optional.of(30L));
-        when(teamService.resolveParentTeamId("T2")).thenReturn(Optional.of(30L));
-        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of(10L, 20L));
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L))
+                .thenReturn(List.of(10L, 20L), List.of(10L, 20L), List.of(10L, 20L));
 
         service.updateEmployeeByAdmin(100L, "E001", request);
 
+        verify(employee).updateInfoByAdmin(
+                eq("변경이름"), any(), eq(department), eq(currentTeam),
+                eq("사원"), eq(hireDate), any(), any());
         verify(teamService, never()).removeManager(any(), any());
         verify(teamService, never()).addManager(any(), any(), any());
     }
@@ -376,7 +361,7 @@ class EmployeeOrganizationLockRegressionTest {
 
 
     @Test
-    void employeeAdminUpdate_teamMoveWithManagerAdd_refreshesApproverFromLogicalDelta() {
+    void managedTeamsUpdate_matchingExpectedState_removesOnlyDiff() {
         TeamService teamService = mock(TeamService.class);
         DepartmentService departmentService = mock(DepartmentService.class);
         CommonService commonService = mock(CommonService.class);
@@ -392,58 +377,33 @@ class EmployeeOrganizationLockRegressionTest {
                 employeeRepository, teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
-        LocalDate hireDate = LocalDate.of(2024, 1, 1);
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
-        Team oldTeam = mock(Team.class);
-        Team targetTeam = mock(Team.class);
-        Department department = mock(Department.class);
-        EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
-        TeamCacheRow targetInfo = new TeamCacheRow(20L, "T2", 1L, true);
+        EmployeeDto.ManagedTeamsUpdateRequest request = mock(EmployeeDto.ManagedTeamsUpdateRequest.class);
+        TeamCacheRow t1 = new TeamCacheRow(10L, "T1", 1L, true);
+        TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
-
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
-        when(employee.getName()).thenReturn("직원");
-        when(employee.getEmail()).thenReturn("employee@example.com");
-        when(employee.getPosition()).thenReturn("사원");
-        when(employee.getHireDate()).thenReturn(hireDate);
-        when(employee.getFireDate()).thenReturn(null);
-        when(employee.getTeamId()).thenReturn(10L);
-        when(employee.getTeam()).thenReturn(oldTeam);
-        when(oldTeam.getTeamId()).thenReturn(10L);
 
-        when(request.getDepartment()).thenReturn("SI사업팀");
-        when(request.getManagedTeams()).thenReturn(List.of("T2"));
-        when(request.getTargetTeamsForRoleSwap()).thenReturn(null);
-        when(request.getTeam()).thenReturn("T2");
-        when(request.getPosition()).thenReturn("사원");
-        when(request.getHireDate()).thenReturn(hireDate);
-        when(request.getFireDate()).thenReturn(null);
-
-        when(departmentService.findByDepartmentName("SI사업팀")).thenReturn(Optional.of(department));
-        when(teamService.findTeamInfo("T2")).thenReturn(Optional.of(targetInfo));
-        when(teamService.findTeamInfo(20L)).thenReturn(Optional.of(targetInfo));
-        when(teamService.resolveParentTeamId("T2")).thenReturn(Optional.of(30L));
-        when(teamService.findByTeamName("T2")).thenReturn(Optional.of(targetTeam));
-        when(targetTeam.getTeamId()).thenReturn(20L);
-        when(targetTeam.getDepartment()).thenReturn(department);
-        when(department.getDepartmentId()).thenReturn(1L);
-        when(department.getDepartmentName()).thenReturn("SI사업팀");
-
+        when(request.getExpectedManagedTeams()).thenReturn(List.of("T1", "T2"));
+        when(request.getManagedTeams()).thenReturn(List.of("T1"));
+        when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo("T2")).thenReturn(Optional.of(t2));
+        when(teamService.findTeamInfo(10L)).thenReturn(Optional.of(t1));
+        when(teamService.findTeamInfo(20L)).thenReturn(Optional.of(t2));
+        when(teamService.resolveParentTeamId("T1")).thenReturn(Optional.of(30L));
         when(teamManagerRepository.findTeamIdsByProjectManagerId(1L))
-                .thenReturn(List.of(), List.of(), List.of(20L));
+                .thenReturn(List.of(10L, 20L), List.of(10L, 20L));
 
-        service.updateEmployeeByAdmin(100L, "E001", request);
+        service.updateManagedTeamsByAdmin(100L, "E001", request);
 
-        verify(teamService).addManager("T2", 1L, 30L);
-        verify(teamService).refreshApproverIds(employee, Set.of(), Map.of(20L, 30L));
-        verify(cacheInvalidator, never()).afterEmployeeOrganizationChange(any());
-        verify(employeeCacheInvalidator).afterEmployeeViewChange(1L);
+        verify(teamService).removeManager(20L, 1L);
+        verify(teamService, never()).addManager(any(), any(), any());
     }
 
     @Test
@@ -488,8 +448,6 @@ class EmployeeOrganizationLockRegressionTest {
         when(request.getHireDate()).thenReturn(hireDate);
         when(request.getFireDate()).thenReturn(null);
         when(request.getExpected()).thenReturn(expected);
-        when(request.getManagedTeams()).thenReturn(null);
-        when(request.getTargetTeamsForRoleSwap()).thenReturn(null);
 
         when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
         when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
@@ -553,8 +511,6 @@ class EmployeeOrganizationLockRegressionTest {
         when(request.getHireDate()).thenReturn(hireDate);
         when(request.getFireDate()).thenReturn(null);
         when(request.getExpected()).thenReturn(expected);
-        when(request.getManagedTeams()).thenReturn(null);
-        when(request.getTargetTeamsForRoleSwap()).thenReturn(null);
 
         when(expected.getName()).thenReturn("과거이름");
         when(expected.getEmail()).thenReturn("old@example.com");
