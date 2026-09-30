@@ -215,7 +215,7 @@ class OrganizationPolicyRegressionTest {
         setField(request, "projectManagerId", 99L);
 
         Team ceoTeam = mock(Team.class);
-        when(teamCache.get("대표이사"))
+        when(teamCache.get(OrganizationCacheKey.byName("대표이사")))
                 .thenReturn(List.of(new TeamCacheRow(1L, "대표이사", 1L, true)));
         when(teamRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(ceoTeam));
         when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
