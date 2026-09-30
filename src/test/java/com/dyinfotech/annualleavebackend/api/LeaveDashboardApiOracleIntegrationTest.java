@@ -1,5 +1,8 @@
 package com.dyinfotech.annualleavebackend.api;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -70,6 +73,9 @@ class LeaveDashboardApiOracleIntegrationTest extends OracleIntegrationTestSuppor
                 .getContentAsString();
 
         long requestId = objectMapper.readTree(response).path("requestId").asLong();
+
+        // 외부 알림은 DB commit 이후에만 나가야 한다. 통합테스트 transaction은 아직 미커밋 상태다.
+        verify(notificationService, never()).sendNotificationToTeams(any(), any(), any());
 
         mockMvc.perform(get("/api/leave-requests/{requestId}", requestId)
                         .header("Authorization", bearer(employee)))
