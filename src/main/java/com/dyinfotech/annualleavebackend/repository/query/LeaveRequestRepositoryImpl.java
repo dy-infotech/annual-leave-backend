@@ -197,27 +197,63 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	
 	@Override
 	public List<LeaveRequest> findByStatusAndTeamsInRange(Long excludeId, LeaveRequestStatus status, Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds, LocalDate startDate, LocalDate endDate) {
-		BooleanExpression targetCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
-		if (excludeId != null) {
-		    targetCondition = targetCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
-		}
-		if (!childTeamProjectManagerIds.isEmpty()) {
-		    targetCondition = targetCondition.or(qLeaveRequest.employee.employeeId.in(childTeamProjectManagerIds));
-		}
-		
-		return queryFactory.selectFrom(qLeaveRequest)
-	                        .where(
-	                            qLeaveRequest.status.eq(status),
-	                            targetCondition,
-//	                            qLeaveRequest.startDate.loe(endDate),
-//	                            qLeaveRequest.endDate.goe(startDate)
-				                overlap(startDate, endDate),
-                                activeEmployeeAt(LocalDate.now(clock))
-	                        )
-	                        .orderBy(qLeaveRequest.createdAudit.createdAt.asc())
-	                        .fetch();
+		BooleanExpression targetCondition = pendingTargetCondition(excludeId, directTeams, childTeamProjectManagerIds);
+
+		return pendingBaseQuery(status, targetCondition, startDate, endDate)
+				.fetch();
 	}
 
+	@Override
+	public List<LeaveRequest> findByStatusAndTeamsInRangePage(
+			Long excludeId,
+			LeaveRequestStatus status,
+			Collection<String> directTeams,
+			Collection<Long> childTeamProjectManagerIds,
+			LocalDate startDate,
+			LocalDate endDate,
+			int page,
+			int size) {
+		BooleanExpression targetCondition = pendingTargetCondition(excludeId, directTeams, childTeamProjectManagerIds);
+
+		return pendingBaseQuery(status, targetCondition, startDate, endDate)
+				.offset((long) page * size)
+				.limit(size)
+				.fetch();
+	}
+
+	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> pendingBaseQuery(
+			LeaveRequestStatus status,
+			BooleanExpression targetCondition,
+			LocalDate startDate,
+			LocalDate endDate) {
+		return queryFactory.selectFrom(qLeaveRequest)
+				.join(qLeaveRequest.employee).fetchJoin()
+				.leftJoin(qLeaveRequest.employee.department).fetchJoin()
+				.leftJoin(qLeaveRequest.employee.team).fetchJoin()
+				.where(
+						qLeaveRequest.status.eq(status),
+						targetCondition,
+						overlap(startDate, endDate),
+						activeEmployeeAt(LocalDate.now(clock))
+				)
+				.orderBy(
+						qLeaveRequest.createdAudit.createdAt.asc(),
+						qLeaveRequest.requestId.asc());
+	}
+
+	private BooleanExpression pendingTargetCondition(
+			Long excludeId,
+			Collection<String> directTeams,
+			Collection<Long> childTeamProjectManagerIds) {
+		BooleanExpression targetCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
+		if (excludeId != null) {
+			targetCondition = targetCondition.and(qLeaveRequest.employee.employeeId.ne(excludeId));
+		}
+		if (childTeamProjectManagerIds != null && !childTeamProjectManagerIds.isEmpty()) {
+			targetCondition = targetCondition.or(qLeaveRequest.employee.employeeId.in(childTeamProjectManagerIds));
+		}
+		return targetCondition;
+	}
 	@Override
 	@Transactional
 	public int updateLeaveRequest(Long requestId, Employee approver, String rejectReason,
@@ -262,35 +298,63 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 
 	@Override
 	public List<LeaveRequest> searchLeaveRequests(Long employeeId, LocalDate startDate, LocalDate endDate, LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam) {
+		BooleanBuilder builder = searchCondition(employeeId, status, teams, searchEmployeeParam);
+		return searchBaseQuery(builder, startDate, endDate).fetch();
+	}
+
+	@Override
+	public List<LeaveRequest> searchLeaveRequestsPage(
+			Long employeeId,
+			LocalDate startDate,
+			LocalDate endDate,
+			LeaveRequestStatus status,
+			Collection<String> teams,
+			String searchEmployeeParam,
+			int page,
+			int size) {
+		BooleanBuilder builder = searchCondition(employeeId, status, teams, searchEmployeeParam);
+		return searchBaseQuery(builder, startDate, endDate)
+				.offset((long) page * size)
+				.limit(size)
+				.fetch();
+	}
+
+	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> searchBaseQuery(
+			BooleanBuilder builder,
+			LocalDate startDate,
+			LocalDate endDate) {
+		return queryFactory.selectFrom(qLeaveRequest)
+				.join(qLeaveRequest.employee).fetchJoin()
+				.leftJoin(qLeaveRequest.employee.department).fetchJoin()
+				.leftJoin(qLeaveRequest.employee.team).fetchJoin()
+				.where(builder, overlap(startDate, endDate))
+				.orderBy(
+						qLeaveRequest.createdAudit.createdAt.desc(),
+						qLeaveRequest.requestId.desc());
+	}
+
+	private BooleanBuilder searchCondition(
+			Long employeeId,
+			LeaveRequestStatus status,
+			Collection<String> teams,
+			String searchEmployeeParam) {
 		BooleanBuilder builder = new BooleanBuilder();
-
-        if (employeeId != null) {
-            builder.and(qLeaveRequest.employee.employeeId.eq(employeeId));
-        }
-
-	    if (status != null) {
-	        builder.and(qLeaveRequest.status.eq(status));
-	    }
-
-	    if (teams != null && !teams.isEmpty()) {
-	        builder.and(qLeaveRequest.employee.team.teamName.in(teams));
-	    }
-	    
-	    if (searchEmployeeParam != null && !searchEmployeeParam.trim().isEmpty()) {
-	        builder.and(
-	            qLeaveRequest.employee.employeeNumber.containsIgnoreCase(searchEmployeeParam)
-	                .or(qLeaveRequest.employee.name.containsIgnoreCase(searchEmployeeParam))
-	        );
-	    }
-	    
-        return queryFactory.selectFrom(qLeaveRequest)
-        					.join(qLeaveRequest.employee).fetchJoin()
-			                .where(
-                                    builder,
-			                		overlap(startDate, endDate)
-                            )
-			                .orderBy(qLeaveRequest.createdAudit.createdAt.desc())
-			                .fetch();
+		if (employeeId != null) {
+			builder.and(qLeaveRequest.employee.employeeId.eq(employeeId));
+		}
+		if (status != null) {
+			builder.and(qLeaveRequest.status.eq(status));
+		}
+		if (teams != null && !teams.isEmpty()) {
+			builder.and(qLeaveRequest.employee.team.teamName.in(teams));
+		}
+		if (searchEmployeeParam != null && !searchEmployeeParam.trim().isEmpty()) {
+			builder.and(
+					qLeaveRequest.employee.employeeNumber.containsIgnoreCase(searchEmployeeParam)
+							.or(qLeaveRequest.employee.name.containsIgnoreCase(searchEmployeeParam))
+			);
+		}
+		return builder;
 	}
 
 }
