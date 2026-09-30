@@ -36,6 +36,9 @@ import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEma
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,6 +56,9 @@ public class EmployeeService {
     private final TeamManagerRepository teamManagerRepository;
     private final OrganizationCacheInvalidator cacheInvalidator;
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
+
+    @PersistenceContext
+    private EntityManager entityManager;
     private final PasswordEncoder passwordEncoder;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "@employeeViewCacheKey.key(#a0)")
@@ -129,8 +135,13 @@ public class EmployeeService {
                     HttpStatus.UNAUTHORIZED, "현재 비밀번호가 일치하지 않습니다.");
         }
 
+        String expectedPassword = employee.getPassword();
         String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
-        employee.changePassword(encodedNewPassword);
+        if (!compareAndSetPassword(employeeId, expectedPassword, encodedNewPassword)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "비밀번호가 다른 요청에 의해 변경되었습니다. 다시 로그인해주세요.");
+        }
     }
 	// 로그인 실패시 접근 횟수 추가
     @Transactional
@@ -279,6 +290,7 @@ public class EmployeeService {
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE);
 
         List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
@@ -407,6 +419,7 @@ public class EmployeeService {
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE);
 
         String oldEmployeeName = employee.getName();
         String oldManagerPosition = employee.getPosition();

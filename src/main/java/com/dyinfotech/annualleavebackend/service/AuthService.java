@@ -362,7 +362,12 @@ public class AuthService {
 
         if (!isBcrypt && passwordEncoder instanceof BCryptPasswordEncoder) {
             String encodedPassword = passwordEncoder.encode(password);
-            employeeService.updatePassword(employee.getEmployeeId(), encodedPassword);
+            if (!employeeService.compareAndSetPassword(
+                    employee.getEmployeeId(), currentPassword, encodedPassword)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "비밀번호 정보가 동시에 변경되었습니다. 다시 로그인해주세요.");
+            }
             // 이후 JWT credentialVersion이 DB와 동일한 hash를 사용하도록 detached 객체도 맞춘다.
             employee.changePassword(encodedPassword);
         }
