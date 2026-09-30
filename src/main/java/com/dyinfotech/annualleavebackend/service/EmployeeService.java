@@ -88,9 +88,10 @@ public class EmployeeService {
     	
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
-            // XXX: approver 데이터 필요 없어서 뺐음.
+            // 관리자 목록에서는 결재자 정보를 사용하지 않는다.
+            // 사원 본인을 approver로 채우면 의미가 다른 거짓 데이터가 되므로 null로 명시한다.
 			float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
-			responses.add(EmployeeResponse.from(employee, employee, roleResolver, currTotalLeaveDays, remainingLeaveDaysMap.get(employee.getEmployeeId())));
+			responses.add(EmployeeResponse.from(employee, null, roleResolver, currTotalLeaveDays, remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
 
         return responses;

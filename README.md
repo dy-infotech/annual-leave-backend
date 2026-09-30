@@ -74,13 +74,16 @@ erDiagram
 |---|---|---|---|---|---|
 | 🟢 | POST | `/signup` | `SignUpDto.SignUpRequest` | `SignUpDto.SignUpResponse` | 200 |
 | 🟢 | POST | `/signin` | `SignInDto.SignInRequest` | `SignInDto.SignInResponse` | 200 |
-| 🟢 | POST | `/forgot-password` | `ForgotPasswordDto.Request` | `Void` | 200 |
-| 🟢 | POST | `/find-id` | `ForgotPasswordDto.FindIdRequest` | `Void` | 200 |
+| 🟢 | POST | `/find-email-by-id` | `FindDataDto.FindEmailByIdRequest` | `FindDataDto.EmailResponse` | 200 |
+| 🟢 | POST | `/find-email-by-employee-number` | `FindDataDto.FindEmailByEmployeeNumberRequest` | `FindDataDto.EmailResponse` | 200 |
+| 🟢 | POST | `/forgot-password` | `FindDataDto.FindPasswordRequest` | `Void` | 200 |
+| 🟢 | POST | `/find-id` | `FindDataDto.FindIdRequest` | `Void` | 200 |
 | 🔵 | POST | `/logout` | `@AuthenticationPrincipal`, `LogoutDto.LogoutRequest`(선택) | `Void` | 200 |
 
 ### AdminAuthController — `/api/admin/auth`
 | 권한 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|---|
+| 🔴 | POST | `/sync-fcm-token` | `FcmTokenDto.FcmTokenRequest` | `Void` |
 | 🔴 | GET | `/common` | `@AuthenticationPrincipal` | `RegisterCommonDto.RegisterCommonResponse` |
 | 🔴 | POST | `/register` | `@AuthenticationPrincipal`, `RegisterDto.RegisterRequest` | `RegisterDto.RegisterResponse` |
 
@@ -88,35 +91,60 @@ erDiagram
 | 권한 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|---|
 | 🔴 | GET | `/all` | `@RequestParam searchParam`(선택) | `List<EmployeeDto.EmployeeResponse>` |
+| 🔴 | PUT | `/{employeeNumber}/managed-teams` | `EmployeeDto.ManagedTeamsUpdateRequest` | `Void` |
+| 🔴 | PUT | `/{employeeNumber}` | `EmployeeDto.EmployeeAdminUpdateRequest` | `Void` |
+
+### AdminDepartmentController — `/api/admin/departments`
+| 권한 | 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|---|
+| 🔴 | GET | (루트) | 없음 | `List<DepartmentDto.DepartmentResponse>` |
+| 🔴 | POST | (루트) | `DepartmentDto.CreateRequest` | `DepartmentDto.CreateResponse` |
+| 🔴 | PUT | `/{departmentId}` | `DepartmentDto.UpdateRequest` | `Void` |
+| 🔴 | DELETE | `/{departmentId}` | 없음 | `Void` |
+
+### AdminTeamController — `/api/admin/teams`
+| 권한 | 메서드 | 경로 | 요청 | 응답 |
+|---|---|---|---|---|
+| 🔴 | GET | (루트) | 없음 | `List<TeamDto.TeamResponse>` |
+| 🔴 | POST | (루트) | `TeamDto.CreateRequest`, `Idempotency-Key`(선택) | `TeamDto.CreateResponse` |
+| 🔴 | PUT | `/{teamId}` | `TeamDto.UpdateRequest` | `Void` |
+| 🔴 | DELETE | `/{teamId}` | 없음 | `Void` |
 
 ### EmployeeController — `/api/employees`
 | 권한 | 메서드 | 경로 | 요청 | 응답 | 상태 |
 |---|---|---|---|---|---|
 | 🔵 | GET | `/me` | `@AuthenticationPrincipal` | `EmployeeDto.EmployeeResponse` | 200 |
-| 🔵 | PATCH | `/me/modify-email` | `@AuthenticationPrincipal`, `EmployeeDto.ModifyEmailRequest` | `Void` | 200 |
-| 🔵 | PATCH | `/me/password` | `@AuthenticationPrincipal`, `EmployeeDto.PasswordChangeRequest` | `Void` | **204** |
+| 🔵 | PATCH | `/me/email` | `EmployeeDto.ModifyEmailRequest` | `Void` | 200 |
+| 🔵 | PATCH | `/me/password` | `EmployeeDto.PasswordChangeRequest` | `Void` | 204 |
 
 ### LeaveRequestController — `/api/leave-requests`
 | 권한 | 메서드 | 경로 | 요청 | 응답 | 상태 |
 |---|---|---|---|---|---|
 | 🔵 | GET | `/current-year-special-days` | 없음 | `List<SpecialDayDto.SpecialDayResponse>` | 200 |
 | 🔵 | GET | `/next-year-special-days` | 없음 | `List<SpecialDayDto.SpecialDayResponse>` | 200 |
-| 🔵 | POST | (루트) | `@AuthenticationPrincipal`, `LeaveRequestDto.LeaveRequestCreateRequest` | `LeaveRequestDto.LeaveRequestCreateResponse` | **201** |
-| 🔵 | GET | `/all` | `LeaveRequestListDto.LeaveRequestListRequest`(쿼리) | `List<...LeaveRequestListResponse>` | 200 |
-| 🔵 | GET | `/my` | `@AuthenticationPrincipal`, `LeaveRequestListDto.LeaveRequestListRequest`(쿼리) | `List<...LeaveRequestListResponse>` | 200 |
-| 🔵 | DELETE | `/{requestId}` | `@AuthenticationPrincipal`, `@PathVariable requestId` | `Void` | **204** |
+| 🔵 | POST | (루트) | `LeaveRequestDto.LeaveRequestCreateRequest` | `LeaveRequestDto.LeaveRequestCreateResponse` | 201 |
+| 🔵 | GET | `/all` | `LeaveRequestListDto.LeaveRequestListRequest`(쿼리) | `List<LeaveRequestListDto.LeaveRequestListResponse>` | 200 |
+| 🔵 | GET | `/{requestId}` | 없음 | `LeaveRequestDetailDto.LeaveRequestDetailResponse` | 200 |
+| 🔵 | GET | `/my/period` | 없음 | `DashboardDto.LeavePeriodResponse` | 200 |
+| 🔵 | GET | `/my` | `LeaveRequestListDto.LeaveRequestListRequest`(쿼리) | `List<LeaveRequestListDto.LeaveRequestListResponse>` | 200 |
+| 🔵 | DELETE | `/{requestId}` | 없음 | `Void` | 204 |
+
+> `/my/period`의 `startDate/endDate`가 현재 적용 중인 연차기간의 정본이다. 현재 정책은 회계연도(1/1~12/31)지만, 클라이언트는 정책 종류를 하드코딩하지 않고 이 범위를 사용한다.
 
 ### LeaveApprovalController — `/api/admin/leave-requests`
 | 권한 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|---|
-| 🔴 | GET | `/pending` | `@AuthenticationPrincipal` | `List<PendingLeaveRequestDto.PendingLeaveRequestResponse>` |
-| 🔴 | POST | `/{requestId}/approve` | `@PathVariable requestId`, `@AuthenticationPrincipal approverId` | `LeaveApprovalDto.LeaveApprovalResponse` |
-| 🔴 | POST | `/{requestId}/reject` | `@PathVariable`, `@AuthenticationPrincipal`, `LeaveRejectDto.LeaveRejectRequest` | `LeaveRejectDto.LeaveRejectResponse` |
+| 🔴 | GET | `/pending` | 없음 | `List<PendingLeaveRequestDto.PendingLeaveRequestResponse>` |
+| 🔴 | GET | `/approved` | `team`, `employeeParam`(선택) | `List<LeaveRequestListDto.LeaveRequestListResponse>` |
+| 🔴 | GET | `/rejected` | `team`, `employeeParam`(선택) | `List<LeaveRequestListDto.LeaveRequestListResponse>` |
+| 🔴 | POST | `/{requestId}/approve` | 없음 | `LeaveApprovalDto.LeaveApprovalResponse` |
+| 🔴 | POST | `/{requestId}/reject` | `LeaveRejectDto.LeaveRejectRequest` | `LeaveRejectDto.LeaveRejectResponse` |
 
 ### DashboardController — `/api/dashboard`
 | 권한 | 메서드 | 경로 | 요청 | 응답 |
 |---|---|---|---|---|
 | 🔵 | GET | (루트) | `@AuthenticationPrincipal` | `DashboardDto` |
+
 
 
 
