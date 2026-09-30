@@ -378,7 +378,8 @@ public class LeaveRequestService {
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition) {
-        return searchLeaveRequests(condition, null, true);
+        // 호출자 정보가 없는 내부 경로는 private 필드를 공개하지 않는 쪽으로 실패한다.
+        return searchLeaveRequests(condition, null, false);
     }
 
     @Transactional(readOnly = true)

@@ -1,11 +1,13 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -89,6 +91,39 @@ class LeaveRequestRegressionTest {
         );
 
         assertEquals(404, exception.getStatusCode().value());
+    }
+
+    @Test
+    void searchLeaveRequests_withoutCallerContext_redactsPrivateFields() {
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getStatus()).thenReturn(LeaveRequestStatus.REJECTED);
+        when(leaveRequest.getRejectReason()).thenReturn("비공개 반려 사유");
+
+        LeaveRequestListDto.LeaveRequestListRequest condition =
+                new LeaveRequestListDto.LeaveRequestListRequest(
+                        2L,
+                        "타인",
+                        REQUEST_DATE,
+                        REQUEST_DATE,
+                        LeaveRequestStatus.REJECTED,
+                        "타인");
+
+        when(leaveRequestRepository.searchLeaveRequests(
+                eq(2L),
+                eq(REQUEST_DATE),
+                eq(REQUEST_DATE),
+                eq(LeaveRequestStatus.REJECTED),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq("타인")
+        )).thenReturn(List.of(leaveRequest));
+
+        var result = leaveRequestService.searchLeaveRequests(condition);
+
+        assertEquals(1, result.size());
+        assertNull(result.get(0).getRejectReason());
+        verifyNoInteractions(currentAuthorityService);
     }
 
     @Test
