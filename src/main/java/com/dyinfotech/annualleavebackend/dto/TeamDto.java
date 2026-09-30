@@ -60,6 +60,7 @@ public final class TeamDto {
         private String employeeNumber;
         private String name;
         private String position;
+        private Boolean active;
     }
 
     @Getter

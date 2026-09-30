@@ -780,6 +780,7 @@ public class TeamService {
     }
 
     public List<TeamDto.TeamResponse> findAllForAdmin() {
+        LocalDate today = LocalDate.now(clock);
         Map<Long, DepartmentCacheRow> departments = departmentCache.get(CacheConfig.TOTAL_KEY).stream()
                 .collect(Collectors.toMap(DepartmentCacheRow::departmentId, department -> department));
         Map<Long, TeamCacheRow> teams = teamIndex();
@@ -807,6 +808,7 @@ public class TeamService {
                                             .employeeNumber(manager.employeeNumber())
                                             .name(manager.managerName())
                                             .position(manager.position())
+                                            .active(manager.isActive(today))
                                             .build())
                                     .toList())
                             .build();

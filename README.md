@@ -14,10 +14,10 @@
 | 언어/런타임 | Java 21 | `sourceCompatibility=21`, `-parameters` 컴파일 (툴체인 블록 비활성)    |
 | 프레임워크 | Spring Boot 4.1.0 | Spring Web MVC 기반                                           |
 | 빌드 도구 | Gradle (Groovy DSL) | `gradlew` 래퍼, `bootJar` → `annual-leave-backend.jar`        |
-| 데이터베이스 | MySQL | `com.mysql:mysql-connector-j`, utf8mb4 / utf8mb4_unicode_ci |
+| 데이터베이스 | Oracle 21c XE | `com.oracle.database.jdbc:ojdbc11`, canonical schema: `sql/schema.sql` |
 | 영속성 | Spring Data JPA (Hibernate) | `ddl-auto` 미설정 (스키마 자동 생성 안 함)                              |
 | SQL 로깅 | p6spy | `p6spy-spring-boot-starter:2.0.1`, `spy.properties`         |
-| 보안 | Spring Security + JWT | `jjwt 0.12.6`, 무상태 세션                                       |
+| 보안 | Spring Security + JWT | `jjwt 0.13.0`, 무상태 세션                                       |
 | 캐시 | Caffeine | 로컬 인메모리 캐시                                                  |
 | 메일 | Spring Mail (SMTP) | Gmail STARTTLS                                              |
 | 푸시 | Firebase Admin SDK 9.10.0 | Firestore/Storage/gRPC/Netty 등 미사용 모듈 제외                    |
@@ -38,88 +38,30 @@
 
 ```mermaid
 erDiagram
-    employee ||--o{ team : "project_manager_id"
-    employee ||--o{ leave_request : "employee_id (신청자)"
-    employee |o--o{ leave_request : "manager_id (승인자, nullable)"
-    employee ||--o{ leave_adjustment : "employee_id (FK, JPA 연관 아님)"
-    employee ||--o{ fcm_token : "employee_id (FK, JPA 연관 아님)"
-    employee ||--o{ employee : "approver_id (자기참조 FK, JPA 연관 아님)"
+    department ||--o{ team : "department_id"
+    department ||--o{ employee : "department_id"
+    team ||--o{ employee : "team_id"
+    team ||--o{ team_manager : "team_id"
+    team ||--o{ team_manager : "parent_team_id"
+    employee ||--o{ team_manager : "project_manager_id"
+    employee ||--o{ employee : "approver_id"
+    employee ||--o{ leave_request : "employee_id"
+    employee |o--o{ leave_request : "manager_id"
+    employee ||--o{ leave_adjustment : "employee_id"
+    employee ||--o{ fcm_token : "employee_id"
 
-    employee {
-        BIGINT employee_id PK
-        VARCHAR employee_number UK "사번, NOT NULL"
-        VARCHAR password "NULL=가입 전"
-        INT access_count 
-        DATETIME accessed_at 
-        VARCHAR name "NOT NULL"
-        VARCHAR department
-        VARCHAR team "NOT NULL"
-        VARCHAR position
-        VARCHAR email
-        DATE hire_date "NOT NULL"
-        DATE fire_date
-        VARCHAR curr_year "NOT NULL"
-        FLOAT curr_total_leave_days "NOT NULL"
-        VARCHAR prev_year
-        FLOAT prev_total_leave_days
-        DATETIME created_at "NOT NULL"
-        BIGINT approver_id "FK→employee, NOT NULL"
-        DATETIME updated_at "NOT NULL"
-    }
-
-    team {
-        BIGINT seq PK
-        VARCHAR team "NOT NULL"
-        BIGINT project_manager_id "FK→employee, NOT NULL"
-        VARCHAR parent_team "NOT NULL"
-    }
-
-    leave_request {
-        BIGINT leave_request_id PK
-        BIGINT employee_id "FK→employee, NOT NULL"
-        VARCHAR leave_type "NOT NULL"
-        DATE start_date "NOT NULL"
-        DATE end_date "NOT NULL"
-        FLOAT use_days "NOT NULL"
-        VARCHAR leave_reason
-        VARCHAR status "NOT NULL, 기본 PENDING"
-        BIGINT manager_id "FK→employee, NULL"
-        DATETIME managed_at
-        VARCHAR reject_reason
-        DATETIME created_at "NOT NULL"
-    }
-
-    leave_adjustment {
-        BIGINT employee_id PK "FK→employee"
-        VARCHAR year PK
-        DATETIME created_at PK
-        VARCHAR sign "plus/minus"
-        FLOAT leave_days "NOT NULL"
-        VARCHAR reason "NOT NULL"
-        DATETIME updated_at "NOT NULL"
-    }
-
-    basis_data {
-        VARCHAR year PK
-        BIGINT seq PK
-        VARCHAR type "파싱 타입"
-        VARCHAR data "NOT NULL"
-        VARCHAR remark "NOT NULL"
-    }
-
-    holiday {
-        DATE holiday_date PK 
-        VARCHAR name "NOT NULL"
-    }
-
-    fcm_token {
-        BIGINT token_id PK
-        BIGINT employee_id "FK→employee, NOT NULL"
-        VARCHAR fcm_token UK "NOT NULL"
-        VARCHAR device_os "ANDROID/IOS/WEB"
-        DATETIME updated_at "NOT NULL"
-    }
+    department { NUMBER department_id PK VARCHAR2 department_name UK NUMBER enabled }
+    team { NUMBER team_id PK VARCHAR2 team_name UK NUMBER department_id FK NUMBER enabled VARCHAR2 create_request_key UK VARCHAR2 create_request_hash }
+    employee { NUMBER employee_id PK VARCHAR2 employee_number UK VARCHAR2 password NUMBER department_id FK NUMBER team_id FK VARCHAR2 position VARCHAR2 email DATE hire_date DATE fire_date NUMBER approver_id FK BINARY_FLOAT curr_total_leave_days }
+    team_manager { NUMBER team_id PK,FK NUMBER project_manager_id PK,FK NUMBER parent_team_id FK }
+    leave_request { NUMBER leave_request_id PK NUMBER employee_id FK VARCHAR2 leave_type DATE start_date DATE end_date BINARY_FLOAT use_days VARCHAR2 status NUMBER manager_id FK VARCHAR2 leave_reason VARCHAR2 reject_reason TIMESTAMP managed_at }
+    leave_adjustment { NUMBER employee_id PK,FK VARCHAR2 year PK TIMESTAMP created_at PK VARCHAR2 sign BINARY_FLOAT leave_days VARCHAR2 reason }
+    basis_data { VARCHAR2 year PK NUMBER seq PK VARCHAR2 type VARCHAR2 data VARCHAR2 remark }
+    holiday { DATE holiday_date PK VARCHAR2 name }
+    fcm_token { NUMBER token_id PK NUMBER employee_id FK VARCHAR2 fcm_token UK VARCHAR2 device_os }
 ```
+
+> Fresh install은 `sql/schema.sql`, 기존 develop_v1.0 DB 이관은 `sql/migration_v2_0_oracle.sql`을 기준으로 한다.
 
 
 ## API 엔드포인트

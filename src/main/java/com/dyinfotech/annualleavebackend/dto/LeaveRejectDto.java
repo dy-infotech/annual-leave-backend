@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
+import jakarta.validation.constraints.Size;
+
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,6 +18,7 @@ public final class LeaveRejectDto {
     @NoArgsConstructor
     public static class LeaveRejectRequest {
 
+        @Size(max = 200, message = "반려 사유는 200자 이하여야 합니다.")
         private String rejectReason;    // 사유 없이 반려 가능(선택 입력)
     }
 
