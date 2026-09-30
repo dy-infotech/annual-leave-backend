@@ -387,15 +387,13 @@ public class LeaveRequestService {
     }
 
     @Transactional(readOnly = true)
-    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(Long requestId, Long currentEmployeeId, boolean isAdmin) {
+    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(Long requestId, Long currentEmployeeId) {
         LeaveRequest leaveRequest = leaveRequestRepository.findDetailById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("휴가 신청을 찾을 수 없습니다. requestId: " + requestId));
 
-        // 본인, 관리자만 사유 조회 권한을 가짐
+        // 신청 사유와 연차 snapshot은 신청자 본인에게만 공개한다.
         boolean isOwner = leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        boolean canViewReason = isOwner || isAdmin;
-
-        return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(leaveRequest, canViewReason);
+        return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(leaveRequest, isOwner);
     }
 
     @Transactional

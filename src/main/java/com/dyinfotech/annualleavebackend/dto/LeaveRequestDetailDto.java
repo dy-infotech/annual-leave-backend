@@ -42,9 +42,9 @@ public class LeaveRequestDetailDto {
         private LocalDateTime createdAt; // 결재일
 
         /**
-         * @param canViewReason 사유 조회 권한 (본인 또는 관리자)
+         * @param canViewPrivate 신청자 본인의 사유/연차 snapshot 조회 권한
          */
-        public static LeaveRequestDetailResponse from(LeaveRequest lr, boolean canViewReason) {
+        public static LeaveRequestDetailResponse from(LeaveRequest lr, boolean canViewPrivate) {
             Employee emp = lr.getEmployee();
             Employee mgr = lr.getManager(); // null 가능
 
@@ -60,11 +60,11 @@ public class LeaveRequestDetailDto {
                     .startDate(lr.getStartDate())
                     .endDate(lr.getEndDate())
                     .useDays(lr.getUseDays())
-                    .prevTotalLeaveDays(lr.getPrevTotalLeaveDays())
-                    .currTotalLeaveDays(lr.getCurrTotalLeaveDays())
+                    .prevTotalLeaveDays(canViewPrivate ? lr.getPrevTotalLeaveDays() : null)
+                    .currTotalLeaveDays(canViewPrivate ? lr.getCurrTotalLeaveDays() : null)
                     .status(lr.getStatus())
-                    .leaveReason(canViewReason ? lr.getLeaveReason() : null)
-                    .rejectReason(lr.getRejectReason())
+                    .leaveReason(canViewPrivate ? lr.getLeaveReason() : null)
+                    .rejectReason(canViewPrivate ? lr.getRejectReason() : null)
                     .managedAt(lr.getManagedAt())
                     // 결재자
                     .approverNumber(mgr != null ? mgr.getEmployeeNumber() : null)

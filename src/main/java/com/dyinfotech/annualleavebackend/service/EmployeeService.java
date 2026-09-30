@@ -229,7 +229,7 @@ public class EmployeeService {
                             HttpStatus.BAD_REQUEST,
                             "존재하지 않는 관리 팀입니다. requestedTeam: " + teamName));
             Long parentTeamId = teamService.resolveParentTeamId(teamName)
-                    .orElse(approver.getTeamId());
+                    .orElseGet(teamService::resolveDefaultParentTeamId);
             desiredTeamIds.put(teamName, teamInfo.teamId());
             desiredParentTeamIds.put(teamName, parentTeamId);
             plannedTeamIds.add(teamInfo.teamId());

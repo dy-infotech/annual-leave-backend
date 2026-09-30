@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
@@ -779,6 +780,15 @@ public class TeamService {
                 .map(TeamManagerCacheRow::parentTeamId);
     }
 
+    public Long resolveDefaultParentTeamId() {
+        String ceoTeamName = DepartmentType.getParentDepartmentType().getName();
+        return findTeamInfo(ceoTeamName)
+                .map(TeamCacheRow::teamId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "기본 상위 팀인 대표이사 팀을 찾을 수 없습니다."));
+    }
+
     public List<TeamDto.TeamResponse> findAllForAdmin() {
         LocalDate today = LocalDate.now(clock);
         Map<Long, DepartmentCacheRow> departments = departmentCache.get(CacheConfig.TOTAL_KEY).stream()
@@ -887,9 +897,7 @@ public class TeamService {
 
             Long parentTeamId = request.getParentTeamId();
             if (parentTeamId == null) {
-                Employee requester = employeeRepository.findById(requesterId)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "요청자 정보를 찾을 수 없습니다."));
-                parentTeamId = requester.getTeamId();
+                parentTeamId = resolveDefaultParentTeamId();
             }
 
             Map<Long, Team> lockedTeams = lockTeams(List.of(team.getTeamId(), parentTeamId));
@@ -955,7 +963,7 @@ public class TeamService {
             plannedParentTeamId = teamManagerRepository.findAllByTeam_TeamId(teamId).stream()
                     .findFirst()
                     .map(TeamManager::getParentTeamId)
-                    .orElse(null);
+                    .orElseGet(this::resolveDefaultParentTeamId);
         }
 
         List<Long> teamIdsToLock = new ArrayList<>();
@@ -1029,12 +1037,9 @@ public class TeamService {
             validateManager(manager);
 
             if (finalParentTeam == null) {
-                if (currentManagers.isEmpty()) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "담당자 정보가 없는 팀입니다. 상위 팀을 함께 지정해주세요.");
-                }
-                Long currentParentId = currentManagers.get(0).getParentTeamId();
+                Long currentParentId = currentManagers.isEmpty()
+                        ? plannedParentTeamId
+                        : currentManagers.get(0).getParentTeamId();
                 finalParentTeam = lockedTeams.get(currentParentId);
                 if (finalParentTeam == null) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "팀의 상위 조직 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
