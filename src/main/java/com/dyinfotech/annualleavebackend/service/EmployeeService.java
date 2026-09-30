@@ -247,7 +247,7 @@ public class EmployeeService {
 
         // 모든 관련 TEAM을 ID 오름차순으로 잠근 뒤 Employee를 잠가 동일 직원의 관리팀 변경을 직렬화한다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
-        employeeRepository.findByIdForUpdate(employeeId)
+        employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
@@ -270,6 +270,11 @@ public class EmployeeService {
 
         // 동일 요청 재전송: 첫 요청이 이미 반영됐다면 expected가 과거 상태여도 성공 no-op으로 처리한다.
         if (currentManagedTeams.equals(desiredManagedTeams)) {
+            Long oldApproverId = employee.getApproverId();
+            teamService.refreshApproverIds(employee);
+            if (!Objects.equals(oldApproverId, employee.getApproverId())) {
+                employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
+            }
             return;
         }
 
@@ -286,13 +291,27 @@ public class EmployeeService {
         Set<String> teamsToAdd = new java.util.LinkedHashSet<>(desiredManagedTeams);
         teamsToAdd.removeAll(currentManagedTeams);
 
+        Set<Long> removedManagerTeamIds = new HashSet<>();
+        Map<Long, Long> addedManagerParentTeamIds = new HashMap<>();
+
         for (String teamName : teamsToRemove) {
-            teamService.removeManager(currentManagedByName.get(teamName), employeeId);
+            Long teamId = currentManagedByName.get(teamName);
+            if (teamId != null) {
+                removedManagerTeamIds.add(teamId);
+            }
+            teamService.removeManager(teamId, employeeId);
         }
         for (String teamName : teamsToAdd) {
             Long teamId = desiredTeamIds.get(teamName);
             Long parentTeamId = desiredParentTeamIds.get(teamName);
+            addedManagerParentTeamIds.put(teamId, parentTeamId);
             teamService.addManager(teamName, employeeId, parentTeamId);
+        }
+
+        Long oldApproverId = employee.getApproverId();
+        teamService.refreshApproverIds(employee, removedManagerTeamIds, addedManagerParentTeamIds);
+        if (!Objects.equals(oldApproverId, employee.getApproverId())) {
+            employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
         }
     }
 
@@ -329,7 +348,6 @@ public class EmployeeService {
                 });
 
         Long employeeId = employee.getEmployeeId();
-        String oldEmployeeName = employee.getName();
         List<Long> managedTeamIdsBeforeUpdate = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
                 .distinct()
@@ -387,6 +405,11 @@ public class EmployeeService {
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
+        String oldEmployeeName = employee.getName();
+        String oldManagerPosition = employee.getPosition();
+        LocalDate oldManagerHireDate = employee.getHireDate();
+        LocalDate oldManagerFireDate = employee.getFireDate();
+
         if (request.getExpected() != null) {
             boolean noManagedTeamMutationRequested =
                     request.getManagedTeams() == null
@@ -394,7 +417,12 @@ public class EmployeeService {
                                 || request.getTargetTeamsForRoleSwap().isEmpty());
 
             if (noManagedTeamMutationRequested && employeeMatchesDesiredState(employee, request)) {
-                // 동일 full PUT 재전송은 DB를 다시 쓰지 않고 성공 처리한다.
+                // 동일 full PUT 재전송이어도 legacy stale approver_id는 현재 조직 기준으로 self-heal한다.
+                Long oldApproverId = employee.getApproverId();
+                teamService.refreshApproverIds(employee);
+                if (!Objects.equals(oldApproverId, employee.getApproverId())) {
+                    employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
+                }
                 return;
             }
 
@@ -442,8 +470,15 @@ public class EmployeeService {
             }
         }
 
+        Set<Long> removedManagerTeamIds = new HashSet<>();
+        Map<Long, Long> addedManagerParentTeamIds = new HashMap<>();
+
         for (String teamNameToRemove : teamsToRemove) {
-            teamService.removeManager(managedByEmployee.get(teamNameToRemove), employeeId);
+            Long removedTeamId = managedByEmployee.get(teamNameToRemove);
+            if (removedTeamId != null) {
+                removedManagerTeamIds.add(removedTeamId);
+            }
+            teamService.removeManager(removedTeamId, employeeId);
         }
         for (String teamNameToAdd : teamsToAdd) {
             Long targetTeamId = requestedTeamIds.get(teamNameToAdd);
@@ -451,6 +486,7 @@ public class EmployeeService {
             String targetTeamName = teamService.findTeamInfo(targetTeamId)
                     .map(info -> info.teamName())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "팀 정보가 동시에 변경되었습니다."));
+            addedManagerParentTeamIds.put(targetTeamId, parentTeamId);
             teamService.addManager(targetTeamName, employeeId, parentTeamId);
         }
         Team team = employee.getTeam();
@@ -462,6 +498,8 @@ public class EmployeeService {
             }
         }
 
+        String finalName = request.getName() != null ? request.getName() : employee.getName();
+        String finalEmail = request.getEmail() != null ? request.getEmail() : employee.getEmail();
         String finalPosition = request.getPosition() != null && !request.getPosition().trim().isEmpty()
                 ? request.getPosition()
                 : employee.getPosition();
@@ -482,9 +520,15 @@ public class EmployeeService {
                     requestedDepartment.getDepartmentName(), department.getDepartmentName());
         }
 
+        boolean managerSnapshotChanged =
+                !Objects.equals(oldEmployeeName, finalName)
+                        || !Objects.equals(oldManagerPosition, finalPosition)
+                        || !Objects.equals(oldManagerHireDate, request.getHireDate())
+                        || !Objects.equals(oldManagerFireDate, request.getFireDate());
+
         employee.updateInfoByAdmin(
-                request.getName() != null ? request.getName() : employee.getName(),
-                request.getEmail() != null ? request.getEmail() : employee.getEmail(),
+                finalName,
+                finalEmail,
                 department,
                 team,
                 finalPosition,
@@ -493,15 +537,22 @@ public class EmployeeService {
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
 
-        // 팀 변경 직후 저장된 approver_id도 현재 조직 캐시 기준으로 같은 트랜잭션에서 교정한다.
-        teamService.refreshApproverIds(employee);
+        // 1차 방어: committed cache snapshot + 이번 transaction의 TeamManager delta로 approver_id를 즉시 교정한다.
+        teamService.refreshApproverIds(employee, removedManagerTeamIds, addedManagerParentTeamIds);
 
         Set<Long> coverageTeamIds = new HashSet<>();
         coverageTeamIds.add(team.getTeamId());
         coverageTeamIds.addAll(teamManagerRepository.findTeamIdsByProjectManagerId(employeeId));
         teamService.validateFutureApprovalCoverage(coverageTeamIds);
 
-        cacheInvalidator.afterEmployeeOrganizationChange(managedTeamIdsBeforeUpdate);
+        Set<Long> retainedManagedTeamIds = new HashSet<>(currentManagedTeamIds);
+        retainedManagedTeamIds.removeAll(removedManagerTeamIds);
+        if (managerSnapshotChanged && !retainedManagedTeamIds.isEmpty()) {
+            // TeamManagerCacheRow에 실제 포함되는 PM 필드가 바뀐 팀만 조직 snapshot을 무효화한다.
+            cacheInvalidator.afterEmployeeOrganizationChange(retainedManagedTeamIds);
+        }
+        // 단순 CCC -> ABC 이동은 전 조직 generation 대신 해당 직원 view만 새 세대로 보낸다.
+        employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
         employeeCacheInvalidator.afterEmailLookupChange(
                 List.of(oldEmployeeName, employee.getName()),
                 employee.getEmployeeNumber());

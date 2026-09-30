@@ -341,14 +341,71 @@ public class TeamService {
                 approver.getEmployeeId());
     }
 
+    private List<TeamManagerCacheRow> findManagerRowsWithDelta(
+            Long teamId,
+            Employee mutatedManager,
+            Set<Long> removedManagerTeamIds,
+            Map<Long, Long> addedManagerParentTeamIds) {
+        List<TeamManagerCacheRow> rows = new ArrayList<>(findManagerRows(teamId));
+        if (mutatedManager == null || mutatedManager.getEmployeeId() == null) {
+            return rows;
+        }
+
+        Long managerId = mutatedManager.getEmployeeId();
+        boolean removed = removedManagerTeamIds.contains(teamId);
+        boolean added = addedManagerParentTeamIds.containsKey(teamId);
+        if (!removed && !added) {
+            return rows;
+        }
+
+        // 같은 transaction의 미커밋 TeamManager 변경은 committed cache snapshot에 request delta만 합성한다.
+        rows.removeIf(row -> managerId.equals(row.projectManagerId()));
+        if (added) {
+            rows.add(new TeamManagerCacheRow(
+                    teamId,
+                    managerId,
+                    addedManagerParentTeamIds.get(teamId),
+                    mutatedManager.getEmployeeNumber(),
+                    mutatedManager.getName(),
+                    mutatedManager.getPosition(),
+                    mutatedManager.getHireDate(),
+                    mutatedManager.getFireDate()
+            ));
+        }
+        return rows;
+    }
+
     private Set<Long> resolveApproverIds(Employee employee) {
+        return resolveApproverIds(employee, Set.of(), Map.of());
+    }
+
+    private Set<Long> resolveApproverIds(
+            Employee employee,
+            Collection<Long> removedManagerTeamIds,
+            Map<Long, Long> addedManagerParentTeamIds) {
         Long employeeTeamId = employee.getTeamId();
         if (employeeTeamId == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
         }
 
+        Set<Long> removedTeamIds = removedManagerTeamIds == null
+                ? Set.of()
+                : removedManagerTeamIds.stream()
+                        .filter(java.util.Objects::nonNull)
+                        .collect(Collectors.toSet());
+        Map<Long, Long> addedParentByTeamId = addedManagerParentTeamIds == null
+                ? Map.of()
+                : addedManagerParentTeamIds.entrySet().stream()
+                        .filter(entry -> entry.getKey() != null && entry.getValue() != null)
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
         LocalDate today = LocalDate.now(clock);
-        List<TeamManagerCacheRow> myTeam = findManagerRows(employeeTeamId).stream()
+        List<TeamManagerCacheRow> myTeam = findManagerRowsWithDelta(
+                employeeTeamId,
+                employee,
+                removedTeamIds,
+                addedParentByTeamId
+        ).stream()
                 .filter(manager -> manager.isActive(today))
                 .toList();
 
@@ -365,7 +422,12 @@ public class TeamService {
             Long parentTeamId = selfManager.get().parentTeamId();
             List<TeamManagerCacheRow> parentManagers = parentTeamId.equals(employeeTeamId)
                     ? myTeam
-                    : findManagerRows(parentTeamId).stream()
+                    : findManagerRowsWithDelta(
+                            parentTeamId,
+                            employee,
+                            removedTeamIds,
+                            addedParentByTeamId
+                    ).stream()
                             .filter(parent -> parent.isActive(today))
                             .toList();
 
@@ -410,7 +472,22 @@ public class TeamService {
      * 저장된 approver_id self-heal 전용. 권한 검증에서는 사용하지 않는다.
      */
     public Set<Long> refreshApproverIds(Employee employee) {
-        Set<Long> approverIds = resolveApproverIds(employee);
+        return refreshApproverIds(employee, Set.of(), Map.of());
+    }
+
+    /**
+     * 같은 transaction에서 TeamManager가 함께 바뀌는 write path용 self-heal.
+     * committed Caffeine snapshot에 이번 request의 add/remove delta만 합성하며 DB fallback은 하지 않는다.
+     */
+    public Set<Long> refreshApproverIds(
+            Employee employee,
+            Collection<Long> removedManagerTeamIds,
+            Map<Long, Long> addedManagerParentTeamIds) {
+        Set<Long> approverIds = resolveApproverIds(
+                employee,
+                removedManagerTeamIds,
+                addedManagerParentTeamIds
+        );
         Long storedApproverId = employee.getApproverId();
         if ((storedApproverId == null || !approverIds.contains(storedApproverId)) && !approverIds.isEmpty()) {
             Long currentApproverId = approverIds.stream().min(Long::compareTo).orElseThrow();

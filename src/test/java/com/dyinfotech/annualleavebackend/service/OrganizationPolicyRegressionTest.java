@@ -12,6 +12,7 @@ import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Field;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -389,6 +391,99 @@ class OrganizationPolicyRegressionTest {
 
         assertEquals(Set.of(3L), approverIds);
         verify(employee).changeApprover(currentApprover);
+    }
+
+    @Test
+    void refreshApproverIds_keepsStoredPointerWhenStillCurrentCandidate() {
+        TeamCacheRow team = new TeamCacheRow(10L, "ABC", 1L, true);
+        prepareCaches(
+                List.of(team),
+                List.of(manager(10L, 31L, 20L, null), manager(10L, 42L, 20L, null))
+        );
+
+        Employee employee = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(2L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getApproverId()).thenReturn(42L);
+
+        teamService.refreshApproverIds(employee);
+
+        verify(employee, never()).changeApprover(any());
+        verify(employeeRepository, never()).getReferenceById(any());
+        verifyNoInteractions(teamManagerRepository);
+    }
+
+    @Test
+    void refreshApproverIds_selectsLowestCandidateDeterministically() {
+        TeamCacheRow team = new TeamCacheRow(10L, "ABC", 1L, true);
+        prepareCaches(
+                List.of(team),
+                List.of(manager(10L, 42L, 20L, null), manager(10L, 31L, 20L, null))
+        );
+
+        Employee employee = mock(Employee.class);
+        Employee manager31 = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(2L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getApproverId()).thenReturn(17L);
+        when(employeeRepository.getReferenceById(31L)).thenReturn(manager31);
+
+        teamService.refreshApproverIds(employee);
+
+        verify(employee).changeApprover(manager31);
+    }
+
+    @Test
+    void refreshApproverIds_appliesSameTransactionManagerAddDelta() {
+        TeamCacheRow team = new TeamCacheRow(10L, "ABC", 1L, true);
+        TeamCacheRow parent = new TeamCacheRow(20L, "PARENT", 1L, true);
+        prepareCaches(
+                List.of(team, parent),
+                List.of(manager(10L, 31L, 20L, null), manager(20L, 50L, 20L, null))
+        );
+
+        Employee employee = mock(Employee.class);
+        Employee parentManager = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(2L);
+        when(employee.getEmployeeNumber()).thenReturn("E002");
+        when(employee.getName()).thenReturn("직원");
+        when(employee.getPosition()).thenReturn("부장");
+        when(employee.getHireDate()).thenReturn(TODAY.minusYears(1));
+        when(employee.getFireDate()).thenReturn(null);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getApproverId()).thenReturn(31L);
+        when(employeeRepository.getReferenceById(50L)).thenReturn(parentManager);
+
+        teamService.refreshApproverIds(employee, Set.of(), Map.of(10L, 20L));
+
+        verify(employee).changeApprover(parentManager);
+        verifyNoInteractions(teamManagerRepository);
+    }
+
+    @Test
+    void refreshApproverIds_appliesSameTransactionManagerRemoveDelta() {
+        TeamCacheRow team = new TeamCacheRow(10L, "ABC", 1L, true);
+        TeamCacheRow parent = new TeamCacheRow(20L, "PARENT", 1L, true);
+        prepareCaches(
+                List.of(team, parent),
+                List.of(
+                        manager(10L, 2L, 20L, null),
+                        manager(10L, 31L, 20L, null),
+                        manager(20L, 50L, 20L, null)
+                )
+        );
+
+        Employee employee = mock(Employee.class);
+        Employee peerManager = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(2L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getApproverId()).thenReturn(50L);
+        when(employeeRepository.getReferenceById(31L)).thenReturn(peerManager);
+
+        teamService.refreshApproverIds(employee, Set.of(10L), Map.of());
+
+        verify(employee).changeApprover(peerManager);
+        verifyNoInteractions(teamManagerRepository);
     }
 
     @Test
