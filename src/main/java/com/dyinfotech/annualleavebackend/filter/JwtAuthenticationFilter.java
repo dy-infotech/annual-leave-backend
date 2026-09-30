@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -47,13 +46,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
             
-            var authorities = List.of(new SimpleGrantedAuthority(role.authority()));
-
+            // JWT role은 로그인 시점 snapshot이며 인가 근거로 사용하지 않는다.
+            // claim은 클라이언트/EmployeePrincipal 호환성을 위해 유지하되 Spring 권한은 부여하지 않는다.
             var authentication = new UsernamePasswordAuthenticationToken(
-                    // 컨트롤러에서 @AuthenticationPrincipal로 꺼내 쓸 수 있음
-                    new EmployeePrincipal(employeeId, role),   // 1. principal (인증된 주체)
-                    null,         // 2. credentials (비밀번호 - 이미 인증이 끝났으니 불필요)
-                    authorities   // 3. authorities (부여된 권한)
+                    new EmployeePrincipal(employeeId, role),
+                    null,
+                    List.of()
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
