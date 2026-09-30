@@ -86,7 +86,7 @@ jobs:
 
 
       # 6. 서버 배포 디렉터리 준비
-      - name: 5. 서버 배포 디렉터리 준비
+      - name: 6. 서버 배포 디렉터리 준비
         if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@v1.2.5
         with:
