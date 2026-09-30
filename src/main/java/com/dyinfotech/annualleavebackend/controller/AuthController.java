@@ -16,6 +16,7 @@ import com.dyinfotech.annualleavebackend.dto.LogoutDto;
 import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.dto.SignUpDto;
 import com.dyinfotech.annualleavebackend.service.AuthService;
+import com.dyinfotech.annualleavebackend.service.PasswordResetService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ import io.swagger.v3.oas.annotations.Operation;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @Operation(summary = "사용 등록", description = "관리자가 등록한 계정 정보를 이용하여 사용 등록(회원 가입)을 한다.")
     @PostMapping("/signup")
@@ -55,10 +57,17 @@ public class AuthController {
         return ResponseEntity.ok(authService.findEmails(request));
     }
     
-    @Operation(summary = "비밀번호 찾기", description = "사번, 이메일을 입력하면 등록된 이메일로 임시 비밀번호가 발송된다.")
+    @Operation(summary = "비밀번호 재설정 요청", description = "사번과 이메일이 일치하면 일회용 재설정 토큰을 이메일로 발송한다.")
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(@Valid @RequestBody FindDataDto.FindPasswordRequest request) {
-        authService.forgotPassword(request);
+        passwordResetService.requestReset(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "비밀번호 재설정 확정", description = "이메일로 받은 일회용 토큰을 검증한 뒤 새 비밀번호로 변경한다.")
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody FindDataDto.ResetPasswordRequest request) {
+        passwordResetService.confirmReset(request);
         return ResponseEntity.ok().build();
     }
 

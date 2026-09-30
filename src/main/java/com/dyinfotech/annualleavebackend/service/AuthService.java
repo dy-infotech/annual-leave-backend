@@ -14,7 +14,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -509,57 +508,7 @@ public class AuthService {
     }
  
  
-    public void forgotPassword(FindDataDto.FindPasswordRequest request) {
-        authRateLimitService.checkRecovery("forgot-password:" + request.getEmployeeNumber());
-
-        String realEmail = CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(
-                request.getEmployeeNumber(),
-                employeeService::findEmailsByEmployeeNumber);
-        Entry<HttpStatus, String> emptyUserErrorEntry =
-                new java.util.AbstractMap.SimpleEntry<>(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
-        String requestedEmail = request.getEmail() != null ? request.getEmail().trim() : null;
-        if (realEmail == null || requestedEmail == null || !realEmail.equalsIgnoreCase(requestedEmail)) {
-            throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
-        }
-
-        Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), realEmail)
-                .orElseThrow(() -> new ResponseStatusException(
-                        emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue()));
-        if (!employee.isRegisted()) {
-            throw new ResponseStatusException(emptyUserErrorEntry.getKey(), emptyUserErrorEntry.getValue());
-        }
-
-        String temporaryPassword = UUID.randomUUID().toString().substring(0, 10);
-        String oldPassword = employee.getPassword();
-        String encodedPassword = passwordEncoder.encode(temporaryPassword);
-
-        // 메일 발송 전에 DB에 CAS로 반영하고 commit한다. 발송 실패 시 기존 hash로 보상 복구한다.
-        // AuthService 자체 transaction을 사용하지 않아 각 CAS가 독립적으로 commit되게 한다.
-        if (!employeeService.compareAndSetPassword(employee.getEmployeeId(), oldPassword, encodedPassword)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "비밀번호 정보가 동시에 변경되었습니다. 다시 시도해주세요.");
-        }
-
-        String to = employee.getEmail();
-        String subject = "[(주)디와이정보기술] 휴가관리 시스템 임시 비밀번호 발급";
-        String text = "안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n"
-                + "요청하신 임시 비밀번호는 다음과 같습니다.\n"
-                + "임시 비밀번호: " + temporaryPassword + "\n\n"
-                + "로그인 후 반드시 비밀번호를 변경해 주세요.";
-        try {
-            sendMail(to, subject, text);
-        } catch (Exception e) {
-            boolean restored = employeeService.compareAndSetPassword(
-                    employee.getEmployeeId(), encodedPassword, oldPassword);
-            if (!restored) {
-                log.error("임시 비밀번호 메일 실패 후 기존 비밀번호 복구도 실패했습니다. employeeId={}",
-                        employee.getEmployeeId());
-            }
-            log.error("패스워드 메일 발송 오류 from: {}, to: {}, subject: {}", mailFrom, to, subject, e);
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "이메일 발송 중 오류가 발생했습니다.", e);
-        }
-    }
+    // 비밀번호 재설정은 PasswordResetService의 일회용 token 흐름으로만 처리한다.
     
     public CompletableFuture<Void> logout(Long employeeId, String fcmToken) {
         if (fcmToken != null && !fcmToken.isBlank()) {

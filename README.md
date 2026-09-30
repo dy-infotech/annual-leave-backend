@@ -77,6 +77,7 @@ erDiagram
 | 🟢 | POST | `/find-email-by-id` | `FindDataDto.FindEmailByIdRequest` | `FindDataDto.EmailResponse` | 200 |
 | 🟢 | POST | `/find-email-by-employee-number` | `FindDataDto.FindEmailByEmployeeNumberRequest` | `FindDataDto.EmailResponse` | 200 |
 | 🟢 | POST | `/forgot-password` | `FindDataDto.FindPasswordRequest` | `Void` | 200 |
+| 🟢 | POST | `/reset-password` | `FindDataDto.ResetPasswordRequest` | `Void` | 200 |
 | 🟢 | POST | `/find-id` | `FindDataDto.FindIdRequest` | `Void` | 200 |
 | 🔵 | POST | `/logout` | `@AuthenticationPrincipal`, `LogoutDto.LogoutRequest`(선택) | `Void` | 200 |
 
@@ -170,6 +171,7 @@ Access JWT는 사용자 식별과 로그인 시점 role snapshot을 포함하지
 - Fresh install: `sql/schema.sql`
 - develop_v1.0 → v2 이관: `sql/migration_v2_0_oracle.sql`
 - 초기 draft v2에 팀 생성 멱등성 컬럼만 보강: `sql/migration_v2_0_team_create_idempotency.sql`
+- 이미 v2인 DB에 비밀번호 재설정 token 저장소 추가: `sql/migration_v2_0_password_reset_token.sql`
 - 개발 seed: `sql/data.sql` (Oracle 21c v2 구조)
 - 애플리케이션 기동 시 Hibernate `ddl-auto=validate`가 필수 table/column mapping을 검증한다.
 - release CD는 systemd의 `active` 상태뿐 아니라 실제 HTTP readiness까지 확인하고 실패 시 기존 JAR로 rollback한다.

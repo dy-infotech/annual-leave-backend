@@ -48,6 +48,16 @@ public final class FindDataDto {
     }
     
     @Getter
+    @NoArgsConstructor
+    public static class ResetPasswordRequest {
+        @NotBlank(message = "재설정 토큰을 입력해 주세요.")
+        private String token;
+
+        @NotBlank(message = "새 비밀번호를 입력해 주세요.")
+        private String newPassword;
+    }
+
+    @Getter
     @Builder
     public static class EmailResponse {
     	private Collection<String> maskedEmailList;
