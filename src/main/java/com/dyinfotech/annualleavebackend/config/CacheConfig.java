@@ -31,6 +31,16 @@ public class CacheConfig {
     public static final String CACHE_TEAM_MANAGEMENT_DATA = "teamManagementData";
     public static final String TOTAL_KEY = "total";
 
+    public record OrganizationCacheKey(boolean all, String name) {
+        public static OrganizationCacheKey allRows() {
+            return new OrganizationCacheKey(true, null);
+        }
+
+        public static OrganizationCacheKey byName(String name) {
+            return new OrganizationCacheKey(false, name);
+        }
+    }
+
     public static final Cache<String, List<String>> EMAIL_BY_NAME_CACHE = Caffeine.newBuilder()
             .maximumSize(20_000)
             .expireAfterWrite(Duration.ofHours(1))
@@ -68,16 +78,16 @@ public class CacheConfig {
     }
 
     @Bean("teamLoadingCache")
-    LoadingCache<String, List<TeamCacheRow>> teamLoadingCache(TeamRepository teamRepository) {
+    LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamLoadingCache(TeamRepository teamRepository) {
         return Caffeine.newBuilder()
                 .maximumSize(100)
                 .expireAfterWrite(24, TimeUnit.HOURS)
                 .build(key -> {
-                    if (TOTAL_KEY.equals(key)) {
+                    if (key.all()) {
                         return teamRepository.findAllEnabledForCache();
                     }
 
-                    return teamRepository.findByNameEnabledForCache(key)
+                    return teamRepository.findByNameEnabledForCache(key.name())
                             .map(Collections::singletonList)
                             .orElseGet(Collections::emptyList);
                 });
@@ -98,16 +108,16 @@ public class CacheConfig {
     }
 
     @Bean("departmentLoadingCache")
-    LoadingCache<String, List<DepartmentCacheRow>> departmentLoadingCache(DepartmentRepository departmentRepository) {
+    LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentLoadingCache(DepartmentRepository departmentRepository) {
         return Caffeine.newBuilder()
                 .maximumSize(100)
                 .expireAfterWrite(24, TimeUnit.HOURS)
                 .build(key -> {
-                    if (TOTAL_KEY.equals(key)) {
+                    if (key.all()) {
                         return departmentRepository.findAllEnabledForCache();
                     }
 
-                    return departmentRepository.findByNameEnabledForCache(key)
+                    return departmentRepository.findByNameEnabledForCache(key.name())
                             .map(Collections::singletonList)
                             .orElseGet(Collections::emptyList);
                 });

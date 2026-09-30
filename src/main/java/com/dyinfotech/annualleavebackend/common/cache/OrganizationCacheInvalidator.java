@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import com.dyinfotech.annualleavebackend.common.transaction.AfterCommitExecutor;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.repository.projection.DepartmentCacheRow;
 import com.dyinfotech.annualleavebackend.repository.projection.TeamCacheRow;
 import com.dyinfotech.annualleavebackend.repository.projection.TeamManagerCacheRow;
@@ -17,16 +18,16 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 @Component
 public class OrganizationCacheInvalidator {
 
-    private final LoadingCache<String, java.util.List<DepartmentCacheRow>> departmentCache;
-    private final LoadingCache<String, java.util.List<TeamCacheRow>> teamCache;
+    private final LoadingCache<OrganizationCacheKey, java.util.List<DepartmentCacheRow>> departmentCache;
+    private final LoadingCache<OrganizationCacheKey, java.util.List<TeamCacheRow>> teamCache;
     private final LoadingCache<String, java.util.List<TeamManagerCacheRow>> teamManagerCache;
     private final CacheManager cacheManager;
     private final AfterCommitExecutor afterCommitExecutor;
     private final EmployeeViewCacheKey employeeViewCacheKey;
 
     public OrganizationCacheInvalidator(
-            @Qualifier("departmentLoadingCache") LoadingCache<String, java.util.List<DepartmentCacheRow>> departmentCache,
-            @Qualifier("teamLoadingCache") LoadingCache<String, java.util.List<TeamCacheRow>> teamCache,
+            @Qualifier("departmentLoadingCache") LoadingCache<OrganizationCacheKey, java.util.List<DepartmentCacheRow>> departmentCache,
+            @Qualifier("teamLoadingCache") LoadingCache<OrganizationCacheKey, java.util.List<TeamCacheRow>> teamCache,
             @Qualifier("teamManagerLoadingCache") LoadingCache<String, java.util.List<TeamManagerCacheRow>> teamManagerCache,
             CacheManager cacheManager,
             AfterCommitExecutor afterCommitExecutor,
@@ -61,9 +62,10 @@ public class OrganizationCacheInvalidator {
 
     public void afterDepartmentChange(Collection<String> departmentNames, boolean evictEmployeeCache) {
         afterCommitExecutor.execute(() -> {
-            departmentCache.invalidate(CacheConfig.TOTAL_KEY);
+            departmentCache.invalidate(OrganizationCacheKey.allRows());
             departmentNames.stream()
                     .filter(name -> name != null && !name.isBlank())
+                    .map(OrganizationCacheKey::byName)
                     .forEach(departmentCache::invalidate);
             if (evictEmployeeCache) {
                 invalidateEmployeeViews();
@@ -73,9 +75,10 @@ public class OrganizationCacheInvalidator {
 
     public void afterTeamChange(Collection<String> teamNames, boolean evictEmployeeCache) {
         afterCommitExecutor.execute(() -> {
-            teamCache.invalidate(CacheConfig.TOTAL_KEY);
+            teamCache.invalidate(OrganizationCacheKey.allRows());
             teamNames.stream()
                     .filter(name -> name != null && !name.isBlank())
+                    .map(OrganizationCacheKey::byName)
                     .forEach(teamCache::invalidate);
             clearSpringCache(CacheConfig.CACHE_TEAM_MANAGEMENT_DATA);
             if (evictEmployeeCache) {

@@ -14,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
@@ -24,13 +25,13 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 public class DepartmentService {
 
     @Qualifier("departmentLoadingCache")
-    private final LoadingCache<String, List<DepartmentCacheRow>> departmentCache;
+    private final LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache;
     private final DepartmentRepository departmentRepository;
     private final TeamRepository teamRepository;
     private final OrganizationCacheInvalidator cacheInvalidator;
 
     public DepartmentService(
-            @Qualifier("departmentLoadingCache") LoadingCache<String, List<DepartmentCacheRow>> departmentCache,
+            @Qualifier("departmentLoadingCache") LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache,
             DepartmentRepository departmentRepository,
             TeamRepository teamRepository,
             OrganizationCacheInvalidator cacheInvalidator) {
@@ -44,11 +45,11 @@ public class DepartmentService {
         if (departmentName == null || departmentName.isBlank()) {
             return Optional.empty();
         }
-        return departmentCache.get(departmentName).stream().findFirst();
+        return departmentCache.get(OrganizationCacheKey.byName(departmentName)).stream().findFirst();
     }
 
     public List<DepartmentCacheRow> findAll() {
-        return departmentCache.get(CacheConfig.TOTAL_KEY);
+        return departmentCache.get(OrganizationCacheKey.allRows());
     }
 
     /**

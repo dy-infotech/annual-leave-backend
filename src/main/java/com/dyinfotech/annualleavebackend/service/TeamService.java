@@ -31,6 +31,7 @@ import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
@@ -69,11 +70,11 @@ public class TeamService {
     }
 
     @Qualifier("teamLoadingCache")
-    private final LoadingCache<String, List<TeamCacheRow>> teamCache;
+    private final LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache;
     @Qualifier("teamManagerLoadingCache")
     private final LoadingCache<String, List<TeamManagerCacheRow>> teamManagerCache;
     @Qualifier("departmentLoadingCache")
-    private final LoadingCache<String, List<DepartmentCacheRow>> departmentCache;
+    private final LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache;
 
     private final TeamRepository teamRepository;
     private final TeamManagerRepository teamManagerRepository;
@@ -83,9 +84,9 @@ public class TeamService {
     private final Clock clock;
 
     public TeamService(
-            @Qualifier("teamLoadingCache") LoadingCache<String, List<TeamCacheRow>> teamCache,
+            @Qualifier("teamLoadingCache") LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache,
             @Qualifier("teamManagerLoadingCache") LoadingCache<String, List<TeamManagerCacheRow>> teamManagerCache,
-            @Qualifier("departmentLoadingCache") LoadingCache<String, List<DepartmentCacheRow>> departmentCache,
+            @Qualifier("departmentLoadingCache") LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache,
             TeamRepository teamRepository,
             TeamManagerRepository teamManagerRepository,
             EmployeeRepository employeeRepository,
@@ -107,18 +108,18 @@ public class TeamService {
         if (teamName == null || teamName.isBlank()) {
             return Optional.empty();
         }
-        return teamCache.get(teamName).stream().findFirst();
+        return teamCache.get(OrganizationCacheKey.byName(teamName)).stream().findFirst();
     }
 
     public List<TeamCacheRow> findAllTeamInfo() {
-        return teamCache.get(CacheConfig.TOTAL_KEY);
+        return teamCache.get(OrganizationCacheKey.allRows());
     }
 
     public Optional<TeamCacheRow> findTeamInfo(Long teamId) {
         if (teamId == null) {
             return Optional.empty();
         }
-        return teamCache.get(CacheConfig.TOTAL_KEY).stream()
+        return teamCache.get(OrganizationCacheKey.allRows()).stream()
                 .filter(team -> team.teamId().equals(teamId))
                 .findFirst();
     }
@@ -139,7 +140,7 @@ public class TeamService {
     }
 
     private Map<Long, TeamCacheRow> teamIndex() {
-        return teamCache.get(CacheConfig.TOTAL_KEY).stream()
+        return teamCache.get(OrganizationCacheKey.allRows()).stream()
                 .collect(Collectors.toMap(TeamCacheRow::teamId, team -> team));
     }
 
@@ -804,7 +805,7 @@ public class TeamService {
 
     public List<TeamDto.TeamResponse> findAllForAdmin() {
         LocalDate today = LocalDate.now(clock);
-        Map<Long, DepartmentCacheRow> departments = departmentCache.get(CacheConfig.TOTAL_KEY).stream()
+        Map<Long, DepartmentCacheRow> departments = departmentCache.get(OrganizationCacheKey.allRows()).stream()
                 .collect(Collectors.toMap(DepartmentCacheRow::departmentId, department -> department));
         Map<Long, TeamCacheRow> teams = teamIndex();
         Map<Long, List<TeamManagerCacheRow>> managersByTeam = teamManagerCache.get(CacheConfig.TOTAL_KEY).stream()
