@@ -58,7 +58,7 @@ class LeaveApprovalIdempotencyRegressionTest {
 
         assertEquals("APPROVED", response.getStatus());
         verify(leaveRequestRepository, never()).updateLeaveRequest(any(), any(), any(), any(), any(), any());
-        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any());
+        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any(Long.class));
     }
 
     @Test
@@ -72,7 +72,7 @@ class LeaveApprovalIdempotencyRegressionTest {
         assertEquals("REJECTED", response.getStatus());
         assertEquals("사유", response.getRejectReason());
         verify(leaveRequestRepository, never()).updateLeaveRequest(any(), any(), any(), any(), any(), any());
-        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any());
+        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any(Long.class));
     }
 
     @Test
