@@ -375,37 +375,50 @@ public class LeaveRequestService {
     }
     
     @Transactional(readOnly = true)
-    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(LeaveRequestListDto.LeaveRequestListRequest condition) {
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
+            LeaveRequestListDto.LeaveRequestListRequest condition) {
+        return searchLeaveRequests(condition, null, true);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
+            LeaveRequestListDto.LeaveRequestListRequest condition,
+            Long currentEmployeeId,
+            boolean isAdmin) {
 
     	commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
-        // 마지막 매개변수에 DTO에서 꺼낸 검색어 파라미터를 결합하여 레포지토리로 토스해 줍니다.
         List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequests(
             condition.getEmployeeId(),
             condition.getStartDate(),
             condition.getEndDate(),
             condition.getStatus(),
-            null, // teams 자리 (필요 시 condition 매핑)
-            condition.getSearchEmployeeParam()  
+            null,
+            condition.getSearchEmployeeParam()
         );
 
         return requests.stream()
-                .map(LeaveRequestListDto.LeaveRequestListResponse::from)
+                .map(leaveRequest -> {
+                    boolean isOwner = currentEmployeeId != null
+                            && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+                    return LeaveRequestListDto.LeaveRequestListResponse.from(
+                            leaveRequest,
+                            isAdmin || isOwner);
+                })
                 .toList();
-    	
-//        return leaveRequestRepository.searchLeaveRequests(condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(), condition.getStatus())
-//                .stream()
-//                .map(LeaveRequestListDto.LeaveRequestListResponse::from)
-//                .toList();
     }
 
     @Transactional(readOnly = true)
-    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(Long requestId, Long currentEmployeeId) {
+    public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
+            Long requestId,
+            Long currentEmployeeId,
+            boolean isAdmin) {
         LeaveRequest leaveRequest = leaveRequestRepository.findDetailById(requestId)
                 .orElseThrow(() -> new IllegalArgumentException("휴가 신청을 찾을 수 없습니다. requestId: " + requestId));
 
-        // 신청 사유와 연차 snapshot은 신청자 본인에게만 공개한다.
         boolean isOwner = leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(leaveRequest, isOwner);
+        return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
+                leaveRequest,
+                isOwner || isAdmin);
     }
 
     @Transactional

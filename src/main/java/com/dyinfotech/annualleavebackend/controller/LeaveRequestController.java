@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
@@ -61,9 +62,13 @@ public class LeaveRequestController {
     @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 조회한다.")
     @GetMapping("/all")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
-    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
+    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
+            @AuthenticationPrincipal EmployeePrincipal principal
     ) {
-        return leaveRequestService.searchLeaveRequests(condition);
+        return leaveRequestService.searchLeaveRequests(
+                condition,
+                principal.employeeId(),
+                Role.isAdmin(principal.role()));
     }
 
 //    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
@@ -78,7 +83,10 @@ public class LeaveRequestController {
     public LeaveRequestDetailDto.LeaveRequestDetailResponse getLeaveRequestDetail(
             @PathVariable("requestId") Long requestId, // 👈 ("requestId") 이름을 명시하여 URL 매핑 문제를 해결합니다.
             @AuthenticationPrincipal EmployeePrincipal principal) {
-        return leaveRequestService.getLeaveRequestDetail(requestId, principal.employeeId());
+        return leaveRequestService.getLeaveRequestDetail(
+                requestId,
+                principal.employeeId(),
+                Role.isAdmin(principal.role()));
     }
 
     @Operation(summary = "내 현재 연차기간 조회", description = "로그인한 직원의 현재 회계연도 연차기간을 조회한다.")
@@ -96,7 +104,10 @@ public class LeaveRequestController {
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
     ) {
     	condition.setEmployeeId(principal.employeeId());
-        return leaveRequestService.searchLeaveRequests(condition);
+        return leaveRequestService.searchLeaveRequests(
+                condition,
+                principal.employeeId(),
+                Role.isAdmin(principal.role()));
     }
 
     @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")

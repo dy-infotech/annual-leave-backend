@@ -52,6 +52,10 @@ public final class LeaveRequestListDto {
         private String rejectReason;   // 반려 시에만 값 할당, 그 외엔 null
 
         public static LeaveRequestListResponse from(LeaveRequest leaveRequest) {
+            return from(leaveRequest, true);
+        }
+
+        public static LeaveRequestListResponse from(LeaveRequest leaveRequest, boolean canViewPrivate) {
             return LeaveRequestListResponse.builder()
                     .requestId(leaveRequest.getRequestId())
                     .employeeName(leaveRequest.getEmployee().getName())
@@ -65,7 +69,7 @@ public final class LeaveRequestListDto {
                     .endDate(leaveRequest.getEndDate())
                     .useDays(leaveRequest.getUseDays())
                     .status(leaveRequest.getStatus().name())
-                    .rejectReason(leaveRequest.getRejectReason())
+                    .rejectReason(canViewPrivate ? leaveRequest.getRejectReason() : null)
                     .build();
         }
     }

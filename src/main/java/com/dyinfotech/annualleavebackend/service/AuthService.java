@@ -241,7 +241,7 @@ public class AuthService {
         registrationTeamLocks.add(team.getTeamId());
         if (makeAdminAccount) {
             plannedParentTeamId = teamService.resolveParentTeamId(request.getTeam())
-                    .orElse(approver.getTeamId());
+                    .orElseGet(teamService::resolveDefaultParentTeamId);
             registrationTeamLocks.add(plannedParentTeamId);
         }
         teamService.lockTeamsForUpdate(registrationTeamLocks);

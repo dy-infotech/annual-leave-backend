@@ -42,7 +42,7 @@ public class LeaveRequestDetailDto {
         private LocalDateTime createdAt; // 결재일
 
         /**
-         * @param canViewPrivate 신청자 본인의 사유/연차 snapshot 조회 권한
+         * @param canViewPrivate 신청자 본인 또는 관리자의 사유/연차 snapshot 조회 권한
          */
         public static LeaveRequestDetailResponse from(LeaveRequest lr, boolean canViewPrivate) {
             Employee emp = lr.getEmployee();
