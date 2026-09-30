@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
 import java.util.EnumSet;
@@ -40,8 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class LeaveRequestService {
 
-    private static final int MAX_PAGE_SIZE = 100;
-    private static final int MAX_PAGE = 1000;
+    private static final int MAX_BATCH_SIZE = 101;
 
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
@@ -395,26 +395,20 @@ public class LeaveRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsCursor(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
-            int page,
+            LocalDateTime cursorCreatedAt,
+            Long cursorRequestId,
             int size) {
-        validatePage(page, size);
+        validateCursor(cursorCreatedAt, cursorRequestId, size);
         boolean isAdmin = currentEmployeeId != null
                 && currentAuthorityService.isAdmin(currentEmployeeId);
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
-
-        List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequestsPage(
-                condition.getEmployeeId(),
-                condition.getStartDate(),
-                condition.getEndDate(),
-                condition.getStatus(),
-                null,
-                condition.getSearchEmployeeParam(),
-                page,
-                size
-        );
+        List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequestsCursor(
+                condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
+                condition.getStatus(), null, condition.getSearchEmployeeParam(),
+                cursorCreatedAt, cursorRequestId, size);
         return toListResponses(requests, currentEmployeeId, isAdmin);
     }
 
@@ -449,14 +443,14 @@ public class LeaveRequestService {
                 .toList();
     }
 
-    private void validatePage(int page, int size) {
-        if (page < 0 || page > MAX_PAGE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page 범위를 벗어났습니다.");
+    private void validateCursor(LocalDateTime cursorCreatedAt, Long cursorRequestId, int size) {
+        if ((cursorCreatedAt == null) != (cursorRequestId == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "cursorCreatedAt과 cursorRequestId는 함께 지정해야 합니다.");
         }
-        if (size < 1 || size > MAX_PAGE_SIZE) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "size는 1 이상 " + MAX_PAGE_SIZE + " 이하여야 합니다.");
+        if (size < 1 || size > MAX_BATCH_SIZE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "size는 1 이상 " + MAX_BATCH_SIZE + " 이하여야 합니다.");
         }
     }
 

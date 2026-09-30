@@ -2,8 +2,10 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -59,15 +61,18 @@ public class LeaveRequestController {
         return leaveRequestService.createLeaveRequest(principal.employeeId(), request);
     }
 
-    @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 조회한다.")
+    @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 cursor 기반으로 조회한다.")
     @GetMapping("/all")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "100") int size,
+            @RequestParam(value = "cursorCreatedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
+            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
+            @RequestParam(value = "size", defaultValue = "51") int size,
             @AuthenticationPrincipal EmployeePrincipal principal
     ) {
-        return leaveRequestService.searchLeaveRequests(condition, principal.employeeId(), page, size);
+        return leaveRequestService.searchLeaveRequestsCursor(
+                condition, principal.employeeId(), cursorCreatedAt, cursorRequestId, size);
     }
 
 //    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
@@ -95,16 +100,19 @@ public class LeaveRequestController {
         return leaveRequestService.getMyLeavePeriod(principal.employeeId());
     }
 
-    @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 조회한다.")
+    @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 cursor 기반으로 조회한다.")
     @GetMapping("/my")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
             @AuthenticationPrincipal EmployeePrincipal principal,
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "100") int size
+            @RequestParam(value = "cursorCreatedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
+            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
+            @RequestParam(value = "size", defaultValue = "51") int size
     ) {
     	condition.setEmployeeId(principal.employeeId());
-        return leaveRequestService.searchLeaveRequests(condition, principal.employeeId(), page, size);
+        return leaveRequestService.searchLeaveRequestsCursor(
+                condition, principal.employeeId(), cursorCreatedAt, cursorRequestId, size);
     }
 
     @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")
