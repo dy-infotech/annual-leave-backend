@@ -158,18 +158,52 @@ jobs:
             rm -rf "$TARGET_DIR"/*
 
 
+            rollback() {
+              echo "===== 롤백 시작 ====="
+
+              if [ ! -f "$BACKUP_JAR" ]; then
+                echo "백업 파일이 없어 롤백 불가"
+                return 1
+              fi
+
+              cp "$BACKUP_JAR" "$APP_JAR"
+
+              echo "===== 이전 버전 재시작 ====="
+
+              if ! sudo -n /usr/bin/systemctl restart annual-leave.service; then
+                echo "이전 버전 재시작 명령 실패"
+                sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
+                return 1
+              fi
+
+              echo "===== 롤백 기동 확인 ====="
+
+              if wait_for_service; then
+                echo "===== 롤백 성공 ====="
+                return 0
+              fi
+
+              echo "===== 롤백 실패 ====="
+              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
+              return 1
+            }
+
+
             echo "===== 서비스 재시작 ====="
 
-            sudo -n /usr/bin/systemctl restart annual-leave.service
+            if ! sudo -n /usr/bin/systemctl restart annual-leave.service; then
+              echo "신규 버전 재시작 명령 실패"
+              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
+              rollback || true
+              exit 1
+            fi
 
 
             echo "===== 신규 버전 기동 확인 ====="
 
             if wait_for_service; then
-
               echo "===== 배포 완료 ====="
               exit 0
-
             fi
 
 
@@ -177,28 +211,5 @@ jobs:
 
             sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
 
-
-            echo "===== 롤백 시작 ====="
-
-            if [ ! -f "$BACKUP_JAR" ]; then
-              echo "백업 파일이 없어 롤백 불가"
-              exit 1
-            fi
-
-            cp "$BACKUP_JAR" "$APP_JAR"
-
-
-            echo "===== 이전 버전 재시작 ====="
-
-            sudo -n /usr/bin/systemctl restart annual-leave.service
-
-
-            echo "===== 롤백 기동 확인 ====="
-
-            if wait_for_service; then
-              echo "===== 롤백 성공 ====="
-            else
-              echo "===== 롤백 실패 ====="
-              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
-              exit 1
-            fi
+            rollback || true
+            exit 1
