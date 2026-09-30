@@ -12,6 +12,7 @@ import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAu
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,6 +26,7 @@ public final class EmployeeDto {
     public static class ModifyEmailRequest {
     	@NotBlank(message = "이메일은 필수입니다.")
 	    @Email(message = "유효하지 않은 이메일 형식입니다.")
+        @Size(max = 100, message = "이메일은 100자 이하여야 합니다.")
         private String email;
     }
 
@@ -134,21 +136,26 @@ public final class EmployeeDto {
         private EmployeeAdminExpectedState expected;
 
         @NotBlank(message = "이름은 필수입니다.")
+        @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
         private String name;
 
         @NotBlank(message = "이메일은 필수입니다.")
         @Email(message = "유효하지 않은 이메일 형식입니다.")
+        @Size(max = 100, message = "이메일은 100자 이하여야 합니다.")
         private String email;
 
         @NotBlank(message = "부서는 필수입니다.")
+        @Size(max = 50, message = "부서명은 50자 이하여야 합니다.")
         private String department;
 
         @NotNull(message = "입사일은 필수입니다.")
         private LocalDate hireDate; 
         private LocalDate fireDate;
         
+        @Size(max = 30, message = "팀명은 30자 이하여야 합니다.")
         private String team;
 
+        @Size(max = 50, message = "직급은 50자 이하여야 합니다.")
         private String position;
     }
     
