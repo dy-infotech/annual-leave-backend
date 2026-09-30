@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.common.exception;
 
 import java.time.format.DateTimeParseException;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -61,6 +62,18 @@ public class GlobalExceptionHandler {
     }
  
     // 그 외 미처리 예외 → 500, 상세는 로그로만, 응답은 일반 메시지
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrity(
+            DataIntegrityViolationException e,
+            HttpServletRequest req) {
+        log.warn("데이터 무결성 충돌: [{}] {}", req.getRequestURI(), e.getMostSpecificCause().getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(factory.create(
+                        HttpStatus.CONFLICT,
+                        "이미 존재하거나 현재 상태와 충돌하는 데이터입니다.",
+                        req.getRequestURI()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e, HttpServletRequest req) {
         log.error("처리되지 않은 예외 발생. [{}]", req.getRequestURI(), e);

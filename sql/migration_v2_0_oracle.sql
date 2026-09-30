@@ -441,6 +441,40 @@ PROMPT [7/9] Remove legacy EMPLOYEE string columns
 ALTER TABLE employee DROP COLUMN department;
 ALTER TABLE employee DROP COLUMN team;
 
+PROMPT [7.5/9] Create v2 query indexes
+
+DECLARE
+    PROCEDURE ensure_index(p_name VARCHAR2, p_ddl VARCHAR2) IS
+        v_count NUMBER;
+    BEGIN
+        SELECT COUNT(*)
+          INTO v_count
+          FROM user_indexes
+         WHERE index_name = UPPER(p_name);
+
+        IF v_count = 0 THEN
+            EXECUTE IMMEDIATE p_ddl;
+        END IF;
+    END;
+BEGIN
+    ensure_index(
+        'IX_EMPLOYEE_TEAM',
+        'CREATE INDEX ix_employee_team ON employee(team_id)');
+    ensure_index(
+        'IX_EMPLOYEE_DEPARTMENT',
+        'CREATE INDEX ix_employee_department ON employee(department_id)');
+    ensure_index(
+        'IX_LEAVE_REQUEST_EMPLOYEE',
+        'CREATE INDEX ix_leave_request_employee ON leave_request(employee_id)');
+    ensure_index(
+        'IX_LEAVE_REQUEST_STATUS_DATES',
+        'CREATE INDEX ix_leave_request_status_dates ON leave_request(status, start_date, end_date)');
+    ensure_index(
+        'IX_TEAM_MANAGER_PARENT',
+        'CREATE INDEX ix_team_manager_parent ON team_manager(parent_team_id)');
+END;
+/
+
 PROMPT [8/9] Final validation
 
 DECLARE

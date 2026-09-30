@@ -79,6 +79,19 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
+    void getLeaveRequestDetail_missingRequest_returnsNotFound() {
+        when(leaveRequestRepository.findDetailById(999L))
+                .thenReturn(java.util.Optional.empty());
+
+        ResponseStatusException exception = org.junit.jupiter.api.Assertions.assertThrows(
+                ResponseStatusException.class,
+                () -> leaveRequestService.getLeaveRequestDetail(999L, EMPLOYEE_ID)
+        );
+
+        assertEquals(404, exception.getStatusCode().value());
+    }
+
+    @Test
     void remainingDays_usesFiscalYearPeriod() {
         Employee employee = mockEmployee();
         CommonService service = new CommonService(leaveRequestRepository, employeeLeaveService, clock);
