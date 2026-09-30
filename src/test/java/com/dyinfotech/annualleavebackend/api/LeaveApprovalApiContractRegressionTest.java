@@ -84,14 +84,14 @@ class LeaveApprovalApiContractRegressionTest {
 
     @Test
     void pending_staleEmployeeJwtStillUsesCurrentAdminCheck() throws Exception {
-        when(leaveApprovalService.getPendingRequests(EMPLOYEE_ID)).thenReturn(List.of());
+        when(leaveApprovalService.getPendingRequests(EMPLOYEE_ID, 0, 50)).thenReturn(List.of());
 
         mockMvc.perform(get("/api/admin/leave-requests/pending"))
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
 
         verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
-        verify(leaveApprovalService).getPendingRequests(EMPLOYEE_ID);
+        verify(leaveApprovalService).getPendingRequests(EMPLOYEE_ID, 0, 50);
     }
 
     @Test
