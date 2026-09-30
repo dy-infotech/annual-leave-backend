@@ -25,6 +25,7 @@ import com.dyinfotech.annualleavebackend.common.transaction.AfterCommitExecutor;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
@@ -50,9 +51,9 @@ class OrganizationCacheRegressionTest {
     @Test
     void teamInvalidation_runsOnlyAfterCommit() {
         @SuppressWarnings("unchecked")
-        LoadingCache<String, List<DepartmentCacheRow>> departmentCache = mock(LoadingCache.class);
+        LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache = mock(LoadingCache.class);
         @SuppressWarnings("unchecked")
-        LoadingCache<String, List<TeamCacheRow>> teamCache = mock(LoadingCache.class);
+        LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache = mock(LoadingCache.class);
         @SuppressWarnings("unchecked")
         LoadingCache<String, List<TeamManagerCacheRow>> teamManagerCache = mock(LoadingCache.class);
 
@@ -68,7 +69,9 @@ class OrganizationCacheRegressionTest {
                 teamManagerCache,
                 cacheManager,
                 new AfterCommitExecutor(),
-                new EmployeeViewCacheKey()
+                new EmployeeViewCacheKey(Clock.fixed(
+                        Instant.parse("2026-09-28T00:00:00Z"),
+                        ZoneId.of("Asia/Seoul")))
         );
 
         TransactionSynchronizationManager.setActualTransactionActive(true);
@@ -76,9 +79,9 @@ class OrganizationCacheRegressionTest {
 
         invalidator.afterTeamChange(Set.of("기존팀", "변경팀"), true);
 
-        verify(teamCache, never()).invalidate(CacheConfig.TOTAL_KEY);
-        verify(teamCache, never()).invalidate("기존팀");
-        verify(teamCache, never()).invalidate("변경팀");
+        verify(teamCache, never()).invalidate(OrganizationCacheKey.allRows());
+        verify(teamCache, never()).invalidate(OrganizationCacheKey.byName("기존팀"));
+        verify(teamCache, never()).invalidate(OrganizationCacheKey.byName("변경팀"));
         verify(employeeCache, never()).clear();
         verify(managementCache, never()).clear();
 
@@ -87,9 +90,9 @@ class OrganizationCacheRegressionTest {
             synchronization.afterCommit();
         }
 
-        verify(teamCache).invalidate(CacheConfig.TOTAL_KEY);
-        verify(teamCache).invalidate("기존팀");
-        verify(teamCache).invalidate("변경팀");
+        verify(teamCache).invalidate(OrganizationCacheKey.allRows());
+        verify(teamCache).invalidate(OrganizationCacheKey.byName("기존팀"));
+        verify(teamCache).invalidate(OrganizationCacheKey.byName("변경팀"));
         verify(employeeCache).clear();
         verify(managementCache).clear();
     }
@@ -111,6 +114,20 @@ class OrganizationCacheRegressionTest {
 
         assertFalse(ManageType.IS_NEW_TEAM.contains(teamData.getKey()));
         assertTrue(ManageType.IS_TEAM_MANAGER.contains(teamData.getKey()));
+    }
+
+    @Test
+    void teamNamedTotal_doesNotCollideWithAllRowsCacheKey() {
+        TeamCacheRow first = new TeamCacheRow(10L, "첫팀", 1L, true);
+        TeamCacheRow namedTotal = new TeamCacheRow(20L, "total", 1L, true);
+        TeamService teamService = createTeamService(
+                List.of(first, namedTotal),
+                List.of(new DepartmentCacheRow(1L, "SI사업팀", true)),
+                List.of()
+        );
+
+        assertEquals(20L, teamService.findTeamInfo("total").orElseThrow().teamId());
+        assertEquals(2, teamService.findAllTeamInfo().size());
     }
 
     @Test
@@ -136,22 +153,22 @@ class OrganizationCacheRegressionTest {
             List<DepartmentCacheRow> departments,
             List<TeamManagerCacheRow> managers) {
         @SuppressWarnings("unchecked")
-        LoadingCache<String, List<TeamCacheRow>> teamCache = mock(LoadingCache.class);
+        LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache = mock(LoadingCache.class);
         @SuppressWarnings("unchecked")
         LoadingCache<String, List<TeamManagerCacheRow>> managerCache = mock(LoadingCache.class);
         @SuppressWarnings("unchecked")
-        LoadingCache<String, List<DepartmentCacheRow>> departmentCache = mock(LoadingCache.class);
+        LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache = mock(LoadingCache.class);
 
-        when(teamCache.get(CacheConfig.TOTAL_KEY)).thenReturn(teams);
+        when(teamCache.get(OrganizationCacheKey.allRows())).thenReturn(teams);
         for (TeamCacheRow team : teams) {
-            when(teamCache.get(team.teamName())).thenReturn(List.of(team));
+            when(teamCache.get(OrganizationCacheKey.byName(team.teamName()))).thenReturn(List.of(team));
             when(managerCache.get(String.valueOf(team.teamId())))
                     .thenReturn(managers.stream()
                             .filter(manager -> manager.teamId().equals(team.teamId()))
                             .toList());
         }
         when(managerCache.get(CacheConfig.TOTAL_KEY)).thenReturn(managers);
-        when(departmentCache.get(CacheConfig.TOTAL_KEY)).thenReturn(departments);
+        when(departmentCache.get(OrganizationCacheKey.allRows())).thenReturn(departments);
 
         TeamRepository teamRepository = mock(TeamRepository.class);
         TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);

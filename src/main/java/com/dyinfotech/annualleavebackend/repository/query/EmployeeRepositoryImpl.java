@@ -15,6 +15,7 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 	
 	private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
 
     private static final QEmployee qEmployee = QEmployee.employee;
 
@@ -102,12 +104,15 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     
     @Override
     public Optional<Employee> findByIdForUpdate(Long employeeId) {
-        return Optional.ofNullable(
-                queryFactory.selectFrom(qEmployee)
-                        .where(qEmployee.employeeId.eq(employeeId))
-                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                        .fetchOne()
-        );
+        Employee employee = queryFactory.selectFrom(qEmployee)
+                .where(qEmployee.employeeId.eq(employeeId))
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+        if (employee != null) {
+            // 동일 persistence context에 선행 조회 entity가 있어도 lock 대기 후 DB 최신값을 다시 읽는다.
+            entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return Optional.ofNullable(employee);
     }
     
     @Override

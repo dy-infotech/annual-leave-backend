@@ -36,9 +36,6 @@ import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEma
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.LockModeType;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,8 +54,6 @@ public class EmployeeService {
     private final OrganizationCacheInvalidator cacheInvalidator;
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
 
-    @PersistenceContext
-    private EntityManager entityManager;
     private final PasswordEncoder passwordEncoder;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "@employeeViewCacheKey.key(#a0)")
@@ -292,7 +287,6 @@ public class EmployeeService {
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-        entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE);
 
         List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
@@ -421,7 +415,6 @@ public class EmployeeService {
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-        entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE);
 
         String oldEmployeeName = employee.getName();
         String oldManagerPosition = employee.getPosition();

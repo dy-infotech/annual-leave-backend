@@ -37,6 +37,7 @@ import com.dyinfotech.annualleavebackend.common.cache.EmployeeViewCacheKey;
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
@@ -59,9 +60,9 @@ class OrganizationPolicyRegressionTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 28);
 
-    private LoadingCache<String, List<TeamCacheRow>> teamCache;
+    private LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache;
     private LoadingCache<String, List<TeamManagerCacheRow>> managerCache;
-    private LoadingCache<String, List<DepartmentCacheRow>> departmentCache;
+    private LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache;
     private TeamRepository teamRepository;
     private TeamManagerRepository teamManagerRepository;
     private EmployeeRepository employeeRepository;
@@ -498,7 +499,9 @@ class OrganizationPolicyRegressionTest {
 
     @Test
     void employeeViewCacheGeneration_separatesLateStalePutFromFreshLookup() {
-        EmployeeViewCacheKey cacheKey = new EmployeeViewCacheKey();
+        EmployeeViewCacheKey cacheKey = new EmployeeViewCacheKey(Clock.fixed(
+                Instant.parse("2026-09-28T00:00:00Z"),
+                ZoneId.of("Asia/Seoul")));
         Cache<String, String> cache = Caffeine.newBuilder().build();
 
         String staleInFlightKey = cacheKey.key(1L);
@@ -515,19 +518,35 @@ class OrganizationPolicyRegressionTest {
         assertNotEquals(freshKey, cacheKey.key(1L));
     }
 
+    @Test
+    void employeeViewCacheGeneration_changesWhenBusinessDateRollsOver() {
+        Clock clock = mock(Clock.class);
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+        when(clock.getZone()).thenReturn(zone);
+        when(clock.instant())
+                .thenReturn(Instant.parse("2026-09-28T14:59:59Z"))
+                .thenReturn(Instant.parse("2026-09-28T15:00:01Z"));
+
+        EmployeeViewCacheKey cacheKey = new EmployeeViewCacheKey(clock);
+        String beforeMidnight = cacheKey.key(1L);
+        String afterMidnight = cacheKey.key(1L);
+
+        assertNotEquals(beforeMidnight, afterMidnight);
+    }
+
     private void prepareCaches(
             List<TeamCacheRow> teams,
             List<TeamManagerCacheRow> managers) {
-        when(teamCache.get(CacheConfig.TOTAL_KEY)).thenReturn(teams);
+        when(teamCache.get(OrganizationCacheKey.allRows())).thenReturn(teams);
         for (TeamCacheRow team : teams) {
-            when(teamCache.get(team.teamName())).thenReturn(List.of(team));
+            when(teamCache.get(OrganizationCacheKey.byName(team.teamName()))).thenReturn(List.of(team));
             when(managerCache.get(String.valueOf(team.teamId())))
                     .thenReturn(managers.stream()
                             .filter(manager -> manager.teamId().equals(team.teamId()))
                             .toList());
         }
         when(managerCache.get(CacheConfig.TOTAL_KEY)).thenReturn(managers);
-        when(departmentCache.get(CacheConfig.TOTAL_KEY)).thenReturn(List.of());
+        when(departmentCache.get(OrganizationCacheKey.allRows())).thenReturn(List.of());
     }
 
     private static TeamManagerCacheRow manager(
@@ -563,7 +582,7 @@ class OrganizationPolicyRegressionTest {
         Employee manager = mock(Employee.class);
         TeamManager existing = mock(TeamManager.class);
 
-        when(teamCache.get("플랫폼팀")).thenReturn(List.of(teamInfo));
+        when(teamCache.get(OrganizationCacheKey.byName("플랫폼팀"))).thenReturn(List.of(teamInfo));
         when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
         when(team.getTeamId()).thenReturn(10L);
         when(team.getEnabled()).thenReturn(true);
