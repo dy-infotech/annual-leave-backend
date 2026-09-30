@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    url: ${TEST_DB_URL:jdbc:oracle:thin:@localhost:1521/XEPDB1}
+    username: ${TEST_DB_USERNAME:annual_leave_test}
+    password: ${TEST_DB_PASSWORD:annual_leave_test}
+    driver-class-name: oracle.jdbc.OracleDriver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  mail:
+    host: localhost
+    port: 3025
+    username: test
+    password: test
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+            required: false
+
+jwt:
+  secret: test-only-secret-key-for-integration-tests-32bytes-minimum
+  expiration: 3600000
+
+openapi:
+  service-key: test-service-key
+
+fcm:
+  certification: classpath:missing-firebase-test-key.json
+
+logging:
+  level:
+    root: warn
+    com.dyinfotech.annualleavebackend: warn
+  file:
+    name: logs/test-app.log
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: false
