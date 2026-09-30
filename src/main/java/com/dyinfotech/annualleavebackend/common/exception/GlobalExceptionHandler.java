@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.common.exception;
 
+import java.sql.SQLException;
 import java.time.format.DateTimeParseException;
 
 import org.springframework.dao.DataIntegrityViolationException;
@@ -66,12 +67,33 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDataIntegrity(
             DataIntegrityViolationException e,
             HttpServletRequest req) {
-        log.warn("데이터 무결성 충돌: [{}] {}", req.getRequestURI(), e.getMostSpecificCause().getMessage());
-        return ResponseEntity.status(HttpStatus.CONFLICT)
+        if (isOracleUniqueConstraintViolation(e)) {
+            log.warn("데이터 중복 충돌: [{}] {}", req.getRequestURI(), e.getMostSpecificCause().getMessage());
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(factory.create(
+                            HttpStatus.CONFLICT,
+                            "이미 존재하는 데이터입니다.",
+                            req.getRequestURI()));
+        }
+
+        log.error("예상하지 못한 데이터 무결성 위반. [{}]", req.getRequestURI(), e);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(factory.create(
-                        HttpStatus.CONFLICT,
-                        "이미 존재하거나 현재 상태와 충돌하는 데이터입니다.",
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "서버 오류가 발생했습니다.",
                         req.getRequestURI()));
+    }
+
+    private boolean isOracleUniqueConstraintViolation(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SQLException sqlException
+                    && sqlException.getErrorCode() == 1) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @ExceptionHandler(Exception.class)

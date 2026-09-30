@@ -152,10 +152,11 @@ erDiagram
 
 Access JWT는 사용자 식별과 로그인 시점 role snapshot을 포함하지만, 관리자 권한의 최종 근거로 사용하지 않는다.
 
-- `/api/admin/**`: Spring Security에서 인증 여부를 확인한다.
-- 각 관리자 controller: `AuthService.checkAdmin()` 또는 `checkPersonnelAuthority()`로 현재 TeamManager/직급 상태를 다시 검증한다.
-- 휴가 승인/반려 endpoint도 동일하게 현재 관리자 상태를 재검증한다.
-- 따라서 로그인 이후 PM 승격/해제가 발생해도 현재 조직 상태가 실제 관리자 API 권한의 기준이다.
+- `/api/admin/**`: Spring Security에서는 인증 여부만 확인하고, `AdminAuthorizationInterceptor`가 현재 권한을 중앙 검증한다.
+- 기본 관리자 API는 `CurrentAuthorityService.requireAdmin()`으로 재직 여부와 현재 TeamManager 상태를 확인한다.
+- 부서/팀 관리처럼 별도 인사권이 필요한 API는 `@RequirePersonnelAuthority`로 표시하며 현재 인사권을 검증한다.
+- 휴가 승인/반려 서비스는 관리자 여부와 별개로 해당 신청에 대한 현재 결재권도 다시 검증한다.
+- 따라서 로그인 이후 PM 승격/해제가 발생해도 JWT role snapshot이 아니라 현재 조직 상태가 실제 권한의 기준이다.
 
 ## DB / 배포
 

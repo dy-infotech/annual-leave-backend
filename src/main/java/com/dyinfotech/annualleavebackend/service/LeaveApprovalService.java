@@ -160,9 +160,11 @@ public class LeaveApprovalService {
                 .toList();
     }
     
-    private Map.Entry<LeaveRequest, Employee> validateLeaveRequest(Long requestId, Long approverId) throws ResponseStatusException {
-    	LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
-        
+    private Map.Entry<LeaveRequest, Employee> validateLeaveRequest(
+            LeaveRequest leaveRequest,
+            Long approverId) throws ResponseStatusException {
+        Long requestId = leaveRequest.getRequestId();
+
         // 요청자와 관리자 정보 추출
         Long employeeId = leaveRequest.getEmployee().getEmployeeId();
         Set<Long> employeeIds = Stream.of(employeeId, approverId).collect(Collectors.toSet());
@@ -230,12 +232,13 @@ public class LeaveApprovalService {
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+
+        // idempotency보다 현재 결재권을 먼저 검증한다.
+        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(current, approverId);
         if (isSameApprovalResult(current, approverId)) {
             return LeaveApprovalDto.LeaveApprovalResponse.from(current);
         }
 
-    	// 소속 확인 및 기본 검증
-        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
         
     	LocalDateTime now = LocalDateTime.now(clock);
@@ -272,12 +275,13 @@ public class LeaveApprovalService {
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+
+        // idempotency보다 현재 결재권을 먼저 검증한다.
+        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(current, approverId);
         if (isSameRejectionResult(current, approverId, request.getRejectReason())) {
             return LeaveRejectDto.LeaveRejectResponse.from(current);
         }
 
-    	// 소속 확인 및 기본 검증
-        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
         
     	LocalDateTime now = LocalDateTime.now(clock);

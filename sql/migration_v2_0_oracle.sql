@@ -464,6 +464,9 @@ BEGIN
         'IX_EMPLOYEE_DEPARTMENT',
         'CREATE INDEX ix_employee_department ON employee(department_id)');
     ensure_index(
+        'IX_TEAM_DEPARTMENT',
+        'CREATE INDEX ix_team_department ON team(department_id)');
+    ensure_index(
         'IX_LEAVE_REQUEST_EMPLOYEE',
         'CREATE INDEX ix_leave_request_employee ON leave_request(employee_id)');
     ensure_index(
@@ -472,6 +475,9 @@ BEGIN
     ensure_index(
         'IX_TEAM_MANAGER_PARENT',
         'CREATE INDEX ix_team_manager_parent ON team_manager(parent_team_id)');
+    ensure_index(
+        'IX_TEAM_MANAGER_PROJECT_MANAGER',
+        'CREATE INDEX ix_team_manager_project_manager ON team_manager(project_manager_id)');
 END;
 /
 

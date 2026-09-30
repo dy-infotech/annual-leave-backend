@@ -50,9 +50,13 @@ class LeaveApprovalIdempotencyRegressionTest {
 
     @Test
     void approve_sameCommittedResult_isSuccessfulNoOp() {
+        Employee requester = employee(20L, "신청자");
         Employee manager = employee(10L, "관리자");
         LeaveRequest approved = request(100L, LeaveRequestStatus.APPROVED, manager, null);
+        when(approved.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(100L)).thenReturn(Optional.of(approved));
+        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(manager, requester));
+        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(10L));
 
         var response = service.approveLeaveRequest(100L, 10L);
 
@@ -63,9 +67,13 @@ class LeaveApprovalIdempotencyRegressionTest {
 
     @Test
     void reject_sameCommittedResultAndReason_isSuccessfulNoOp() {
+        Employee requester = employee(20L, "신청자");
         Employee manager = employee(10L, "관리자");
         LeaveRequest rejected = request(101L, LeaveRequestStatus.REJECTED, manager, "사유");
+        when(rejected.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(101L)).thenReturn(Optional.of(rejected));
+        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(manager, requester));
+        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(10L));
 
         var response = service.rejectLeaveRequest(101L, 10L, rejectRequest("사유"));
 
@@ -73,6 +81,24 @@ class LeaveApprovalIdempotencyRegressionTest {
         assertEquals("사유", response.getRejectReason());
         verify(leaveRequestRepository, never()).updateLeaveRequest(any(), any(), any(), any(), any(), any());
         verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any(Long.class));
+    }
+
+    @Test
+    void approve_sameCommittedResultWithoutCurrentAuthority_isDenied() {
+        Employee requester = employee(20L, "신청자");
+        Employee formerManager = employee(10L, "과거 관리자");
+        LeaveRequest approved = request(103L, LeaveRequestStatus.APPROVED, formerManager, null);
+        when(approved.getEmployee()).thenReturn(requester);
+        when(leaveRequestRepository.findById(103L)).thenReturn(Optional.of(approved));
+        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(formerManager, requester));
+        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(11L));
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.approveLeaveRequest(103L, 10L));
+
+        assertEquals(404, exception.getStatusCode().value());
+        verify(leaveRequestRepository, never()).updateLeaveRequest(any(), any(), any(), any(), any(), any());
     }
 
     @Test
