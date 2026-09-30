@@ -52,7 +52,7 @@ public class NotificationService {
 //				if (retryCount < MAX_RETRY_COUNT) {
 //					log.warn("신규 FCM token topic 등록 실패. retry:{}/{}, token={}, employeeId={}", retryCount, MAX_RETRY_COUNT, fcmToken, employeeId);
 //				} else {
-//					log.error("신규 FCM token topic 등록 최종 실패. token={}, employeeId={}", fcmToken, employeeId);
+//					log.error("신규 FCM token topic 등록 최종 실패. employeeId={}", employeeId);
 //				}
 //			}
 //		}
@@ -64,7 +64,7 @@ public class NotificationService {
 //			return;
 //		}
 //
-//		log.info("FCM token 소유자 변경 감지. oldEmployeeId={}, newEmployeeId={}, token={}", oldEmployeeId, employeeId, fcmToken);
+//		log.info("FCM token 소유자 변경 감지. oldEmployeeId={}, newEmployeeId={}", oldEmployeeId, employeeId);
 //
 //		TopicSyncResult result = migrate(fcmToken, oldEmployeeId, employeeId);
 //		if (result != TopicSyncResult.SUCCESS) {
@@ -124,7 +124,8 @@ public class NotificationService {
 			return syncExistingToken(existingToken, employeeId, fcmToken)
 					.thenAccept(result -> {
 						if (result != TopicSyncResult.SUCCESS) {
-							log.error("FCM topic migration 최종 실패. result={}, token={}, oldEmployeeId={}, newEmployeeId={}", result, fcmToken, existingToken.getEmployeeId(), employeeId);
+							log.error("FCM topic migration 최종 실패. result={}, oldEmployeeId={}, newEmployeeId={}",
+									result, existingToken.getEmployeeId(), employeeId);
 							throw new IllegalStateException("FCM topic migration 실패");
 						}
 
@@ -136,7 +137,7 @@ public class NotificationService {
 		return subscribeRetry(fcmToken, employeeId, 1)
 				.thenAccept(result -> {
 					if (result != TopicSyncResult.SUCCESS) {
-						log.error("신규 FCM token topic 등록 최종 실패. token={}, employeeId={}", fcmToken, employeeId);
+						log.error("신규 FCM token topic 등록 최종 실패. employeeId={}", employeeId);
 						throw new IllegalStateException("FCM topic 등록 실패");
 					}
 
@@ -165,7 +166,7 @@ public class NotificationService {
 	                    return CompletableFuture.completedFuture(result);
 	                }
 	                
-	                log.warn("FCM subscribe retry. retry={}/{}, token={}, employeeId={}", retryCount, MAX_RETRY_COUNT, token, employeeId);
+	                log.warn("FCM subscribe retry. retry={}/{}, employeeId={}", retryCount, MAX_RETRY_COUNT, employeeId);
 	                
 	                return delay(100L << (retryCount - 1))
 	                		.thenCompose(v ->  subscribeRetry(token, employeeId, retryCount + 1));
@@ -178,7 +179,7 @@ public class NotificationService {
 			return CompletableFuture.completedFuture(TopicSyncResult.SUCCESS);
 		}
 
-		log.info("FCM token 소유자 변경 감지. oldEmployeeId={}, newEmployeeId={}, token={}", oldEmployeeId, employeeId, fcmToken);
+		log.info("FCM token 소유자 변경 감지. oldEmployeeId={}, newEmployeeId={}", oldEmployeeId, employeeId);
 		return migrate(fcmToken, oldEmployeeId, employeeId, TopicSyncResult.NONE, 1);
 	}
 	
@@ -189,7 +190,7 @@ public class NotificationService {
 						return CompletableFuture.completedFuture(result);
 					}
 					
-					log.warn("FCM topic migration retry. retry={}/{}, result={}, token={}", retryCount, MAX_RETRY_COUNT, result, token);
+					log.warn("FCM topic migration retry. retry={}/{}, result={}", retryCount, MAX_RETRY_COUNT, result);
 					
 					return delay(100L << (retryCount - 1))
 							.thenCompose(v -> migrate(token, oldEmployeeId, newEmployeeId, result, retryCount + 1));
@@ -227,22 +228,31 @@ public class NotificationService {
      * TODO: 로그아웃 기능 구현 및 토큰 삭제 적용
      */
     public CompletableFuture<Void> logoutToken(String fcmToken, Long employeeId) {
-        Long topicOwnerId = tokenRepository.findByToken(fcmToken)
-                .map(FcmToken::getEmployeeId)
-                .orElse(employeeId);
-
-        if (!topicOwnerId.equals(employeeId)) {
-            log.info("FCM logout token owner mismatch. requestEmployeeId={}, topicOwnerId={}", employeeId, topicOwnerId);
+        FcmToken existing = tokenRepository.findByToken(fcmToken).orElse(null);
+        if (existing == null) {
+            return CompletableFuture.completedFuture(null);
         }
 
-        return fcmService.unsubscribeTopics(fcmToken, topicOwnerId)
+        Long topicOwnerId = existing.getEmployeeId();
+        if (!topicOwnerId.equals(employeeId)) {
+            // 늦게 도착한 이전 계정의 로그아웃은 새 소유자의 topic/DB binding을 건드리지 않는다.
+            log.info("FCM stale logout ignored. requestEmployeeId={}, currentOwnerId={}",
+                    employeeId, topicOwnerId);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return fcmService.unsubscribeTopics(fcmToken, employeeId)
                 .thenAccept(success -> {
                     if (!success) {
-                        log.warn("FCM topic unsubscribe 실패. token={}, employeeId={}", fcmToken, topicOwnerId);
+                        log.warn("FCM topic unsubscribe 실패. employeeId={}", employeeId);
                         throw new IllegalStateException("FCM topic unsubscribe 실패");
                     }
 
-                    tokenRepository.deleteByToken(fcmToken);
+                    long deleted = tokenRepository.deleteByTokenAndEmployeeId(fcmToken, employeeId);
+                    if (deleted == 0) {
+                        log.info("FCM logout delete skipped because owner changed concurrently. requestEmployeeId={}",
+                                employeeId);
+                    }
                 });
     }
 

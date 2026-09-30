@@ -38,6 +38,18 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	
 	@Override
 	@Transactional
+	public long deleteByTokenAndEmployeeId(String token, Long employeeId) {
+	    long deleted = queryFactory.delete(qFcmToken)
+	            .where(
+	                    qFcmToken.token.eq(token),
+	                    qFcmToken.employeeId.eq(employeeId))
+	            .execute();
+	    entityManager.clear();
+	    return deleted;
+	}
+
+	@Override
+	@Transactional
 	public void deleteByUpdatedAtBefore(LocalDateTime threshold) {
 	    queryFactory.delete(qFcmToken)
 	    			.where(qFcmToken.updatedAudit.updatedAt.before(threshold))

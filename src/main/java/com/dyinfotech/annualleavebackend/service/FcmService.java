@@ -15,6 +15,7 @@ import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
+import com.google.firebase.messaging.TopicManagementResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,9 +62,16 @@ public class FcmService {
 	public CompletableFuture<Boolean> subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
-			firebaseMessaging.subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
-			log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
-			return CompletableFuture.completedFuture(Boolean.TRUE);
+			TopicManagementResponse result =
+					firebaseMessaging.subscribeToTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
+			boolean success = result.getSuccessCount() == 1 && result.getFailureCount() == 0;
+			if (success) {
+				log.info("FCM 토픽 구독 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
+			} else {
+				log.warn("FCM 토픽 구독 부분 실패 - Token: {}, Team: {}, successCount={}, failureCount={}",
+						maskFcmToken(fcmToken), approverId, result.getSuccessCount(), result.getFailureCount());
+			}
+			return CompletableFuture.completedFuture(success);
 		} catch (Exception e) {
 			log.error("FCM 토픽 구독 중 오류 발생", e);
 			return CompletableFuture.completedFuture(Boolean.FALSE);
@@ -74,9 +82,16 @@ public class FcmService {
 	public CompletableFuture<Boolean> unsubscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
-			firebaseMessaging.unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
-			log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
-			return CompletableFuture.completedFuture(Boolean.TRUE);
+			TopicManagementResponse result =
+					firebaseMessaging.unsubscribeFromTopic(tokens, TEAM_TOPIC_PREFIX + approverId);
+			boolean success = result.getSuccessCount() == 1 && result.getFailureCount() == 0;
+			if (success) {
+				log.info("FCM 토픽 해제 성공 - Token: {}, Team: {}", maskFcmToken(fcmToken), approverId);
+			} else {
+				log.warn("FCM 토픽 해제 부분 실패 - Token: {}, Team: {}, successCount={}, failureCount={}",
+						maskFcmToken(fcmToken), approverId, result.getSuccessCount(), result.getFailureCount());
+			}
+			return CompletableFuture.completedFuture(success);
 		} catch (Exception e) {
 			log.error("FCM 토픽 해제 중 오류 발생", e);
 			return CompletableFuture.completedFuture(Boolean.FALSE);
