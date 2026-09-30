@@ -228,6 +228,12 @@ public class LeaveApprovalService {
     
     @Transactional
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
+        LeaveRequest current = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+        if (isSameApprovalResult(current, approverId)) {
+            return LeaveApprovalDto.LeaveApprovalResponse.from(current);
+        }
+
     	// 소속 확인 및 기본 검증
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
@@ -244,7 +250,12 @@ public class LeaveApprovalService {
 
         // 업데이트된 행이 0개면 PENDING 상태가 아니라는 의미이므로 예외 발생
         if (updatedCount == 0) {
-            log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, leaveRequest.getStatus());
+            LeaveRequest replayed = leaveRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
+            if (isSameApprovalResult(replayed, approverId)) {
+                return LeaveApprovalDto.LeaveApprovalResponse.from(replayed);
+            }
+            log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, replayed.getStatus());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
 
@@ -259,6 +270,12 @@ public class LeaveApprovalService {
 
     @Transactional
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
+        LeaveRequest current = leaveRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+        if (isSameRejectionResult(current, approverId, request.getRejectReason())) {
+            return LeaveRejectDto.LeaveRejectResponse.from(current);
+        }
+
     	// 소속 확인 및 기본 검증
         Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(requestId, approverId);
         LeaveRequest leaveRequest = response.getKey();
@@ -275,7 +292,12 @@ public class LeaveApprovalService {
 
         // 업데이트된 행이 0개면 PENDING 상태가 아니라는 의미이므로 예외 발생
         if (updatedCount == 0) {
-            log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, leaveRequest.getStatus());
+            LeaveRequest replayed = leaveRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
+            if (isSameRejectionResult(replayed, approverId, request.getRejectReason())) {
+                return LeaveRejectDto.LeaveRejectResponse.from(replayed);
+            }
+            log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, replayed.getStatus());
             throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
 
@@ -286,5 +308,18 @@ public class LeaveApprovalService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
 
         return LeaveRejectDto.LeaveRejectResponse.from(updatedRequest);
+    }
+
+    private boolean isSameApprovalResult(LeaveRequest leaveRequest, Long approverId) {
+        return leaveRequest.getStatus() == LeaveRequestStatus.APPROVED
+                && leaveRequest.getManager() != null
+                && Objects.equals(leaveRequest.getManager().getEmployeeId(), approverId);
+    }
+
+    private boolean isSameRejectionResult(LeaveRequest leaveRequest, Long approverId, String rejectReason) {
+        return leaveRequest.getStatus() == LeaveRequestStatus.REJECTED
+                && leaveRequest.getManager() != null
+                && Objects.equals(leaveRequest.getManager().getEmployeeId(), approverId)
+                && Objects.equals(leaveRequest.getRejectReason(), rejectReason);
     }
 }

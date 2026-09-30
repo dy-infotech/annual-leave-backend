@@ -412,6 +412,9 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, errorMsg);
         }
 
+        if (leaveRequest.getStatus() == LeaveRequestStatus.CANCELLED) {
+            return;
+        }
         if (leaveRequest.getStatus() != LeaveRequestStatus.PENDING && leaveRequest.getStatus() != LeaveRequestStatus.APPROVED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "대기 또는 승인 상태인 신청만 취소할 수 있습니다.");
         }
@@ -422,6 +425,12 @@ public class LeaveRequestService {
         }
 
         if (leaveRequestRepository.cancelLeaveRequest(requestId, employeeId, today) == 0) {
+            LeaveRequest replayed = leaveRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
+            if (replayed.getStatus() == LeaveRequestStatus.CANCELLED
+                    && replayed.getEmployee().getEmployeeId().equals(employeeId)) {
+                return;
+            }
             throw new ResponseStatusException(HttpStatus.CONFLICT, "해당 요청은 이미 처리되었습니다.");
         }
 
