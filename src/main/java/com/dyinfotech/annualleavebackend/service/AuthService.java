@@ -286,6 +286,8 @@ public class AuthService {
 
     @Transactional
     public SignUpDto.SignUpResponse signUp(SignUpDto.SignUpRequest request) {
+        authRateLimitService.checkPublicAuth("signup", request.getEmployeeNumber());
+
         // 1. 사번으로 관리자가 등록해둔 직원 정보 조회
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber())
                 .orElseThrow(() -> {
@@ -429,11 +431,15 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public EmailResponse findEmails(FindDataDto.FindEmailByIdRequest request) {
-        return createEmailResponse(CacheConfig.EMAIL_BY_NAME_CACHE.get(request.getName(), name -> employeeService.findEmailsByName(name)));
+        authRateLimitService.checkPublicAuth("find-email-by-id", request.getName());
+        return createEmailResponse(CacheConfig.EMAIL_BY_NAME_CACHE.get(
+                request.getName(), name -> employeeService.findEmailsByName(name)));
     }
 
     @Transactional(readOnly = true)
     public EmailResponse findEmails(FindDataDto.FindEmailByEmployeeNumberRequest request) {
+        authRateLimitService.checkPublicAuth(
+                "find-email-by-employee-number", request.getEmployeeNumber());
         return createEmailResponse(CacheConfig.EMAIL_BY_EMPLOYEE_NUMBER_CACHE.get(request.getEmployeeNumber(), 
         																		number -> employeeService.findEmailsByEmployeeNumber(number)));
     }

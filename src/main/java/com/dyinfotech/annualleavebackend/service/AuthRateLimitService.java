@@ -23,11 +23,15 @@ public class AuthRateLimitService {
     private static final int SIGN_IN_IP_LIMIT = 30;
     private static final int RECOVERY_IDENTITY_LIMIT = 3;
     private static final int RECOVERY_IP_LIMIT = 10;
+    private static final int PUBLIC_AUTH_IDENTITY_LIMIT = 10;
+    private static final int PUBLIC_AUTH_IP_LIMIT = 30;
 
     private final Cache<String, AtomicInteger> signInIdentity = counterCache(Duration.ofMinutes(1));
     private final Cache<String, AtomicInteger> signInIp = counterCache(Duration.ofMinutes(1));
     private final Cache<String, AtomicInteger> recoveryIdentity = counterCache(Duration.ofMinutes(10));
     private final Cache<String, AtomicInteger> recoveryIp = counterCache(Duration.ofMinutes(10));
+    private final Cache<String, AtomicInteger> publicAuthIdentity = counterCache(Duration.ofMinutes(10));
+    private final Cache<String, AtomicInteger> publicAuthIp = counterCache(Duration.ofMinutes(10));
 
     private static Cache<String, AtomicInteger> counterCache(Duration duration) {
         return Caffeine.newBuilder()
@@ -53,6 +57,21 @@ public class AuthRateLimitService {
         if (!isInternalContext(ip)) {
             signInIdentity.invalidate(ip + "|" + normalize(employeeNumber));
         }
+    }
+
+    public void checkPublicAuth(String route, String identity) {
+        String ip = IpContext.get();
+        if (isInternalContext(ip)) {
+            return;
+        }
+        String normalizedRoute = normalize(route);
+        String normalizedIdentity = normalize(identity);
+        acquire(publicAuthIdentity, normalizedRoute + "|" + normalizedIdentity,
+                PUBLIC_AUTH_IDENTITY_LIMIT,
+                "인증 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+        acquire(publicAuthIp, normalizedRoute + "|" + ip,
+                PUBLIC_AUTH_IP_LIMIT,
+                "인증 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
     }
 
     public void checkRecovery(String identity) {
