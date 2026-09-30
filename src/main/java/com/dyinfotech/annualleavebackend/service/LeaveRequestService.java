@@ -40,6 +40,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class LeaveRequestService {
 
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE = 1000;
+
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
     private final EmployeeLeaveService employeeLeaveService;
@@ -378,7 +381,7 @@ public class LeaveRequestService {
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition) {
-        // 호출자 정보가 없는 내부 경로는 private 필드를 공개하지 않는 쪽으로 실패한다.
+        // 내부 정합성 검사는 전체 결과를 사용한다. 외부 목록 API만 paging 한다.
         return searchLeaveRequests(condition, null, false);
     }
 
@@ -391,21 +394,50 @@ public class LeaveRequestService {
         return searchLeaveRequests(condition, currentEmployeeId, isAdmin);
     }
 
+    @Transactional(readOnly = true)
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
+            LeaveRequestListDto.LeaveRequestListRequest condition,
+            Long currentEmployeeId,
+            int page,
+            int size) {
+        validatePage(page, size);
+        boolean isAdmin = currentEmployeeId != null
+                && currentAuthorityService.isAdmin(currentEmployeeId);
+        commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
+
+        List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequestsPage(
+                condition.getEmployeeId(),
+                condition.getStartDate(),
+                condition.getEndDate(),
+                condition.getStatus(),
+                null,
+                condition.getSearchEmployeeParam(),
+                page,
+                size
+        );
+        return toListResponses(requests, currentEmployeeId, isAdmin);
+    }
+
     private List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
             boolean isAdmin) {
-
-    	commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
+        commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
         List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequests(
-            condition.getEmployeeId(),
-            condition.getStartDate(),
-            condition.getEndDate(),
-            condition.getStatus(),
-            null,
-            condition.getSearchEmployeeParam()
+                condition.getEmployeeId(),
+                condition.getStartDate(),
+                condition.getEndDate(),
+                condition.getStatus(),
+                null,
+                condition.getSearchEmployeeParam()
         );
+        return toListResponses(requests, currentEmployeeId, isAdmin);
+    }
 
+    private List<LeaveRequestListDto.LeaveRequestListResponse> toListResponses(
+            List<LeaveRequest> requests,
+            Long currentEmployeeId,
+            boolean isAdmin) {
         return requests.stream()
                 .map(leaveRequest -> {
                     boolean isOwner = currentEmployeeId != null
@@ -415,6 +447,17 @@ public class LeaveRequestService {
                             isAdmin || isOwner);
                 })
                 .toList();
+    }
+
+    private void validatePage(int page, int size) {
+        if (page < 0 || page > MAX_PAGE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page 범위를 벗어났습니다.");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "size는 1 이상 " + MAX_PAGE_SIZE + " 이하여야 합니다.");
+        }
     }
 
     @Transactional(readOnly = true)

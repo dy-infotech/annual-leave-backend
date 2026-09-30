@@ -25,22 +25,33 @@ public class LeaveApprovalController {
 
     @Operation(summary = "승인 대기 상태 휴가 조회", description = "관리자가 승인 대기 상태인 전체 휴가 정보를 조회한다.")
     @GetMapping("/pending")
-    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(@AuthenticationPrincipal EmployeePrincipal principal) {
-        return leaveApprovalService.getPendingRequests(principal.employeeId());
+    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "100") int size,
+            @AuthenticationPrincipal EmployeePrincipal principal) {
+        return leaveApprovalService.getPendingRequests(principal.employeeId(), page, size);
     }
     
     @Operation(summary = "승인 상태 휴가 조회", description = "관리자가 하위팀의 승인 상태인 전체 휴가 정보를 조회한다.")
     @GetMapping("/approved")
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(@RequestParam(value = "team", required = false) String team, 
-    		@RequestParam(value = "employeeParam", required = false) String employeeParam, @AuthenticationPrincipal EmployeePrincipal principal) {
-        return leaveApprovalService.getApprovedRequests(principal.employeeId(), team, employeeParam);
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
+            @RequestParam(value = "team", required = false) String team,
+    		@RequestParam(value = "employeeParam", required = false) String employeeParam,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "100") int size,
+            @AuthenticationPrincipal EmployeePrincipal principal) {
+        return leaveApprovalService.getApprovedRequests(principal.employeeId(), team, employeeParam, page, size);
     }
     
     @Operation(summary = "반려 상태 휴가 조회", description = "관리자가 하위팀의 반려 상태인 전체 휴가 정보를 조회한다.")
     @GetMapping("/rejected")
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(@RequestParam(value = "team", required = false) String team, 
-    		@RequestParam(value = "employeeParam", required = false) String employeeParam, @AuthenticationPrincipal EmployeePrincipal principal) {
-        return leaveApprovalService.getRejectedRequests(principal.employeeId(), team, employeeParam);
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
+            @RequestParam(value = "team", required = false) String team,
+    		@RequestParam(value = "employeeParam", required = false) String employeeParam,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "100") int size,
+            @AuthenticationPrincipal EmployeePrincipal principal) {
+        return leaveApprovalService.getRejectedRequests(principal.employeeId(), team, employeeParam, page, size);
     }
 
     @Operation(summary = "휴가 승인", description = "관리자가 휴가 요청을 승인한다.")

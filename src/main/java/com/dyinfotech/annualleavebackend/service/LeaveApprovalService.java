@@ -49,6 +49,15 @@ public class LeaveApprovalService {
     private final Clock clock;
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(Long employeeId) {
+        return getPendingRequests(employeeId, 0, MAX_PAGE_SIZE);
+    }
+
+    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
+            Long employeeId,
+            int page,
+            int size) {
+        validatePage(page, size);
+
         List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
@@ -56,7 +65,6 @@ public class LeaveApprovalService {
 
         Long excludeId = employeeId;
         List<ManagedTeam> managedTeams = teamService.findManagedTeams(employeeId);
-
         Set<String> directTeams = managedTeams.stream()
                 .map(ManagedTeam::teamName)
                 .collect(Collectors.toSet());
@@ -76,31 +84,47 @@ public class LeaveApprovalService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        return leaveRequestRepository
-                .findByStatusOrderByCreatedAtAsc(
+        Year year = Year.now(clock);
+        return leaveRequestRepository.findByStatusAndTeamsInRangePage(
                         excludeId,
+                        LeaveRequestStatus.PENDING,
                         directTeams,
                         childTeamProjectManagerIds,
-                        LeaveRequestStatus.PENDING,
-                        clock)
+                        DateUtils.getFirstDayOfYear(year),
+                        DateUtils.getLastDayOfYear(year),
+                        page,
+                        size)
                 .stream()
                 .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
                 .toList();
     }
-    
+
     private Set<String> getAccessibleTeams(Collection<ManagedTeam> teams) {
         if (teams == null || teams.isEmpty()) {
             return Collections.emptySet();
         }
-
         return teams.stream()
                 .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
                 .map(ManagedTeam::teamName)
                 .collect(Collectors.toSet());
     }
-    
+
     @Transactional(readOnly = true)
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(Long employeeId, String team, String employeeParam) {
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
+            Long employeeId,
+            String team,
+            String employeeParam) {
+        return getApprovedRequests(employeeId, team, employeeParam, 0, MAX_PAGE_SIZE);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
+            Long employeeId,
+            String team,
+            String employeeParam,
+            int page,
+            int size) {
+        validatePage(page, size);
         List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
@@ -110,7 +134,6 @@ public class LeaveApprovalService {
         if (accessibleTeams.isEmpty()) {
             return Collections.emptyList();
         }
-
         if (team != null && !team.isBlank()) {
             if (!accessibleTeams.contains(team)) {
                 return Collections.emptyList();
@@ -119,18 +142,34 @@ public class LeaveApprovalService {
         }
 
         Year year = Year.now(clock);
-        return leaveRequestRepository.searchLeaveRequests(
+        return leaveRequestRepository.searchLeaveRequestsPage(
+                        null,
                         DateUtils.getFirstDayOfYear(year),
                         DateUtils.getLastDayOfYear(year),
                         LeaveRequestStatus.APPROVED,
                         accessibleTeams,
-                        employeeParam)
+                        employeeParam,
+                        page,
+                        size)
                 .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }
-    
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(Long employeeId, String team, String employeeParam) {
+
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
+            Long employeeId,
+            String team,
+            String employeeParam) {
+        return getRejectedRequests(employeeId, team, employeeParam, 0, MAX_PAGE_SIZE);
+    }
+
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
+            Long employeeId,
+            String team,
+            String employeeParam,
+            int page,
+            int size) {
+        validatePage(page, size);
         List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
@@ -140,7 +179,6 @@ public class LeaveApprovalService {
         if (accessibleTeams.isEmpty()) {
             return Collections.emptyList();
         }
-
         if (team != null && !team.isBlank()) {
             if (!accessibleTeams.contains(team)) {
                 return Collections.emptyList();
@@ -149,17 +187,31 @@ public class LeaveApprovalService {
         }
 
         Year year = Year.now(clock);
-        return leaveRequestRepository.searchLeaveRequests(
+        return leaveRequestRepository.searchLeaveRequestsPage(
+                        null,
                         DateUtils.getFirstDayOfYear(year),
                         DateUtils.getLastDayOfYear(year),
                         LeaveRequestStatus.REJECTED,
                         accessibleTeams,
-                        employeeParam)
+                        employeeParam,
+                        page,
+                        size)
                 .stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
     }
-    
+
+    private void validatePage(int page, int size) {
+        if (page < 0 || page > MAX_PAGE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page 범위를 벗어났습니다.");
+        }
+        if (size < 1 || size > MAX_PAGE_SIZE) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "size는 1 이상 " + MAX_PAGE_SIZE + " 이하여야 합니다.");
+        }
+    }
+
     private Map.Entry<LeaveRequest, Employee> validateLeaveRequest(
             LeaveRequest leaveRequest,
             Long approverId) throws ResponseStatusException {

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -62,11 +63,11 @@ public class LeaveRequestController {
     @GetMapping("/all")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "100") int size,
             @AuthenticationPrincipal EmployeePrincipal principal
     ) {
-        return leaveRequestService.searchLeaveRequests(
-                condition,
-                principal.employeeId());
+        return leaveRequestService.searchLeaveRequests(condition, principal.employeeId(), page, size);
     }
 
 //    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
@@ -98,12 +99,12 @@ public class LeaveRequestController {
     @GetMapping("/my")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
             @AuthenticationPrincipal EmployeePrincipal principal,
-    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition
+    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "100") int size
     ) {
     	condition.setEmployeeId(principal.employeeId());
-        return leaveRequestService.searchLeaveRequests(
-                condition,
-                principal.employeeId());
+        return leaveRequestService.searchLeaveRequests(condition, principal.employeeId(), page, size);
     }
 
     @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")
