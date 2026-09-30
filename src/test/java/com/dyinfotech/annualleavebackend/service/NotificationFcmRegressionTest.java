@@ -79,12 +79,20 @@ class NotificationFcmRegressionTest {
                         CompletableFuture.completedFuture(false),
                         CompletableFuture.completedFuture(true)
                 );
+        when(tokenRepository.updateTokenAndTouchIfOwner(
+                eq(OLD_EMPLOYEE_ID),
+                eq(NEW_EMPLOYEE_ID),
+                eq(DEVICE_OS),
+                any(LocalDateTime.class),
+                eq(TOKEN)
+        )).thenReturn(1);
 
         notificationService.syncToken(NEW_EMPLOYEE_ID, TOKEN, DEVICE_OS).join();
 
         verify(fcmService, times(1)).unsubscribeTopics(TOKEN, OLD_EMPLOYEE_ID);
         verify(fcmService, times(2)).subscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
-        verify(tokenRepository, times(1)).updateTokenAndTouch(
+        verify(tokenRepository, times(1)).updateTokenAndTouchIfOwner(
+                eq(OLD_EMPLOYEE_ID),
                 eq(NEW_EMPLOYEE_ID),
                 eq(DEVICE_OS),
                 any(LocalDateTime.class),
@@ -104,12 +112,20 @@ class NotificationFcmRegressionTest {
                 );
         when(fcmService.subscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
                 .thenReturn(CompletableFuture.completedFuture(true));
+        when(tokenRepository.updateTokenAndTouchIfOwner(
+                eq(OLD_EMPLOYEE_ID),
+                eq(NEW_EMPLOYEE_ID),
+                eq(DEVICE_OS),
+                any(LocalDateTime.class),
+                eq(TOKEN)
+        )).thenReturn(1);
 
         notificationService.syncToken(NEW_EMPLOYEE_ID, TOKEN, DEVICE_OS).join();
 
         verify(fcmService, times(2)).unsubscribeTopics(TOKEN, OLD_EMPLOYEE_ID);
         verify(fcmService, times(1)).subscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
-        verify(tokenRepository, times(1)).updateTokenAndTouch(
+        verify(tokenRepository, times(1)).updateTokenAndTouchIfOwner(
+                eq(OLD_EMPLOYEE_ID),
                 eq(NEW_EMPLOYEE_ID),
                 eq(DEVICE_OS),
                 any(LocalDateTime.class),
@@ -142,7 +158,8 @@ class NotificationFcmRegressionTest {
         doAnswer(invocation -> {
             assertEquals("127.0.0.1", IpContext.get());
             return 1;
-        }).when(tokenRepository).updateTokenAndTouch(
+        }).when(tokenRepository).updateTokenAndTouchIfOwner(
+                eq(NEW_EMPLOYEE_ID),
                 eq(NEW_EMPLOYEE_ID),
                 eq(DEVICE_OS),
                 any(LocalDateTime.class),
@@ -156,22 +173,27 @@ class NotificationFcmRegressionTest {
     @Test
     void logout_deletesTokenOnlyAfterTopicUnsubscribeSucceeds() {
         CompletableFuture<Boolean> unsubscribeFuture = new CompletableFuture<>();
-        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.empty());
+        FcmToken existingToken = mock(FcmToken.class);
+        when(existingToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(existingToken));
         when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID)).thenReturn(unsubscribeFuture);
+        when(tokenRepository.deleteByTokenAndEmployeeId(TOKEN, NEW_EMPLOYEE_ID)).thenReturn(1L);
 
         CompletableFuture<Void> result = notificationService.logoutToken(TOKEN, NEW_EMPLOYEE_ID);
 
-        verify(tokenRepository, never()).deleteByToken(TOKEN);
+        verify(tokenRepository, never()).deleteByTokenAndEmployeeId(TOKEN, NEW_EMPLOYEE_ID);
 
         unsubscribeFuture.complete(true);
         result.join();
 
-        verify(tokenRepository, times(1)).deleteByToken(TOKEN);
+        verify(tokenRepository, times(1)).deleteByTokenAndEmployeeId(TOKEN, NEW_EMPLOYEE_ID);
     }
 
     @Test
     void logout_unsubscribeFailure_doesNotDeleteToken() {
-        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.empty());
+        FcmToken existingToken = mock(FcmToken.class);
+        when(existingToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(existingToken));
         when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
                 .thenReturn(CompletableFuture.completedFuture(false));
 
@@ -180,7 +202,7 @@ class NotificationFcmRegressionTest {
                 () -> notificationService.logoutToken(TOKEN, NEW_EMPLOYEE_ID).join()
         );
 
-        verify(tokenRepository, never()).deleteByToken(TOKEN);
+        verify(tokenRepository, never()).deleteByTokenAndEmployeeId(TOKEN, NEW_EMPLOYEE_ID);
     }
 
     @Test
