@@ -158,6 +158,13 @@ Access JWT는 사용자 식별과 로그인 시점 role snapshot을 포함하지
 - 휴가 승인/반려 서비스는 관리자 여부와 별개로 해당 신청에 대한 현재 결재권도 다시 검증한다.
 - 따라서 로그인 이후 PM 승격/해제가 발생해도 JWT role snapshot이 아니라 현재 조직 상태가 실제 권한의 기준이다.
 
+## 테스트 / CI
+
+- `develop_v2.0`/release CI는 GitHub Actions에서 `gvenzl/oracle-xe:21-slim-faststart` Oracle 21c XE를 서비스로 기동한다.
+- CI는 저장소의 실제 `sql/schema.sql`과 `sql/data.sql`을 테스트 스키마에 적용한 뒤 `./gradlew test bootJar`를 실행한다.
+- `src/test/java/.../api/*OracleIntegrationTest`는 `RUN_ORACLE_INTEGRATION_TESTS=true`일 때 실행되며, 인증/사원·조직관리·휴가/대시보드 핵심 API를 실제 Oracle 스키마와 MockMvc로 검증한다.
+- 일반 단위/회귀 테스트는 Oracle 환경변수 없이도 실행 가능하며 Oracle 통합테스트만 조건부로 건너뛴다.
+
 ## DB / 배포
 
 - Fresh install: `sql/schema.sql`
