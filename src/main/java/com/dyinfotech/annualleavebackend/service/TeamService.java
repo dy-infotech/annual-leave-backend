@@ -341,7 +341,7 @@ public class TeamService {
                 approver.getEmployeeId());
     }
 
-    private Set<Employee> resolveApprovers(Employee employee) {
+    private Set<Long> resolveApproverIds(Employee employee) {
         Long employeeTeamId = employee.getTeamId();
         if (employeeTeamId == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
@@ -353,7 +353,7 @@ public class TeamService {
                 .toList();
 
         if (myTeam.isEmpty()) {
-            log.error("TeamService::resolveApprovers - 해당 팀의 재직 관리자가 존재하지 않습니다. team_id : {}", employeeTeamId);
+            log.error("TeamService::resolveApproverIds - 해당 팀의 재직 관리자가 존재하지 않습니다. team_id : {}", employeeTeamId);
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀의 재직 관리자가 존재하지 않습니다.");
         }
 
@@ -361,7 +361,6 @@ public class TeamService {
                 .filter(manager -> employee.getEmployeeId().equals(manager.projectManagerId()))
                 .findFirst();
 
-        Set<Long> approverIds;
         if (selfManager.isPresent()) {
             Long parentTeamId = selfManager.get().parentTeamId();
             List<TeamManagerCacheRow> parentManagers = parentTeamId.equals(employeeTeamId)
@@ -371,51 +370,53 @@ public class TeamService {
                             .toList();
 
             if (parentManagers.isEmpty()) {
-                log.error("TeamService::resolveApprovers - 상위 팀의 재직 관리자가 존재하지 않습니다. parent_team_id : {}", parentTeamId);
+                log.error("TeamService::resolveApproverIds - 상위 팀의 재직 관리자가 존재하지 않습니다. parent_team_id : {}", parentTeamId);
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "상위 팀의 재직 관리자가 존재하지 않습니다.");
             }
 
-            approverIds = parentManagers.stream()
-                    .map(TeamManagerCacheRow::projectManagerId)
-                    .collect(Collectors.toCollection(LinkedHashSet::new));
-        } else {
-            approverIds = myTeam.stream()
+            return parentManagers.stream()
                     .map(TeamManagerCacheRow::projectManagerId)
                     .collect(Collectors.toCollection(LinkedHashSet::new));
         }
 
-        return employeeRepository.findAllById(approverIds).stream()
-                .filter(candidate -> candidate.isActive(today))
+        return myTeam.stream()
+                .map(TeamManagerCacheRow::projectManagerId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    public Employee resolveCurrentApprover(Employee employee) {
-        Set<Employee> resolvedApprovers = resolveApprovers(employee);
-        if (resolvedApprovers.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 조직 기준 결재자를 찾을 수 없습니다.");
-        }
-
-        Long storedApproverId = employee.getApproverId();
-        return resolvedApprovers.stream()
-                .filter(approver -> approver.getEmployeeId().equals(storedApproverId))
-                .findFirst()
-                .orElseGet(() -> resolvedApprovers.stream()
-                        .min(java.util.Comparator.comparing(Employee::getEmployeeId))
-                        .orElseThrow());
+    /**
+     * 현재 조직 기준 결재자 ID 집합.
+     * 저장된 approver_id나 Team/TeamManager DB 재조회에 의존하지 않고 최신 조직 캐시 snapshot만 사용한다.
+     */
+    public Set<Long> resolveCurrentApproverIds(Employee employee) {
+        return resolveApproverIds(employee);
     }
 
+    public Employee resolveCurrentApprover(Employee employee) {
+        Set<Long> approverIds = resolveApproverIds(employee);
+        Long storedApproverId = employee.getApproverId();
+        Long currentApproverId = storedApproverId != null && approverIds.contains(storedApproverId)
+                ? storedApproverId
+                : approverIds.stream()
+                        .min(Long::compareTo)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 조직 기준 결재자를 찾을 수 없습니다."));
+
+        // 결재자 선정 자체는 조직 캐시에서 끝낸다. DB 조회는 /me 표시용 Employee 1건 materialize 용도다.
+        return employeeRepository.findById(currentApproverId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 결재자 정보를 찾을 수 없습니다."));
+    }
+
+    /**
+     * 저장된 approver_id self-heal 전용. 권한 검증에서는 사용하지 않는다.
+     */
     public Set<Long> refreshApproverIds(Employee employee) {
-        Set<Employee> resolvedApprovers = resolveApprovers(employee);
-        boolean hasApproverId = resolvedApprovers.stream()
-                .anyMatch(approver -> approver.getEmployeeId().equals(employee.getApproverId()));
-
-        if (!hasApproverId && !resolvedApprovers.isEmpty()) {
-            employee.changeApprover(resolvedApprovers.iterator().next());
+        Set<Long> approverIds = resolveApproverIds(employee);
+        Long storedApproverId = employee.getApproverId();
+        if ((storedApproverId == null || !approverIds.contains(storedApproverId)) && !approverIds.isEmpty()) {
+            Long currentApproverId = approverIds.stream().min(Long::compareTo).orElseThrow();
+            employee.changeApprover(employeeRepository.getReferenceById(currentApproverId));
         }
-
-        return resolvedApprovers.stream()
-                .map(Employee::getEmployeeId)
-                .collect(Collectors.toSet());
+        return approverIds;
     }
 
     @Transactional

@@ -100,7 +100,7 @@ class OrganizationPolicyRegressionTest {
     @Test
     void pmApprover_usesOnlyParentManagers_notPeerManagers() {
         TeamCacheRow team = new TeamCacheRow(10L, "T팀", 1L, true);
-        TeamCacheRow parent = new TeamCacheRow(20L, "상위팀", 1L, true);
+        TeamCacheRow parent = new TeamCacheRow(20L, "P팀", 1L, true);
         TeamManagerCacheRow peer = manager(10L, 1L, 20L, null);
         TeamManagerCacheRow self = manager(10L, 2L, 20L, null);
         TeamManagerCacheRow parentManager = manager(20L, 3L, 20L, null);
@@ -111,18 +111,11 @@ class OrganizationPolicyRegressionTest {
         when(employee.getTeamId()).thenReturn(10L);
         when(employee.getApproverId()).thenReturn(1L);
 
-        Employee resolvedParent = mock(Employee.class);
-        when(resolvedParent.getEmployeeId()).thenReturn(3L);
-        when(resolvedParent.isActive(TODAY)).thenReturn(true);
-        when(employeeRepository.findAllById(argThat(ids -> {
-            Set<Long> actual = new HashSet<>();
-            ids.forEach(actual::add);
-            return actual.equals(Set.of(3L));
-        }))).thenReturn(List.of(resolvedParent));
-
-        Set<Long> approvers = teamService.refreshApproverIds(employee);
+        Set<Long> approvers = teamService.resolveCurrentApproverIds(employee);
 
         assertEquals(Set.of(3L), approvers);
+        verify(employeeRepository, never()).findAllById(any());
+        verify(employeeRepository, never()).findById(any());
     }
 
     @Test
@@ -360,7 +353,7 @@ class OrganizationPolicyRegressionTest {
     }
 
     @Test
-    void currentApprover_usesLiveOrganizationInsteadOfStaleStoredPointer() {
+    void currentApprover_usesCachedOrganizationInsteadOfStaleStoredPointer() {
         TeamCacheRow team = new TeamCacheRow(10L, "T팀", 1L, true);
         TeamManagerCacheRow currentManager = manager(10L, 3L, 20L, null);
         prepareCaches(List.of(team), List.of(currentManager));
@@ -372,11 +365,12 @@ class OrganizationPolicyRegressionTest {
 
         Employee resolved = mock(Employee.class);
         when(resolved.getEmployeeId()).thenReturn(3L);
-        when(resolved.isActive(TODAY)).thenReturn(true);
-        when(employeeRepository.findAllById(any())).thenReturn(List.of(resolved));
+        when(employeeRepository.findById(3L)).thenReturn(Optional.of(resolved));
 
         assertEquals(3L, teamService.resolveCurrentApprover(employee).getEmployeeId());
+        verify(employeeRepository, never()).findAllById(any());
     }
+
     @Test
     void representativeDirectorAlias_mapsToCeo() {
         assertEquals(PositionType.CEO, PositionType.getType("대표이사"));

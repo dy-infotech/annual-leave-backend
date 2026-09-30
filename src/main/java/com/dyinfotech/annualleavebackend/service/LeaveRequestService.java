@@ -168,7 +168,7 @@ public class LeaveRequestService {
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
  
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        Set<Long> resolvedApproverIds = teamService.refreshApproverIds(employee);
+        Set<Long> resolvedApproverIds = teamService.resolveCurrentApproverIds(employee);
         if (!resolvedApproverIds.isEmpty()) {
             notificationService.sendNotificationToTeams(resolvedApproverIds,
                     employee.getName() + "님의 휴가 신청",

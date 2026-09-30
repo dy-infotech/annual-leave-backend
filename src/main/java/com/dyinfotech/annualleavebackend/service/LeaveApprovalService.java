@@ -202,10 +202,10 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 관리자는 휴가를 처리할 수 없습니다.");
         }
         
-        // 관리자가 요청자의 승인자인지 확인 (로그인 시 업데이트되므로 문제되지 않으나 방어코드로 유지한다)
+        // 저장된 approver_id는 신뢰하지 않고 최신 TeamManager 캐시 기준으로 결재 권한을 검증한다.
         boolean isApprover = false;
     	StringBuilder approverString = new StringBuilder();
-    	for (Long id : teamService.refreshApproverIds(employee)) {
+    	for (Long id : teamService.resolveCurrentApproverIds(employee)) {
     		if (id.equals(approverId)) {
     			isApprover = true;
     			break;
