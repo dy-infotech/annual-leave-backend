@@ -499,6 +499,7 @@ public class TeamService {
 
     @Transactional
     public void saveTeam(TeamManager teamManager) {
+        lockHierarchyForUpdate();
         Long teamId = teamManager.getTeamId();
         Long parentTeamId = teamManager.getParentTeamId();
         Long managerId = teamManager.getProjectManagerId();
@@ -534,6 +535,7 @@ public class TeamService {
 
     @Transactional
     public void deleteTeam(TeamManager teamManager) {
+        lockHierarchyForUpdate();
         Long teamId = teamManager.getTeamId();
         teamManagerRepository.delete(teamManager);
         cacheInvalidator.afterTeamManagerChange(Set.of(teamId));
@@ -559,6 +561,13 @@ public class TeamService {
     }
 
     @Transactional
+    public void lockHierarchyForUpdate() {
+        // 모든 조직 parent-edge 변경은 대표이사(root) 팀 row를 공통 mutex로 사용한다.
+        // 일반 조회에는 영향을 주지 않고 write path끼리만 직렬화한다.
+        lockTeam(resolveDefaultParentTeamId());
+    }
+
+    @Transactional
     public void lockTeamsForUpdate(Collection<Long> teamIds) {
         lockTeams(teamIds);
     }
@@ -577,7 +586,9 @@ public class TeamService {
                 .existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId);
 
         List<Employee> dependents = employeeRepository.findAllByTeam_TeamId(teamId).stream()
-                .filter(employee -> employee.isActive(today))
+                // 현재 재직자뿐 아니라 아직 입사 전이어도 향후 이 팀을 필요로 하는 직원까지 포함한다.
+                .filter(employee -> employee.getFireDate() == null
+                        || !employee.getFireDate().isBefore(today))
                 .toList();
 
         if (!hasChildTeam && dependents.isEmpty()) {
@@ -715,6 +726,7 @@ public class TeamService {
 
     @Transactional
     public void removeManager(Long teamId, Long employeeId) {
+        lockHierarchyForUpdate();
         lockTeam(teamId);
         TeamManagerId id = new TeamManagerId(teamId, employeeId);
         if (!teamManagerRepository.existsById(id)) {
@@ -729,6 +741,7 @@ public class TeamService {
 
     @Transactional
     public void addManager(String teamName, Long employeeId, Long parentTeamId) {
+        lockHierarchyForUpdate();
         TeamCacheRow teamInfo = findTeamInfo(teamName)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
         Map<Long, Team> lockedTeams = lockTeams(List.of(teamInfo.teamId(), parentTeamId));
@@ -871,6 +884,8 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서에는 팀을 생성할 수 없습니다.");
         }
 
+        lockHierarchyForUpdate();
+
         Team team = Team.builder()
                 .teamName(teamName)
                 .enabled(Boolean.TRUE)
@@ -968,6 +983,8 @@ public class TeamService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "비활성화된 부서로는 변경할 수 없습니다.");
             }
         }
+
+        lockHierarchyForUpdate();
 
         Long plannedParentTeamId = request.getParentTeamId();
         if (plannedParentTeamId == null && request.getProjectManagerId() != null) {

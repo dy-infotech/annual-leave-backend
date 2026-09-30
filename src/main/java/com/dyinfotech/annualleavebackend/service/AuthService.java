@@ -249,6 +249,7 @@ public class AuthService {
             plannedParentTeamId = teamService.resolveParentTeamId(request.getTeam())
                     .orElseGet(teamService::resolveDefaultParentTeamId);
             registrationTeamLocks.add(plannedParentTeamId);
+            teamService.lockHierarchyForUpdate();
         }
         teamService.lockTeamsForUpdate(registrationTeamLocks);
         LocalDate hireDate = LocalDate.parse(request.getHireDate());

@@ -286,6 +286,8 @@ public class EmployeeService {
             plannedTeamIds.add(teamInfo.teamId());
         }
 
+        // 관리팀 add/remove는 조직 parent-edge 변경이므로 공통 hierarchy mutex를 먼저 잡는다.
+        teamService.lockHierarchyForUpdate();
         // 모든 관련 TEAM을 ID 오름차순으로 잠근 뒤 Employee를 잠가 동일 직원의 관리팀 변경을 직렬화한다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
