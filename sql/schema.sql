@@ -115,7 +115,7 @@ CREATE TABLE basis_data (
     year   VARCHAR2(4 CHAR) NOT NULL,
     seq    NUMBER(19) NOT NULL,
     type   VARCHAR2(2 CHAR),
-    data   VARCHAR2(50 CHAR),
+    data   VARCHAR2(255 CHAR),
     remark VARCHAR2(200 CHAR),
     CONSTRAINT pk_basis_data PRIMARY KEY (year, seq)
 );

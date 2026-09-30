@@ -28,7 +28,7 @@ public class BasisData {
     @Column(name = "type", length = 2)
     private String type;
 
-    @Column(name = "data", length = 50)
+    @Column(name = "data", length = 255)
     private String data;
 
     @Column(name = "remark", length = 200)

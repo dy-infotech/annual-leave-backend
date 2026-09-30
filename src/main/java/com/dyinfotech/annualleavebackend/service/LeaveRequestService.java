@@ -82,10 +82,13 @@ public class LeaveRequestService {
 
         validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate(), employee.getFireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
-        // 대체, 출산, 가족돌봄 휴가 중 하나가 아닌 경우 잔여 연차 수와 요청 휴가 수를 대조하도록 함
-        if (!LeaveType.ALTERNATIVE.equals(leaveType) && !LeaveType.PARENTAL.equals(leaveType) && !LeaveType.FAMILY.equals(leaveType)) {
-        	validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
-        	validateRemainingLeave(employee, request.getUseDays());
+        // 모든 휴가 유형은 신청 기간의 실제 근무일수와 사용일수가 일치해야 한다.
+        // 대체/출산/가족돌봄 휴가는 연차 잔여량만 차감/검증 대상에서 제외한다.
+        validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
+        if (!LeaveType.ALTERNATIVE.equals(leaveType)
+                && !LeaveType.PARENTAL.equals(leaveType)
+                && !LeaveType.FAMILY.equals(leaveType)) {
+            validateRemainingLeave(employee, request.getUseDays());
         }
         
         List<LeaveRequestListDto.LeaveRequestListResponse> dataList = 

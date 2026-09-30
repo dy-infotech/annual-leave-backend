@@ -119,6 +119,23 @@ class LeaveRequestRegressionTest {
         assertEquals(8.0f, saved.getCurrTotalLeaveDays(), 0.001f);
     }
 
+    @Test
+    void createSpecialLeaveRequest_rejectsUseDaysThatDoNotMatchBusinessDays() {
+        Employee employee = mockEmployee();
+        when(employeeRepository.findByIdForUpdate(EMPLOYEE_ID)).thenReturn(java.util.Optional.of(employee));
+        when(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee)).thenReturn(15.0f);
+        when(holidaySyncService.findByYearRange(2026, 2026)).thenReturn(List.of());
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+                ResponseStatusException.class,
+                () -> leaveRequestService.createLeaveRequest(
+                        EMPLOYEE_ID,
+                        createRequest(LeaveType.FAMILY.getName(), REQUEST_DATE, 2.0f)
+                )
+        );
+        verify(leaveRequestRepository, never()).save(any(LeaveRequest.class));
+    }
+
     private Employee mockEmployee() {
         Employee employee = mock(Employee.class);
         when(employee.getEmployeeId()).thenReturn(EMPLOYEE_ID);
