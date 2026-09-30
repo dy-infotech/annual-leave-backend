@@ -162,6 +162,10 @@ public class AuthService {
         Employee approver = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
+        if (employeeRepository.existsByEmployeeNumber(request.getEmployeeNumber())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 등록된 사번입니다.");
+        }
+
         Department department = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> {
                     String errorMsg = "일치하는 부서 정보가 없습니다. departmentName:" + request.getDepartment();

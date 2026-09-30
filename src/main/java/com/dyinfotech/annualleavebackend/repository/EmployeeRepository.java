@@ -11,6 +11,7 @@ import com.dyinfotech.annualleavebackend.repository.query.EmployeeRepositoryCust
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long>, EmployeeRepositoryCustom {
     Optional<Employee> findByEmployeeNumber(String employeeNumber);
+    boolean existsByEmployeeNumber(String employeeNumber);
     Optional<Employee> findFirstByEmployeeNumberStartingWithOrderByEmployeeNumberDesc(String prefix);
     List<Employee> findAllByEmployeeIdInOrderByEmployeeIdAsc(Collection<Long> employeeIds);
     List<Employee> findAllByTeam_TeamId(Long teamId);

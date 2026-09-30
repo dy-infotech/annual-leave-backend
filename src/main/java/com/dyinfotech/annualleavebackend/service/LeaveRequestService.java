@@ -421,7 +421,9 @@ public class LeaveRequestService {
             Long requestId,
             Long currentEmployeeId) {
         LeaveRequest leaveRequest = leaveRequestRepository.findDetailById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("휴가 신청을 찾을 수 없습니다. requestId: " + requestId));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "휴가 신청을 찾을 수 없습니다."));
 
         boolean isOwner = leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
         boolean isAdmin = !isOwner && currentAuthorityService.isAdmin(currentEmployeeId);
