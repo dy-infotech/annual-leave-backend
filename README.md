@@ -15,7 +15,7 @@
 | 프레임워크 | Spring Boot 4.1.0 | Spring Web MVC 기반                                           |
 | 빌드 도구 | Gradle (Groovy DSL) | `gradlew` 래퍼, `bootJar` → `annual-leave-backend.jar`        |
 | 데이터베이스 | Oracle 21c XE | `com.oracle.database.jdbc:ojdbc11`, canonical schema: `sql/schema.sql` |
-| 영속성 | Spring Data JPA (Hibernate) | `ddl-auto` 미설정 (스키마 자동 생성 안 함)                              |
+| 영속성 | Spring Data JPA (Hibernate) | `ddl-auto=validate`로 운영 스키마와 Entity 계약 검증                         |
 | SQL 로깅 | p6spy | `p6spy-spring-boot-starter:2.0.1`, `spy.properties`         |
 | 보안 | Spring Security + JWT | `jjwt 0.13.0`, 무상태 세션                                       |
 | 캐시 | Caffeine | 로컬 인메모리 캐시                                                  |
@@ -147,5 +147,23 @@ erDiagram
 
 
 
+
+## 인증 / 권한 기준
+
+Access JWT는 사용자 식별과 로그인 시점 role snapshot을 포함하지만, 관리자 권한의 최종 근거로 사용하지 않는다.
+
+- `/api/admin/**`: Spring Security에서 인증 여부를 확인한다.
+- 각 관리자 controller: `AuthService.checkAdmin()` 또는 `checkPersonnelAuthority()`로 현재 TeamManager/직급 상태를 다시 검증한다.
+- 휴가 승인/반려 endpoint도 동일하게 현재 관리자 상태를 재검증한다.
+- 따라서 로그인 이후 PM 승격/해제가 발생해도 현재 조직 상태가 실제 관리자 API 권한의 기준이다.
+
+## DB / 배포
+
+- Fresh install: `sql/schema.sql`
+- develop_v1.0 → v2 이관: `sql/migration_v2_0_oracle.sql`
+- 초기 draft v2에 팀 생성 멱등성 컬럼만 보강: `sql/migration_v2_0_team_create_idempotency.sql`
+- 개발 seed: `sql/data.sql` (Oracle 21c v2 구조)
+- 애플리케이션 기동 시 Hibernate `ddl-auto=validate`가 필수 table/column mapping을 검증한다.
+- release CD는 systemd의 `active` 상태뿐 아니라 실제 HTTP readiness까지 확인하고 실패 시 기존 JAR로 rollback한다.
 
 ## 빌드 / 실행 방법
