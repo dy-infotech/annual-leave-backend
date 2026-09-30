@@ -156,7 +156,7 @@ class OrganizationPolicyRegressionTest {
         when(team.getTeamName()).thenReturn("플랫폼팀");
         when(team.getDepartment()).thenReturn(oldDepartment);
         when(oldDepartment.getDepartmentId()).thenReturn(1L);
-        when(departmentRepository.findById(2L)).thenReturn(Optional.of(newDepartment));
+        when(departmentRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(newDepartment));
         when(newDepartment.getDepartmentId()).thenReturn(2L);
         when(newDepartment.getEnabled()).thenReturn(true);
         when(employeeRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of());
@@ -612,7 +612,7 @@ class OrganizationPolicyRegressionTest {
 
         Department department = mock(Department.class);
         when(department.getEnabled()).thenReturn(true);
-        when(departmentRepository.findById(1L)).thenReturn(Optional.of(department));
+        when(departmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(department));
         when(teamRepository.findByTeamName("플랫폼팀")).thenReturn(Optional.empty());
 
         AtomicReference<Team> created = new AtomicReference<>();
@@ -645,7 +645,7 @@ class OrganizationPolicyRegressionTest {
 
         Department department = mock(Department.class);
         when(department.getEnabled()).thenReturn(true);
-        when(departmentRepository.findById(1L)).thenReturn(Optional.of(department));
+        when(departmentRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(department));
         when(teamRepository.findByTeamName("플랫폼팀")).thenReturn(Optional.empty());
 
         AtomicReference<Team> created = new AtomicReference<>();
