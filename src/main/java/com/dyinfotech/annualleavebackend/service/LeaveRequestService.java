@@ -13,6 +13,8 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
@@ -173,9 +175,19 @@ public class LeaveRequestService {
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
         Set<Long> resolvedApproverIds = teamService.resolveCurrentApproverIds(employee);
         if (!resolvedApproverIds.isEmpty()) {
-            notificationService.sendNotificationToTeams(resolvedApproverIds,
-                    employee.getName() + "님의 휴가 신청",
-                    "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate());
+            Set<Long> notificationApproverIds = Set.copyOf(resolvedApproverIds);
+            String notificationTitle = employee.getName() + "님의 휴가 신청";
+            String notificationBody =
+                    "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    notificationService.sendNotificationToTeams(
+                            notificationApproverIds,
+                            notificationTitle,
+                            notificationBody);
+                }
+            });
         }
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
