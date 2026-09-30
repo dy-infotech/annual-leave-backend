@@ -129,7 +129,12 @@ public class NotificationService {
 							throw new IllegalStateException("FCM topic migration 실패");
 						}
 
-						runWithIpContext(clientIp, () -> tokenRepository.updateTokenAndTouch(employeeId, deviceOs, now, fcmToken));
+						final int[] changed = new int[1];
+						runWithIpContext(clientIp, () -> changed[0] = tokenRepository.updateTokenAndTouchIfOwner(
+								existingToken.getEmployeeId(), employeeId, deviceOs, now, fcmToken));
+						if (changed[0] != 1) {
+							throw new IllegalStateException("FCM token 소유자가 동시에 변경되었습니다.");
+						}
 					});
 		}
 		

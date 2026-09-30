@@ -38,6 +38,27 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	
 	@Override
 	@Transactional
+	public int updateTokenAndTouchIfOwner(
+			Long expectedEmployeeId,
+			Long employeeId,
+			String deviceOs,
+			LocalDateTime now,
+			String token) {
+		int result = (int) queryFactory.update(qFcmToken)
+				.set(qFcmToken.employeeId, employeeId)
+				.set(qFcmToken.deviceOs, deviceOs)
+				.set(qFcmToken.updatedAudit.updatedAt, now)
+				.set(qFcmToken.updatedAudit.updatedIp, IpContext.get())
+				.where(
+						qFcmToken.token.eq(token),
+						qFcmToken.employeeId.eq(expectedEmployeeId))
+				.execute();
+		entityManager.clear();
+		return result;
+	}
+
+	@Override
+	@Transactional
 	public long deleteByTokenAndEmployeeId(String token, Long employeeId) {
 	    long deleted = queryFactory.delete(qFcmToken)
 	            .where(
