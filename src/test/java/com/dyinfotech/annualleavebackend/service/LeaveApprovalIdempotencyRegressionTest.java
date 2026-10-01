@@ -84,20 +84,18 @@ class LeaveApprovalIdempotencyRegressionTest {
     }
 
     @Test
-    void approve_sameCommittedResultWithoutCurrentAuthority_isDenied() {
+    void approve_sameCommittedResultWithoutCurrentAuthority_isSuccessfulNoOp() {
         Employee requester = employee(20L, "신청자");
         Employee formerManager = employee(10L, "과거 관리자");
         LeaveRequest approved = request(103L, LeaveRequestStatus.APPROVED, formerManager, null);
         when(approved.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(103L)).thenReturn(Optional.of(approved));
-        when(employeeService.getEmployeeListForUpdate(any())).thenReturn(java.util.List.of(formerManager, requester));
-        when(teamService.resolveCurrentApproverIdsFromDatabase(requester)).thenReturn(java.util.Set.of(11L));
 
-        ResponseStatusException exception = assertThrows(
-                ResponseStatusException.class,
-                () -> service.approveLeaveRequest(103L, 10L));
+        var response = service.approveLeaveRequest(103L, 10L);
 
-        assertEquals(404, exception.getStatusCode().value());
+        assertEquals("APPROVED", response.getStatus());
+        verify(employeeService, never()).getEmployeeListForUpdate(any());
+        verify(teamService, never()).resolveCurrentApproverIdsFromDatabase(any());
         verify(leaveRequestRepository, never()).updateLeaveRequest(any(), any(), any(), any(), any(), any());
     }
 

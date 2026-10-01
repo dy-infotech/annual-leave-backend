@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.task.TaskRejectedException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
@@ -145,7 +147,67 @@ class NotificationFcmRegressionTest {
         );
 
         verify(fcmService, times(3)).subscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
-        verify(tokenRepository, never()).save(any(FcmToken.class));
+        verify(tokenRepository, never()).saveAndFlush(any(FcmToken.class));
+    }
+
+    @Test
+    void migration_ownerCasLost_reconcilesTopicsToCurrentDbOwner() {
+        Long winnerEmployeeId = 3L;
+        FcmToken initial = mock(FcmToken.class);
+        FcmToken winner = mock(FcmToken.class);
+        when(initial.getEmployeeId()).thenReturn(OLD_EMPLOYEE_ID);
+        when(winner.getEmployeeId()).thenReturn(winnerEmployeeId);
+        when(tokenRepository.findByToken(TOKEN))
+                .thenReturn(Optional.of(initial), Optional.of(winner));
+        when(fcmService.unsubscribeTopics(TOKEN, OLD_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        when(fcmService.subscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        when(tokenRepository.updateTokenAndTouchIfOwner(
+                eq(OLD_EMPLOYEE_ID),
+                eq(NEW_EMPLOYEE_ID),
+                eq(DEVICE_OS),
+                any(LocalDateTime.class),
+                eq(TOKEN)
+        )).thenReturn(0);
+        when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        when(fcmService.subscribeTopics(TOKEN, winnerEmployeeId))
+                .thenReturn(CompletableFuture.completedFuture(true));
+
+        assertThrows(
+                CompletionException.class,
+                () -> notificationService.syncToken(NEW_EMPLOYEE_ID, TOKEN, DEVICE_OS).join()
+        );
+
+        verify(fcmService).unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
+        verify(fcmService).subscribeTopics(TOKEN, winnerEmployeeId);
+    }
+
+    @Test
+    void newToken_insertRace_reconcilesTopicsToWinner() {
+        Long winnerEmployeeId = 3L;
+        FcmToken winner = mock(FcmToken.class);
+        when(winner.getEmployeeId()).thenReturn(winnerEmployeeId);
+        when(tokenRepository.findByToken(TOKEN))
+                .thenReturn(Optional.empty(), Optional.of(winner));
+        when(fcmService.subscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        doThrow(new DataIntegrityViolationException("duplicate token"))
+                .when(tokenRepository)
+                .saveAndFlush(any(FcmToken.class));
+        when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        when(fcmService.subscribeTopics(TOKEN, winnerEmployeeId))
+                .thenReturn(CompletableFuture.completedFuture(true));
+
+        assertThrows(
+                CompletionException.class,
+                () -> notificationService.syncToken(NEW_EMPLOYEE_ID, TOKEN, DEVICE_OS).join()
+        );
+
+        verify(fcmService).unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
+        verify(fcmService).subscribeTopics(TOKEN, winnerEmployeeId);
     }
 
     @Test

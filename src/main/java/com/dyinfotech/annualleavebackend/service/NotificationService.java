@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -142,32 +143,88 @@ public class NotificationService {
 		FcmToken existingToken = tokenRepository.findByToken(fcmToken).orElse(null);
 		if (existingToken != null) {
 			return syncExistingToken(existingToken, employeeId, fcmToken)
-					.thenAccept(result -> {
+					.thenCompose(result -> {
 						if (result != TopicSyncResult.SUCCESS) {
 							log.error("FCM topic migration 최종 실패. result={}, oldEmployeeId={}, newEmployeeId={}",
 									result, existingToken.getEmployeeId(), employeeId);
-							throw new IllegalStateException("FCM topic migration 실패");
+							return CompletableFuture.failedFuture(
+									new IllegalStateException("FCM topic migration 실패"));
 						}
 
 						final int[] changed = new int[1];
 						runWithIpContext(clientIp, () -> changed[0] = tokenRepository.updateTokenAndTouchIfOwner(
 								existingToken.getEmployeeId(), employeeId, deviceOs, now, fcmToken));
-						if (changed[0] != 1) {
-							throw new IllegalStateException("FCM token 소유자가 동시에 변경되었습니다.");
+						if (changed[0] == 1) {
+							return CompletableFuture.completedFuture(null);
 						}
+
+						return reconcileTopicsToCurrentOwner(fcmToken, employeeId)
+								.thenCompose(ignored -> CompletableFuture.failedFuture(
+										new IllegalStateException("FCM token 소유자가 동시에 변경되었습니다.")));
 					});
 		}
 		
 		// DB에 토큰이 없으면 새로운 토큰 생성
 		return subscribeRetry(fcmToken, employeeId, 1)
-				.thenAccept(result -> {
+				.thenCompose(result -> {
 					if (result != TopicSyncResult.SUCCESS) {
 						log.error("신규 FCM token topic 등록 최종 실패. employeeId={}", employeeId);
-						throw new IllegalStateException("FCM topic 등록 실패");
+						return CompletableFuture.failedFuture(
+								new IllegalStateException("FCM topic 등록 실패"));
 					}
 
-					runWithIpContext(clientIp, () -> tokenRepository.save(new FcmToken(employeeId, fcmToken, deviceOs)));
+					try {
+						runWithIpContext(clientIp, () -> tokenRepository.saveAndFlush(
+								new FcmToken(employeeId, fcmToken, deviceOs)));
+						return CompletableFuture.completedFuture(null);
+					} catch (RuntimeException e) {
+						return reconcileTopicsToCurrentOwner(fcmToken, employeeId)
+								.thenCompose(ignored -> CompletableFuture.failedFuture(e));
+					}
 				});
+	}
+
+	private CompletableFuture<Void> reconcileTopicsToCurrentOwner(
+			String fcmToken,
+			Long attemptedEmployeeId) {
+		final Long currentOwnerId;
+		try {
+			currentOwnerId = tokenRepository.findByToken(fcmToken)
+					.map(FcmToken::getEmployeeId)
+					.orElse(null);
+		} catch (RuntimeException e) {
+			// DB 정본을 확인하지 못한 상태에서 unsubscribe하면 정상 owner의 topic까지
+			// 지울 수 있으므로 외부 상태를 임의 변경하지 않는다.
+			log.error("FCM owner 경합 후 현재 owner 확인 실패. topic reconciliation을 건너뜁니다.", e);
+			return CompletableFuture.completedFuture(null);
+		}
+
+		if (Objects.equals(currentOwnerId, attemptedEmployeeId)) {
+			// 다른 인스턴스가 동일 owner로 DB 반영을 먼저 끝낸 경우 현재 topic이 정답이다.
+			return CompletableFuture.completedFuture(null);
+		}
+
+		CompletableFuture<Void> removeAttempted = fcmService
+				.unsubscribeTopics(fcmToken, attemptedEmployeeId)
+				.thenAccept(success -> {
+					if (!success) {
+						log.error("FCM 경합 보상 중 잘못된 owner topic 해제 실패. employeeId={}",
+								attemptedEmployeeId);
+					}
+				});
+
+		if (currentOwnerId == null) {
+			return removeAttempted;
+		}
+
+		return removeAttempted.thenCompose(ignored ->
+				fcmService.subscribeTopics(fcmToken, currentOwnerId)
+						.thenAccept(success -> {
+							if (!success) {
+								log.error("FCM 경합 보상 중 현재 owner topic 복구 실패. employeeId={}",
+										currentOwnerId);
+							}
+						}));
 	}
 
 	private void runWithIpContext(String clientIp, Runnable action) {
