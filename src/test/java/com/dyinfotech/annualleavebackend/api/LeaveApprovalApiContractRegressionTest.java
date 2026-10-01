@@ -91,7 +91,7 @@ class LeaveApprovalApiContractRegressionTest {
 
         mockMvc.perform(get("/api/admin/leave-requests/pending"))
                 .andExpect(status().isOk())
-                .andExpect(content().json("[]"));
+                .andExpect(content().json("{\"items\":[],\"totalCount\":0,\"hasMore\":false}"));
 
         verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
         verify(leaveApprovalService).getPendingRequests(
