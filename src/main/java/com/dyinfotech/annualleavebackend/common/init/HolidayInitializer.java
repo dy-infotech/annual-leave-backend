@@ -50,7 +50,15 @@ public class HolidayInitializer implements ApplicationRunner {
             .flatMap(
                 month -> holidaySyncService.fetchHolidaysFromApi(year, month)
                     .flatMap(holidays ->
-                        holidaySyncService.deleteAndSaveHolidays(year, month, holidays)),
+                        holidaySyncService.deleteAndSaveHolidays(year, month, holidays))
+                    .onErrorResume(error -> {
+                        log.error(
+                                "=== [시스템 초기화] {}년 {}월 공휴일 동기화 실패 (다음 월은 계속 진행) ===",
+                                year,
+                                month,
+                                error);
+                        return reactor.core.publisher.Mono.empty();
+                    }),
                 3
             )
             .then()
