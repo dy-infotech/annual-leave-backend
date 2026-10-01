@@ -145,6 +145,17 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
                 )
                 .execute();
     }
+    @Override
+    public long completeSignUpIfUnregistered(Long employeeId, String newPassword) {
+        return queryFactory.update(qEmployee)
+                .set(qEmployee.password, newPassword)
+                .where(
+                        qEmployee.employeeId.eq(employeeId),
+                        qEmployee.password.isNull()
+                )
+                .execute();
+    }
+
 
     @Override
     public long updateCurrTotalLeaveDays(Long employeeId, float days) {

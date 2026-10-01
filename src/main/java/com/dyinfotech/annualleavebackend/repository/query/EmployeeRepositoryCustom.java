@@ -28,6 +28,7 @@ public interface EmployeeRepositoryCustom {
 	// 로그인 성공시 접근 횟수 초기화 (@Transactional을 국소적으로 사용해야 하므로 JPA가 아니라 QueryDSL을 이용해서 DB에 반영하도록 수정했다. JPA로 마이그레이션 금지.)
     long resetAccessCount(Long employeeId, LocalDateTime now);
     long compareAndSetPassword(Long employeeId, String expectedPassword, String newPassword);
+    long completeSignUpIfUnregistered(Long employeeId, String newPassword);
     // 로그인 성공시 올해 총 연차 수 업데이트 (@Transactional을 국소적으로 사용해야 하므로 JPA가 아니라 QueryDSL을 이용해서 DB에 반영하도록 수정했다. JPA로 마이그레이션 금지.)
     long updateCurrTotalLeaveDays(Long employeeId, float days);
 	// 이름으로 이메일 조회

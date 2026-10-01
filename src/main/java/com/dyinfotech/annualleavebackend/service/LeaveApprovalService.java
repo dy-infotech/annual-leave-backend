@@ -43,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 public class LeaveApprovalService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_PAGE = 10000;
+    private static final long MAX_OFFSET = 20_000L;
 	private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeService employeeService;
     private final TeamService teamService;
@@ -148,6 +149,11 @@ public class LeaveApprovalService {
         if (size < 1 || size > MAX_PAGE_SIZE) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "size는 1 이상 " + MAX_PAGE_SIZE + " 이하여야 합니다.");
+        }
+        if ((long) page * size > MAX_OFFSET) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "너무 깊은 페이지는 조회할 수 없습니다. 검색 조건을 좁혀주세요.");
         }
     }
 

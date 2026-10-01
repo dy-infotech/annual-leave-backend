@@ -163,6 +163,11 @@ public class EmployeeService {
     public boolean compareAndSetPassword(Long employeeId, String expectedPassword, String newPassword) {
         return employeeRepository.compareAndSetPassword(employeeId, expectedPassword, newPassword) == 1;
     }
+
+    @Transactional
+    public boolean completeSignUpIfUnregistered(Long employeeId, String newPassword) {
+        return employeeRepository.completeSignUpIfUnregistered(employeeId, newPassword) == 1;
+    }
     // 로그인 성공시 올해 총 연차 수 업데이트
     @Transactional
     public void updateCurrTotalLeaveDays(Long employeeId, float days) {

@@ -302,13 +302,14 @@ public class AuthService {
         	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
             throw new ResponseStatusException(HttpStatus.CONFLICT, errorMsg);
         }
-
-        // 3. 비밀번호 암호화 후 저장
+        // 동시 가입은 password IS NULL CAS로 최초 1건만 성공시킨다.
         String encodedPassword = passwordEncoder.encode(request.getPassword());
-
-        // Dirty Checking(변경 감지)
-        // 명시적으로 save()를 호출하지 않아도, @Transactional 범위 안에서 조회한 Entity의 필드를 변경하면 트랜잭션이 끝날 때 자동으로 Update
-        employee.completeSignUp(encodedPassword);
+        if (!employeeService.completeSignUpIfUnregistered(
+                employee.getEmployeeId(), encodedPassword)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "이미 가입되었거나 다른 가입 요청이 먼저 처리되었습니다.");
+        }
 
         return SignUpDto.SignUpResponse.builder()
                 .employeeId(employee.getEmployeeId())
