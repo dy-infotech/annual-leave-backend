@@ -71,14 +71,16 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
         }
         Long excludeId = employeeId;
-        List<ManagedTeam> managedTeams = teamService.findManagedTeams(employeeId);
-        Set<String> directTeams = managedTeams.stream().map(ManagedTeam::teamName).collect(Collectors.toSet());
+        TeamService.ManagedScope managedScope =
+                teamService.findManagedScopeFromDatabase(employeeId);
+        List<ManagedTeam> managedTeams = managedScope.directTeams();
+        Set<String> directTeams = managedTeams.stream()
+                .map(ManagedTeam::teamName)
+                .collect(Collectors.toSet());
         if (managedTeams.stream().anyMatch(team -> team.teamId().equals(team.parentTeamId()))) {
             excludeId = null;
         }
-        Set<ManagedTeam> accessibleTeams = managedTeams.stream()
-                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                .collect(Collectors.toSet());
+        Set<ManagedTeam> accessibleTeams = managedScope.accessibleTeams();
         Set<Long> childTeamProjectManagerIds = accessibleTeams.stream()
                 .filter(team -> !team.teamId().equals(team.parentTeamId()))
                 .filter(team -> directTeams.contains(team.parentTeamName()))
@@ -172,7 +174,10 @@ public class LeaveApprovalService {
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
         }
-        Set<String> accessibleTeams = getAccessibleTeams(teamService.findManagedTeams(employeeId));
+        Set<String> accessibleTeams = teamService.findManagedScopeFromDatabase(employeeId)
+                .accessibleTeams().stream()
+                .map(ManagedTeam::teamName)
+                .collect(Collectors.toSet());
         if (accessibleTeams.isEmpty()) {
             return new PageResponseDto<>(List.of(), 0L, false);
         }
