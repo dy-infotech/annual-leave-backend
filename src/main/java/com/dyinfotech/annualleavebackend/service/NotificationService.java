@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
+import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
@@ -30,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class NotificationService {
 	private final FcmTokenRepository tokenRepository;
+    private final EmployeeRepository employeeRepository;
+    private final TeamService teamService;
     private final FcmService fcmService;
     
     private final Clock clock;
