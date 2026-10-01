@@ -100,6 +100,44 @@ public class EmployeeService {
         return responses;
     }
 
+    public List<EmployeeDto.EmployeeResponse> getEmployeesPage(
+            String searchParam,
+            String team,
+            Boolean registered,
+            int page,
+            int size) {
+        validateEmployeePage(page, size);
+        List<Employee> employees =
+                employeeRepository.findEmployeesPage(searchParam, team, registered, page, size);
+        EmployeeAuthorityResolver roleResolver =
+                employeeLeaveService.createAuthorityResolver(
+                        employees.stream()
+                                .map(Employee::getEmployeeId)
+                                .collect(Collectors.toSet()));
+        Map<Long, Float> remainingLeaveDaysMap = commonService.getRemainingDays(employees);
+
+        List<EmployeeResponse> responses = new ArrayList<>();
+        for (Employee employee : employees) {
+            float currTotalLeaveDays =
+                    employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
+            responses.add(EmployeeResponse.from(
+                    employee,
+                    null,
+                    roleResolver,
+                    currTotalLeaveDays,
+                    remainingLeaveDaysMap.get(employee.getEmployeeId())));
+        }
+        return responses;
+    }
+
+    private void validateEmployeePage(int page, int size) {
+        if (page < 0 || size < 1 || size > 100 || (long) page * size > 20_000L) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "사원 목록 page/size 범위를 벗어났습니다.");
+        }
+    }
+
     @Transactional
     public void changeEmail(Long employeeId, String email) {
         Employee employee = employeeRepository.findById(employeeId)
