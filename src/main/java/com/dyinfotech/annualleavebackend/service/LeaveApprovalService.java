@@ -86,23 +86,28 @@ public class LeaveApprovalService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Year year = Year.now(clock);
-        List<LeaveRequest> requests = cursorCreatedAt == null
-                ? leaveRequestRepository.findByStatusAndTeamsInRangePage(
-                        excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
-                        DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        page, size + 1)
-                : leaveRequestRepository.findByStatusAndTeamsInRangeCursor(
-                        excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
-                        DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        cursorCreatedAt, cursorRequestId, size + 1);
-
-        boolean hasMore = requests.size() > size;
-        if (hasMore) {
-            requests = requests.subList(0, size);
-        }
         long totalCount = leaveRequestRepository.countByStatusAndTeamsInRange(
                 excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                 DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year));
+
+        List<LeaveRequest> requests;
+        boolean hasMore;
+        if (cursorCreatedAt == null) {
+            requests = leaveRequestRepository.findByStatusAndTeamsInRangePage(
+                    excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
+                    DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                    page, size);
+            hasMore = ((long) page + 1L) * size < totalCount;
+        } else {
+            requests = leaveRequestRepository.findByStatusAndTeamsInRangeCursor(
+                    excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
+                    DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                    cursorCreatedAt, cursorRequestId, size + 1);
+            hasMore = requests.size() > size;
+            if (hasMore) {
+                requests = requests.subList(0, size);
+            }
+        }
         return new PageResponseDto<>(
                 requests.stream()
                         .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
@@ -178,22 +183,27 @@ public class LeaveApprovalService {
             accessibleTeams = Set.of(team);
         }
         Year year = Year.now(clock);
-        List<LeaveRequest> requests = cursorCreatedAt == null
-                ? leaveRequestRepository.searchLeaveRequestsPage(
-                        null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        status, accessibleTeams, employeeParam, page, size + 1)
-                : leaveRequestRepository.searchLeaveRequestsCursor(
-                        null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        status, accessibleTeams, employeeParam,
-                        cursorCreatedAt, cursorRequestId, size + 1);
-
-        boolean hasMore = requests.size() > size;
-        if (hasMore) {
-            requests = requests.subList(0, size);
-        }
         long totalCount = leaveRequestRepository.countLeaveRequests(
                 null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
                 status, accessibleTeams, employeeParam);
+
+        List<LeaveRequest> requests;
+        boolean hasMore;
+        if (cursorCreatedAt == null) {
+            requests = leaveRequestRepository.searchLeaveRequestsPage(
+                    null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                    status, accessibleTeams, employeeParam, page, size);
+            hasMore = ((long) page + 1L) * size < totalCount;
+        } else {
+            requests = leaveRequestRepository.searchLeaveRequestsCursor(
+                    null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                    status, accessibleTeams, employeeParam,
+                    cursorCreatedAt, cursorRequestId, size + 1);
+            hasMore = requests.size() > size;
+            if (hasMore) {
+                requests = requests.subList(0, size);
+            }
+        }
         return new PageResponseDto<>(
                 requests.stream()
                         .map(LeaveRequestListDto.LeaveRequestListResponse::from)
