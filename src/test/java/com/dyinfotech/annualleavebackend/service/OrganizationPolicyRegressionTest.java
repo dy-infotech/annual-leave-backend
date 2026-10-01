@@ -35,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeViewCacheKey;
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
+import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
@@ -81,6 +82,17 @@ class OrganizationPolicyRegressionTest {
         employeeRepository = mock(EmployeeRepository.class);
         departmentRepository = mock(DepartmentRepository.class);
         cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+
+        // 조직 write path는 대표이사(root) TEAM row를 공통 mutex로 잠근다.
+        // 단위 테스트에서도 실제 운영 전제와 동일한 root 조직을 기본 fixture로 제공한다.
+        String rootTeamName = DepartmentType.getParentDepartmentType().getName();
+        TeamCacheRow rootTeamCache = new TeamCacheRow(1L, rootTeamName, 1L, true);
+        Team rootTeam = mock(Team.class);
+        when(teamCache.get(OrganizationCacheKey.byName(rootTeamName)))
+                .thenReturn(List.of(rootTeamCache));
+        when(teamRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(rootTeam));
+        when(rootTeam.getTeamId()).thenReturn(1L);
+        when(rootTeam.getEnabled()).thenReturn(true);
 
         Clock clock = Clock.fixed(
                 Instant.parse("2026-09-28T00:00:00Z"),

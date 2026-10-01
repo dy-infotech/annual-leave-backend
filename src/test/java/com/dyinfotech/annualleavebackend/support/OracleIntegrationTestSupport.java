@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.common.security.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.Role;
+import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.domain.Department;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
@@ -64,11 +65,11 @@ public abstract class OracleIntegrationTestSupport {
 
     @Autowired
     @Qualifier("departmentLoadingCache")
-    protected LoadingCache<String, List<DepartmentCacheRow>> departmentCache;
+    protected LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache;
 
     @Autowired
     @Qualifier("teamLoadingCache")
-    protected LoadingCache<String, List<TeamCacheRow>> teamCache;
+    protected LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache;
 
     @Autowired
     @Qualifier("teamManagerLoadingCache")
