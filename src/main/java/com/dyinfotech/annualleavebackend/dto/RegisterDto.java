@@ -43,6 +43,7 @@ public final class RegisterDto {
         private Role role;
 
         @NotBlank(message = "입사일을 입력해 주세요.")
+        @Size(max = 10, message = "입사일 형식이 올바르지 않습니다.")
         private String hireDate;
     }
 
