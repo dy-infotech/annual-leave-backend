@@ -63,9 +63,12 @@ public class YearlyScheduler {
     }
     
     private void setSpecialDays(int year) {
-    	Flux.range(1, 12) 
-	        .flatMap(m -> holidaySyncService.fetchHolidaysFromApi(year, m) // 여러 달을 병렬로 요청
-	        								.flatMap(holidays -> holidaySyncService.deleteAndSaveHolidays(year, m, holidays))
+    	Flux.range(1, 12)
+	        .flatMap(
+	        		m -> holidaySyncService.fetchHolidaysFromApi(year, m)
+	        				.flatMap(holidays ->
+	        						holidaySyncService.deleteAndSaveHolidays(year, m, holidays)),
+	        		3
 	        )
 	        .then()
 	        .block();
