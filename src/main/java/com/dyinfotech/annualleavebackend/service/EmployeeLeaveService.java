@@ -88,7 +88,7 @@ public class EmployeeLeaveService {
             String currentYear,
             LocalDate today) {
         List<Employee> activeEmployees =
-                employeeRepository.findAllByEmployeeIdInOrderByEmployeeIdAsc(employeeIds);
+                employeeRepository.findAllByIdsForUpdate(employeeIds);
         List<Long> renewedEmployeeIds = new ArrayList<>();
 
         for (Employee employee : activeEmployees) {
