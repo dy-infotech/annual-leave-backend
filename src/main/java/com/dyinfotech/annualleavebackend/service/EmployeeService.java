@@ -474,7 +474,9 @@ public class EmployeeService {
             plannedTeamIds.add(requestedEmployeeTeamId);
         }
 
-        // TEAM 잠금을 전체 집합에 대해 ID 오름차순으로 먼저 획득한 뒤 Employee 잠금을 잡는다.
+        // 결재 권한 검증과 팀/담당자 변경이 교차하지 않도록 조직 write 공통 mutex를 먼저 잡는다.
+        teamService.lockHierarchyForUpdate();
+        // 이후 TEAM 잠금을 전체 집합에 대해 ID 오름차순으로 획득한 뒤 Employee 잠금을 잡는다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
