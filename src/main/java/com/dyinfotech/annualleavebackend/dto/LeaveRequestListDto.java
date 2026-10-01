@@ -5,6 +5,8 @@ import java.time.LocalDateTime;
 
 import org.springframework.format.annotation.DateTimeFormat;
 
+import jakarta.validation.constraints.Size;
+
 import com.dyinfotech.annualleavebackend.common.type.LeaveRequestStatus;
 import com.dyinfotech.annualleavebackend.domain.LeaveRequest;
 
@@ -30,7 +32,8 @@ public final class LeaveRequestListDto {
         private LocalDate startDate;   
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
         private LocalDate endDate;     
-        private LeaveRequestStatus status;    
+        private LeaveRequestStatus status;
+        @Size(max = 100, message = "사원 검색어는 100자 이하여야 합니다.")
         private String searchEmployeeParam; 
     }
 
