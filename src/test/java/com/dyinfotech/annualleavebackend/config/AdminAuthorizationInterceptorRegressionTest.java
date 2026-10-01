@@ -54,8 +54,7 @@ class AdminAuthorizationInterceptorRegressionTest {
                 handler);
 
         verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
-        verify(currentAuthorityService, never())
-                .requireAuthenticatedPersonnelAuthority(true);
+        verify(currentAuthorityService, never()).requirePersonnelAuthority(EMPLOYEE_ID);
     }
 
     @Test
@@ -67,7 +66,7 @@ class AdminAuthorizationInterceptorRegressionTest {
                 new MockHttpServletResponse(),
                 handler);
 
-        verify(currentAuthorityService).requireAuthenticatedPersonnelAuthority(true);
+        verify(currentAuthorityService).requirePersonnelAuthority(EMPLOYEE_ID);
         verify(currentAuthorityService, never()).requireAuthenticatedAdmin(EMPLOYEE_ID);
     }
 
