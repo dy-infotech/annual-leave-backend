@@ -207,24 +207,20 @@ public class LeaveRequestService {
         leaveRequestRepository.saveAndFlush(leaveRequest);
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
  
-        // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        Set<Long> resolvedApproverIds = teamService.resolveCurrentApproverIds(employee);
-        if (!resolvedApproverIds.isEmpty()) {
-            Set<Long> notificationApproverIds = Set.copyOf(resolvedApproverIds);
-            String notificationTitle = employee.getName() + "님의 휴가 신청";
-            String notificationBody =
-                    "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
-
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    notificationService.sendNotificationToTeams(
-                            notificationApproverIds,
-                            notificationTitle,
-                            notificationBody);
-                }
-            });
-        }
+        // 알림 수신자는 commit 이후 현재 DB 조직 기준으로 다시 계산한다.
+        // 신청 중 캡처한 PM/cache snapshot을 사용하지 않는다.
+        String notificationTitle = employee.getName() + "님의 휴가 신청";
+        String notificationBody =
+                "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                notificationService.sendLeaveRequestNotification(
+                        employeeId,
+                        notificationTitle,
+                        notificationBody);
+            }
+        });
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }
