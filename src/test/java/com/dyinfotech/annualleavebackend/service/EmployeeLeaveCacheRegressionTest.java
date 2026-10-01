@@ -1,11 +1,14 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.times;
@@ -78,6 +81,62 @@ class EmployeeLeaveCacheRegressionTest {
                         ids -> ids != null && ids.size() == 1 && ids.contains(1L))
         );
     }
+    @Test
+    void yearlyRenewal_calculationFailure_doesNotPersistPartialEmployeeState() {
+        BasisDataFactory basisDataFactory = mock(BasisDataFactory.class);
+        LeaveAdjustmentRepository leaveAdjustmentRepository = mock(LeaveAdjustmentRepository.class);
+        TeamService teamService = mock(TeamService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        when(transactionManager.getTransaction(any()))
+                .thenReturn(mock(TransactionStatus.class));
+
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-01-01T00:00:00Z"),
+                ZoneId.of("Asia/Seoul")
+        );
+
+        EmployeeLeaveService service = spy(new EmployeeLeaveService(
+                basisDataFactory,
+                leaveAdjustmentRepository,
+                teamService,
+                employeeRepository,
+                employeeCacheInvalidator,
+                transactionManager,
+                clock
+        ));
+
+        Employee employee = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(employee.getEmployeeNumber()).thenReturn("E0001");
+        when(employee.getCurrYear()).thenReturn("2025");
+        when(employee.getCurrTotalLeaveDays()).thenReturn(15.0f);
+        when(employee.isActive(any(LocalDate.class))).thenReturn(true);
+
+        when(employeeRepository.findActiveEmployeeIdsAfter(
+                any(LocalDate.class), any(), any(Integer.class)))
+                .thenReturn(List.of(1L), List.of());
+        when(employeeRepository.findAllByIdsForUpdate(List.of(1L)))
+                .thenReturn(List.of(employee));
+        doThrow(new IllegalStateException("basis data missing"))
+                .when(service)
+                .getCalculatedCurrYearLeaveDays(employee);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> service.renewAllActiveEmployeesLeave("2026"));
+
+        // 계산 실패는 batch와 개별 fallback 모두 transaction rollback으로 끝나야 하며,
+        // 계산 전에 rollover 필드를 건드리지 않는다.
+        verify(employeeRepository, times(2)).findAllByIdsForUpdate(List.of(1L));
+        verify(employee, never()).setPrevYear(any());
+        verify(employee, never()).setPrevYearLeaveDays(anyFloat());
+        verify(employee, never()).setCurrYear(any());
+        verify(employee, never()).setCurrYearLeaveDays(anyFloat());
+        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any());
+    }
+
     @Test
     void yearlyRenewal_batchCommitFailure_retriesEmployeesIndividually() {
         BasisDataFactory basisDataFactory = mock(BasisDataFactory.class);
