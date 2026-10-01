@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -9,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -29,6 +31,7 @@ public class NotificationOutboxService {
 
     private final NotificationOutboxRepository repository;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void enqueueTeams(Collection<Long> approverIds, String title, String body) {
@@ -46,11 +49,15 @@ public class NotificationOutboxService {
             return;
         }
 
-        repository.save(new NotificationOutbox(
+        NotificationOutbox outbox = new NotificationOutbox(
                 encodedIds,
                 title,
                 body,
-                LocalDateTime.now(clock)));
+                LocalDateTime.now(clock));
+        repository.save(outbox);
+
+        // 실제 발송은 commit 이후 worker가 시작한다. rollback된 휴가 신청은 발송하지 않는다.
+        eventPublisher.publishEvent(new NotificationEnqueued(outbox.getOutboxId()));
     }
 
     @Transactional(readOnly = true)
@@ -119,9 +126,19 @@ public class NotificationOutboxService {
     }
 
     @Transactional
-    public void markFailed(Long outboxId, String error) {
-        repository.findByIdForUpdate(outboxId)
-                .ifPresent(outbox -> outbox.markFailed(LocalDateTime.now(clock), error));
+    public Optional<Duration> markFailed(Long outboxId, String error) {
+        NotificationOutbox outbox = repository.findByIdForUpdate(outboxId).orElse(null);
+        if (outbox == null || outbox.getStatus() != Status.PROCESSING) {
+            return Optional.empty();
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        outbox.markFailed(now, error);
+        if (outbox.getStatus() != Status.PENDING) {
+            return Optional.empty();
+        }
+
+        return Optional.of(Duration.between(now, outbox.getNextAttemptAt()));
     }
 
     @Transactional
@@ -142,6 +159,9 @@ public class NotificationOutboxService {
                         }
                     });
         }
+    }
+
+    public record NotificationEnqueued(Long outboxId) {
     }
 
     public record ClaimedNotification(

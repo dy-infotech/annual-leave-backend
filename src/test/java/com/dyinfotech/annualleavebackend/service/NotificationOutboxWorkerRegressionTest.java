@@ -1,12 +1,17 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +24,7 @@ class NotificationOutboxWorkerRegressionTest {
     void successfulSend_marksOutboxSent() {
         NotificationOutboxService outboxService = mock(NotificationOutboxService.class);
         FcmService fcmService = mock(FcmService.class);
-        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService);
+        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService, mock(ScheduledExecutorService.class));
 
         ClaimedNotification claimed =
                 new ClaimedNotification(10L, Set.of(100L), "title", "body");
@@ -37,7 +42,7 @@ class NotificationOutboxWorkerRegressionTest {
     void claimFailure_doesNotStarveLaterReadyRows() {
         NotificationOutboxService outboxService = mock(NotificationOutboxService.class);
         FcmService fcmService = mock(FcmService.class);
-        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService);
+        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService, mock(ScheduledExecutorService.class));
 
         ClaimedNotification second =
                 new ClaimedNotification(21L, Set.of(201L), "title-2", "body-2");
@@ -58,7 +63,7 @@ class NotificationOutboxWorkerRegressionTest {
     void failedSend_keepsOutboxForRetry() {
         NotificationOutboxService outboxService = mock(NotificationOutboxService.class);
         FcmService fcmService = mock(FcmService.class);
-        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService);
+        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService, mock(ScheduledExecutorService.class));
 
         ClaimedNotification claimed =
                 new ClaimedNotification(11L, Set.of(101L), "title", "body");
@@ -67,8 +72,14 @@ class NotificationOutboxWorkerRegressionTest {
         when(fcmService.sendConditionNotificationNowAndReport(Set.of(101L), "title", "body"))
                 .thenReturn(false);
 
+        ScheduledExecutorService retryExecutor = mock(ScheduledExecutorService.class);
+        worker = new NotificationOutboxWorker(outboxService, fcmService, retryExecutor);
+        when(outboxService.markFailed(11L, "FCM send returned partial/total failure"))
+                .thenReturn(Optional.of(Duration.ofSeconds(5)));
+
         worker.processPending();
 
         verify(outboxService).markFailed(11L, "FCM send returned partial/total failure");
+        verify(retryExecutor).schedule(any(Runnable.class), eq(5000L), eq(TimeUnit.MILLISECONDS));
     }
 }

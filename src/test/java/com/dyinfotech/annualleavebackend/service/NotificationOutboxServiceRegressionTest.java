@@ -6,11 +6,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import com.dyinfotech.annualleavebackend.domain.NotificationOutbox;
 import com.dyinfotech.annualleavebackend.domain.NotificationOutbox.Status;
@@ -25,7 +27,7 @@ class NotificationOutboxServiceRegressionTest {
                 Instant.parse("2026-10-01T00:00:00Z"),
                 ZoneOffset.UTC);
         NotificationOutboxService service =
-                new NotificationOutboxService(repository, clock);
+                new NotificationOutboxService(repository, clock, mock(ApplicationEventPublisher.class));
 
         NotificationOutbox outbox = new NotificationOutbox(
                 "100,not-a-number,200",
@@ -39,5 +41,28 @@ class NotificationOutboxServiceRegressionTest {
         assertTrue(claimed.isEmpty());
         assertEquals(Status.DEAD, outbox.getStatus());
         assertTrue(outbox.getLastError().startsWith("invalid approver_ids:"));
+    }
+
+    @Test
+    void failedProcessing_returnsDelayForTargetedRetry() {
+        NotificationOutboxRepository repository = mock(NotificationOutboxRepository.class);
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-10-01T00:00:00Z"),
+                ZoneOffset.UTC);
+        NotificationOutboxService service =
+                new NotificationOutboxService(repository, clock, mock(ApplicationEventPublisher.class));
+
+        NotificationOutbox outbox = new NotificationOutbox(
+                "100",
+                "title",
+                "body",
+                java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        assertTrue(outbox.claim(java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC)));
+        when(repository.findByIdForUpdate(11L)).thenReturn(Optional.of(outbox));
+
+        Optional<Duration> retryDelay = service.markFailed(11L, "temporary failure");
+
+        assertEquals(Optional.of(Duration.ofSeconds(5)), retryDelay);
+        assertEquals(Status.PENDING, outbox.getStatus());
     }
 }
