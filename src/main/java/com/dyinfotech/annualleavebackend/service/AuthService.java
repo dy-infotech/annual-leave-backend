@@ -332,17 +332,6 @@ public class AuthService {
             employee.initAccessCount(now);
         }
 
-        if (employee.getAccessCount() >= loginFailMaxCount) {
-            LocalDateTime unblockTime = employee.getAccessedAt() == null
-                    ? now.plus(loginUnblockHour, ChronoUnit.HOURS)
-                    : employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour
-                            + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : "
-                            + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
-        }
-
         String currentPassword = employee.getPassword();
         boolean isBcrypt = StringUtils.hasText(currentPassword)
                 && passwordEncoder instanceof BCryptPasswordEncoder
@@ -353,6 +342,17 @@ public class AuthService {
                 : Objects.equals(password, currentPassword);
 
         if (!isPasswordValid) {
+            if (employee.getAccessCount() >= loginFailMaxCount) {
+                LocalDateTime unblockTime = employee.getAccessedAt() == null
+                        ? now.plus(loginUnblockHour, ChronoUnit.HOURS)
+                        : employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS);
+                throw new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "로그인 실패 " + loginFailMaxCount + "번째로 " + loginUnblockHour
+                                + "시간동안 로그인이 불가능합니다. 로그인 가능 시각 : "
+                                + unblockTime.format(YYYY_MM_DD_HH_MM_SS));
+            }
+
             employeeService.increaseAccessCount(employee.getEmployeeId(), now);
             employee.increaseAccessCount(now);
             log.error("비밀번호 에러 employeeId : {}, failCount : {}",
@@ -360,6 +360,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         }
 
+        // 실패 횟수는 brute-force 완화용 상태이지 제3자가 계정을 장시간 봉쇄하는
+        // 권한이 되어서는 안 된다. 올바른 비밀번호가 확인되면 잠금 상태라도 복구한다.
         employeeService.resetAccessCount(employee.getEmployeeId(), now);
         employee.initAccessCount(now);
 
