@@ -174,6 +174,29 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
+    void createReasonRequiredLeaveRequest_rejectsBlankReason() {
+        Employee employee = mockEmployee();
+        when(employeeRepository.findByIdForUpdate(EMPLOYEE_ID))
+                .thenReturn(java.util.Optional.of(employee));
+        when(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee))
+                .thenReturn(15.0f);
+
+        LeaveRequestDto.LeaveRequestCreateRequest request =
+                createRequest(LeaveType.FAMILY.getName(), REQUEST_DATE, 1.0f);
+        setField(request, "leaveReason", "   ");
+
+        ResponseStatusException exception =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        ResponseStatusException.class,
+                        () -> leaveRequestService.createLeaveRequest(
+                                EMPLOYEE_ID,
+                                request));
+
+        assertEquals(400, exception.getStatusCode().value());
+        verify(leaveRequestRepository, never()).saveAndFlush(any(LeaveRequest.class));
+    }
+
+    @Test
     void createSpecialLeaveRequest_rejectsUseDaysThatDoNotMatchBusinessDays() {
         Employee employee = mockEmployee();
         when(employeeRepository.findByIdForUpdate(EMPLOYEE_ID)).thenReturn(java.util.Optional.of(employee));
@@ -221,9 +244,15 @@ class LeaveRequestRegressionTest {
         )).thenReturn(List.of());
         when(teamService.refreshApproverIds(employee)).thenReturn(Set.of());
 
+        LeaveRequestDto.LeaveRequestCreateRequest request =
+                createRequest(leaveType.getName(), REQUEST_DATE, useDays);
+        if (leaveType.requiresReason()) {
+            setField(request, "leaveReason", "정상 신청 사유");
+        }
+
         leaveRequestService.createLeaveRequest(
                 EMPLOYEE_ID,
-                createRequest(leaveType.getName(), REQUEST_DATE, useDays)
+                request
         );
 
         verify(leaveRequestRepository).sumRequestedUseDays(
