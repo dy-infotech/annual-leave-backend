@@ -108,30 +108,44 @@ public class FcmService {
 	 * 각 partition 실패는 로그로 격리해 휴가 신청 커밋 결과에 영향을 주지 않는다.
 	 */
 	public void sendConditionNotificationNow(Collection<Long> approverIds, String title, String body) {
-		if (approverIds == null || approverIds.isEmpty()) {
-			return;
-		}
-
-		final int maxTopicCount = 5;
-		List<Long> ids = new ArrayList<>(approverIds);
-		for (int from = 0; from < ids.size(); from += maxTopicCount) {
-			List<Long> partition = ids.subList(from, Math.min(from + maxTopicCount, ids.size()));
-			String condition = partition.stream()
-					.map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
-					.collect(Collectors.joining(" || "));
-
-			Message message = Message.builder()
-					.setNotification(Notification.builder().setTitle(title).setBody(body).build())
-					.setCondition(condition)
-					.build();
-			try {
-				String response = firebaseMessaging.send(message);
-				log.info("조건부 알림 발송 성공 (대상: {}명): {}", partition.size(), response);
-			} catch (Exception e) {
-				log.error("조건부 알림 발송 실패 (대상: {})", partition, e);
-			}
-		}
+        sendConditionNotificationNowAndReport(approverIds, title, body);
 	}
+
+    /**
+     * outbox worker용 동기 발송 경로. partition 하나라도 실패하면 false를 반환해
+     * DB outbox가 다음 재시도 시각을 기록할 수 있게 한다.
+     */
+    public boolean sendConditionNotificationNowAndReport(
+            Collection<Long> approverIds,
+            String title,
+            String body) {
+        if (approverIds == null || approverIds.isEmpty()) {
+            return true;
+        }
+
+        boolean allSucceeded = true;
+        final int maxTopicCount = 5;
+        List<Long> ids = new ArrayList<>(approverIds);
+        for (int from = 0; from < ids.size(); from += maxTopicCount) {
+            List<Long> partition = ids.subList(from, Math.min(from + maxTopicCount, ids.size()));
+            String condition = partition.stream()
+                    .map(id -> "'" + TEAM_TOPIC_PREFIX + id + "' in topics")
+                    .collect(Collectors.joining(" || "));
+
+            Message message = Message.builder()
+                    .setNotification(Notification.builder().setTitle(title).setBody(body).build())
+                    .setCondition(condition)
+                    .build();
+            try {
+                String response = firebaseMessaging.send(message);
+                log.info("조건부 알림 발송 성공 (대상: {}명): {}", partition.size(), response);
+            } catch (Exception e) {
+                allSucceeded = false;
+                log.error("조건부 알림 발송 실패 (대상: {})", partition, e);
+            }
+        }
+        return allSucceeded;
+    }
 
 	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
 		List<FcmToken> inactiveTokens =

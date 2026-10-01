@@ -13,8 +13,6 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
@@ -46,7 +44,7 @@ public class LeaveRequestService {
     private final LeaveRequestRepository leaveRequestRepository;
     private final EmployeeRepository employeeRepository;
     private final EmployeeLeaveService employeeLeaveService;
-    private final NotificationService notificationService;
+    private final NotificationOutboxService notificationOutboxService;
     private final HolidaySyncService holidaySyncService;
     private final CommonService commonService;
     private final TeamService teamService;
@@ -183,15 +181,13 @@ public class LeaveRequestService {
             String notificationTitle = employee.getName() + "님의 휴가 신청";
             String notificationBody =
                     "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    notificationService.sendNotificationToTeams(
-                            notificationApproverIds,
-                            notificationTitle,
-                            notificationBody);
-                }
-            });
+
+            // 휴가 신청과 알림 이벤트를 같은 DB transaction에 저장한다.
+            // commit 이후 프로세스가 종료돼도 outbox worker가 재기동 후 이어서 발송한다.
+            notificationOutboxService.enqueueTeams(
+                    notificationApproverIds,
+                    notificationTitle,
+                    notificationBody);
         }
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
