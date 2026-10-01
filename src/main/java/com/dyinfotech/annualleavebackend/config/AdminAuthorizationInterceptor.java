@@ -11,6 +11,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
+import com.dyinfotech.annualleavebackend.common.security.ReplayAwareApproval;
 import com.dyinfotech.annualleavebackend.service.CurrentAuthorityService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,15 +44,27 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증 정보가 없습니다.");
         }
 
-        if (handler instanceof HandlerMethod handlerMethod
-                && requiresPersonnelAuthority(handlerMethod)) {
-            currentAuthorityService.requireAuthenticatedPersonnelAuthority(
-                    principal.personnelAuthority());
-        } else {
-            currentAuthorityService.requireAuthenticatedAdmin(principal.employeeId());
+        if (handler instanceof HandlerMethod handlerMethod) {
+            if (isReplayAwareApproval(handlerMethod)) {
+                // 승인/반려는 서비스가 조직 mutex 아래에서 동일 결과 재전송을 먼저 판정하고,
+                // 새 상태 변경일 때만 최신 DB 결재권을 검증한다.
+                return true;
+            }
+            if (requiresPersonnelAuthority(handlerMethod)) {
+                currentAuthorityService.requireAuthenticatedPersonnelAuthority(
+                        principal.personnelAuthority());
+                return true;
+            }
         }
 
+        currentAuthorityService.requireAuthenticatedAdmin(principal.employeeId());
         return true;
+    }
+
+    private boolean isReplayAwareApproval(HandlerMethod handlerMethod) {
+        return AnnotatedElementUtils.hasAnnotation(
+                handlerMethod.getMethod(),
+                ReplayAwareApproval.class);
     }
 
     private boolean requiresPersonnelAuthority(HandlerMethod handlerMethod) {
