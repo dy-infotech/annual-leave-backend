@@ -290,6 +290,12 @@ public class TeamService {
         }
 
         LocalDate today = LocalDate.now(clock);
+        // 비-PM의 대시보드/권한 조회가 매번 조직 전체 snapshot을 읽지 않게
+        // 현재 재직 PM 여부를 타깃 EXISTS 쿼리로 먼저 판정한다.
+        if (!teamManagerRepository.existsActiveManagerByEmployeeId(employeeId, today)) {
+            return new ManagedScope(List.of(), Set.of());
+        }
+
         List<TeamManagerCacheRow> managerRows = teamManagerRepository.findAllForCache();
         Map<Long, TeamCacheRow> teams = teamRepository.findAllEnabledForCache().stream()
                 .collect(Collectors.toMap(TeamCacheRow::teamId, team -> team));
