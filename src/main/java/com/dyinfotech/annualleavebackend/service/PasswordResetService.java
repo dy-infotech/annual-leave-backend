@@ -59,6 +59,7 @@ public class PasswordResetService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
         }
 
+        // 사번과 이메일로 재설정 대상 계정을 확인한다
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), realEmail)
                 .filter(Employee::isRegisted)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -69,10 +70,10 @@ public class PasswordResetService {
         String tokenHash = hash(rawToken);
         Long candidateEmployeeId = employee.getEmployeeId();
 
-        // 전역 expired 정리는 employee row lock과 분리한다. 직원 락을 잡은 채 다른 직원의
-        // reset token까지 DELETE하면 confirmReset의 token/employee lock과 교차할 수 있다.
+        // 만료 토큰 정리는 직원 잠금과 분리해 먼저 처리한다
         transactionTemplate.executeWithoutResult(status -> tokenRepository.deleteExpired(now));
 
+        // 직원 정보를 잠근 뒤 기존 토큰을 지우고 새 토큰을 발급한다
         PreparedReset prepared = transactionTemplate.execute(status -> {
             Employee lockedEmployee = employeeRepository.findByIdForUpdate(candidateEmployeeId)
                     .filter(Employee::isRegisted)
@@ -98,6 +99,7 @@ public class PasswordResetService {
             throw new IllegalStateException("비밀번호 재설정 토큰 저장에 실패했습니다.");
         }
 
+        // 메일 발송에 실패하면 방금 발급한 토큰을 제거한다
         try {
             sendResetMail(prepared.employeeId(), prepared.recipient(), rawToken);
         } catch (RuntimeException e) {
@@ -143,9 +145,7 @@ public class PasswordResetService {
         authRateLimitService.checkRecovery("reset-password:" + tokenHash);
 
         LocalDateTime now = LocalDateTime.now(clock);
-        // requestReset과 동일하게 Employee -> PasswordResetToken 순서로 잠근다.
-        // 최초 조회는 employeeId를 얻기 위한 non-locking probe이며, 직원 lock 획득 후
-        // token을 FOR UPDATE로 다시 읽어 삭제/소비/만료 race를 재검증한다.
+        // 토큰 대상 직원을 잠근 뒤 토큰 상태를 다시 확인한다
         PasswordResetToken candidate = tokenRepository
                 .findByTokenHashAndConsumedAtIsNull(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -170,6 +170,7 @@ public class PasswordResetService {
                     "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
         }
 
+        // 비밀번호를 변경하고 기존 Refresh 세션을 폐기한다
         String expectedPassword = employee.getPassword();
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
         if (!employeeService.compareAndSetPassword(

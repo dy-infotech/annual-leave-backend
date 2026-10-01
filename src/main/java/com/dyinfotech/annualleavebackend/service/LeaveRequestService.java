@@ -111,7 +111,7 @@ public class LeaveRequestService {
     		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 사원은 휴가를 신청할 수 없습니다.");
     	}
         String currentYear = String.valueOf(today.getYear());
-        // 레거시/부분 마이그레이션 row도 신청 경로에서 현재 연도로 self-heal한다.
+        // 신청 전 현재 연도 기준으로 연차 상태를 맞춘다
         if (employee.getCurrYear() == null) {
             employee.setCurrYear(currentYear);
         } else if (!employee.getCurrYear().equals(currentYear)) {
@@ -130,12 +130,10 @@ public class LeaveRequestService {
         validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate(), employee.getFireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
         validateLeaveReason(leaveType, request.getLeaveReason());
-        // 모든 휴가 유형은 신청 기간의 실제 근무일수와 사용일수가 일치해야 한다.
-        // 대체/출산/가족돌봄 휴가는 연차 잔여량만 차감/검증 대상에서 제외한다.
+        // 신청 기간과 사용일수의 근무일 기준 정합성을 확인한다
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
 
-        // 직원 row lock을 잡은 동안 연간 요청 엔티티를 다시 전부 로드하지 않는다.
-        // 같은 SUM 결과를 잔여 검증과 신청 전/후 snapshot 계산에 함께 사용한다.
+        // 현재 연도 사용량을 합산해 신청 전 잔여 연차를 계산한다
         Year leaveYear = Year.from(today);
         LocalDate leaveYearStart = leaveYear.atDay(1);
         LocalDate leaveYearEnd = leaveYear.atMonth(Month.DECEMBER).atEndOfMonth();
@@ -209,8 +207,7 @@ public class LeaveRequestService {
         leaveRequestRepository.saveAndFlush(leaveRequest);
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
  
-        // 알림 수신자는 commit 이후 현재 DB 조직 기준으로 다시 계산한다.
-        // 신청 중 캡처한 PM/cache snapshot을 사용하지 않는다.
+        // 신청 저장 후 커밋이 끝나면 최신 조직 기준으로 알림을 보낸다
         String notificationTitle = employee.getName() + "님의 휴가 신청";
         String notificationBody =
                 "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
@@ -223,8 +220,7 @@ public class LeaveRequestService {
                             notificationTitle,
                             notificationBody);
                 } catch (RuntimeException e) {
-                    // 비즈니스 commit은 이미 끝났다. 후속 알림 transaction 실패가
-                    // 성공한 휴가 신청 응답을 실패로 뒤집지 않는다.
+                    // 알림 실패는 완료된 휴가 신청 결과에 영향을 주지 않는다
                     log.error("휴가 신청 후 알림 처리 실패. employeeId={}", employeeId, e);
                 }
             }
@@ -700,9 +696,7 @@ public class LeaveRequestService {
     public void cancel(Long employeeId, Long requestId) {
     	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
 
-        // 신청 생성/승인과 같은 직원 단위 정합성 경계로 직렬화한다.
-        // 취소가 커밋되기 직전의 PENDING/APPROVED row를 새 신청이 다시 합산해
-        // 중복/잔여량 부족으로 잘못 거절하는 race를 막는다.
+        // 취소 처리 중 같은 직원의 신규 신청과 사용량 계산을 직렬화한다
         employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,

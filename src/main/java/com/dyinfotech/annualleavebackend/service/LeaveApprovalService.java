@@ -71,6 +71,7 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
         }
         Long excludeId = employeeId;
+        // 현재 조직 기준으로 승인 가능한 팀 범위를 계산한다
         TeamService.ManagedScope managedScope =
                 teamService.findManagedScopeFromDatabase(employeeId);
         List<ManagedTeam> managedTeams = managedScope.directTeams();
@@ -95,8 +96,7 @@ public class LeaveApprovalService {
         List<LeaveRequest> requests;
         boolean hasMore;
         if (cursorCreatedAt == null) {
-            // totalCount와 row 조회는 Oracle READ COMMITTED에서 서로 다른 statement snapshot일 수 있다.
-            // 다음 페이지 존재 여부는 count가 아니라 같은 row query의 size + 1 결과로 판단한다.
+            // 다음 페이지 여부는 실제 조회 결과를 기준으로 판단한다
             requests = leaveRequestRepository.findByStatusAndTeamsInRangePage(
                     excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                     DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
@@ -179,6 +179,7 @@ public class LeaveApprovalService {
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
         }
+        // 현재 조직 범위 안에서 처리 완료된 신청을 조회한다
         Set<String> accessibleTeams = teamService.findManagedScopeFromDatabase(employeeId)
                 .accessibleTeams().stream()
                 .map(ManagedTeam::teamName)
@@ -267,7 +268,7 @@ public class LeaveApprovalService {
             Long approverId) throws ResponseStatusException {
         Long requestId = leaveRequest.getRequestId();
 
-        // 요청자와 관리자 정보 추출
+        // 요청자와 승인자를 잠근 뒤 현재 상태를 확인한다
         Long employeeId = leaveRequest.getEmployee().getEmployeeId();
         Set<Long> employeeIds = Stream.of(employeeId, approverId).collect(Collectors.toSet());
         List<Employee> employees = employeeService.getEmployeeListForUpdate(employeeIds);
@@ -306,7 +307,7 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 관리자는 휴가를 처리할 수 없습니다.");
         }
         
-        // 저장된 approver_id는 신뢰하지 않고 최신 TeamManager 캐시 기준으로 결재 권한을 검증한다.
+        // 저장된 결재자 대신 현재 조직 기준으로 승인 권한을 확인한다
         boolean isApprover = false;
     	StringBuilder approverString = new StringBuilder();
     	for (Long id : teamService.resolveCurrentApproverIdsFromDatabase(employee)) {
@@ -332,13 +333,12 @@ public class LeaveApprovalService {
     
     @Transactional
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
-        // 조직 변경 write path와 동일한 mutex를 먼저 잡아 권한 검증부터 상태 전이까지 고정한다.
+        // 조직 변경을 잠근 뒤 승인 상태를 처리한다
         teamService.lockHierarchyForUpdate();
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
-        // 이미 같은 관리자가 같은 결과로 처리한 요청의 재전송은 상태 변경이 아니다.
-        // 이후 조직/결재권이 바뀌었더라도 원래 성공 결과를 안정적으로 재현한다.
+        // 동일 승인 요청이면 기존 처리 결과를 반환한다
         if (isSameApprovalResult(current, approverId)) {
             return LeaveApprovalDto.LeaveApprovalResponse.from(current);
         }
@@ -356,7 +356,7 @@ public class LeaveApprovalService {
                 now
         );
 
-        // 업데이트된 행이 0개면 PENDING 상태가 아니라는 의미이므로 예외 발생
+        // 이미 처리된 요청이면 동일 결과인지 다시 확인한다
         if (updatedCount == 0) {
             LeaveRequest replayed = leaveRequestRepository.findById(requestId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
@@ -369,7 +369,7 @@ public class LeaveApprovalService {
 
         employeeCacheInvalidator.afterEmployeeViewChange(leaveRequest.getEmployee().getEmployeeId());
 
-        // 영속성 컨텍스트가 초기화되었으므로 최신 데이터 재조회 후 응답 생성
+        // 변경된 신청 정보를 다시 조회해 응답한다
         LeaveRequest updatedRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
 
@@ -379,12 +379,12 @@ public class LeaveApprovalService {
     @Transactional
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
         String rejectReason = normalizeRejectReason(request.getRejectReason());
-        // 조직 변경 write path와 동일한 mutex를 먼저 잡아 권한 검증부터 상태 전이까지 고정한다.
+        // 조직 변경을 잠근 뒤 반려 상태를 처리한다
         teamService.lockHierarchyForUpdate();
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
-        // 동일 반려 결과의 재전송은 상태 변경이 아니므로 현재 결재권보다 먼저 판정한다.
+        // 동일 반려 요청이면 기존 처리 결과를 반환한다
         if (isSameRejectionResult(current, approverId, rejectReason)) {
             return LeaveRejectDto.LeaveRejectResponse.from(current);
         }
@@ -402,7 +402,7 @@ public class LeaveApprovalService {
                 now
         );
 
-        // 업데이트된 행이 0개면 PENDING 상태가 아니라는 의미이므로 예외 발생
+        // 이미 처리된 요청이면 동일 결과인지 다시 확인한다
         if (updatedCount == 0) {
             LeaveRequest replayed = leaveRequestRepository.findById(requestId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
@@ -415,7 +415,7 @@ public class LeaveApprovalService {
 
         employeeCacheInvalidator.afterEmployeeViewChange(leaveRequest.getEmployee().getEmployeeId());
 
-        // 영속성 컨텍스트가 초기화되었으므로 최신 데이터 재조회 후 응답 생성
+        // 변경된 신청 정보를 다시 조회해 응답한다
         LeaveRequest updatedRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
 
