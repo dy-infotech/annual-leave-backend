@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.service;
 
 import java.time.Duration;
 import java.util.Locale;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,8 @@ public class AuthRateLimitService {
     private static final int RECOVERY_IP_LIMIT = 10;
     private static final int PUBLIC_AUTH_IDENTITY_LIMIT = 10;
     private static final int PUBLIC_AUTH_IP_LIMIT = 30;
+    private static final int PASSWORD_CHANGE_IDENTITY_LIMIT = 5;
+    private static final int PASSWORD_CHANGE_WORKERS = 4;
 
     private final Cache<String, AtomicInteger> signInIdentity = counterCache(Duration.ofMinutes(10));
     private final Cache<String, AtomicInteger> signInIp = counterCache(Duration.ofMinutes(1));
@@ -32,6 +35,11 @@ public class AuthRateLimitService {
     private final Cache<String, AtomicInteger> recoveryIp = counterCache(Duration.ofMinutes(10));
     private final Cache<String, AtomicInteger> publicAuthIdentity = counterCache(Duration.ofMinutes(10));
     private final Cache<String, AtomicInteger> publicAuthIp = counterCache(Duration.ofMinutes(10));
+    private final Cache<Long, AtomicInteger> passwordChangeIdentity = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(10))
+            .maximumSize(20_000)
+            .build();
+    private final Semaphore passwordChangeWorkers = new Semaphore(PASSWORD_CHANGE_WORKERS);
 
     private static Cache<String, AtomicInteger> counterCache(Duration duration) {
         return Caffeine.newBuilder()
@@ -86,6 +94,28 @@ public class AuthRateLimitService {
                 "계정 복구 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
         acquire(recoveryIp, ip, RECOVERY_IP_LIMIT,
                 "계정 복구 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    public void checkPasswordChange(Long employeeId) {
+        AtomicInteger counter = passwordChangeIdentity.asMap()
+                .computeIfAbsent(employeeId, ignored -> new AtomicInteger());
+        if (counter.incrementAndGet() > PASSWORD_CHANGE_IDENTITY_LIMIT) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "비밀번호 변경 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.");
+        }
+    }
+
+    public void clearPasswordChange(Long employeeId) {
+        passwordChangeIdentity.invalidate(employeeId);
+    }
+
+    public boolean tryAcquirePasswordWorker() {
+        return passwordChangeWorkers.tryAcquire();
+    }
+
+    public void releasePasswordWorker() {
+        passwordChangeWorkers.release();
     }
 
     private void acquire(Cache<String, AtomicInteger> cache, String key, int limit, String message) {
