@@ -14,7 +14,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
@@ -39,12 +42,15 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class EmployeeLeaveService {
 
+    private static final int ROLLOVER_BATCH_SIZE = 200;
+
     private final BasisDataFactory basisDataFactory;
     private final LeaveAdjustmentRepository leaveAdjustmentRepository;
     private final TeamService teamService;
     // XXX: EmployeeService가 EmployeeLeaveService를 참조하고 있다. 상호 참조 이슈를 방지하기 위해 EmployeeRepository를 사용하도록 허용한다
     private final EmployeeRepository employeeRepository;
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
+    private final PlatformTransactionManager transactionManager;
     
     private final Clock clock;
     
@@ -53,29 +59,61 @@ public class EmployeeLeaveService {
      * 이 메서드가 끝나는 순간 전직원 변경사항이 DB에 Commit 되며 락(Lock)이 즉시 해제
      * @param currentYear
      */
-    @Transactional
     public void renewAllActiveEmployeesLeave(String currentYear) {
-        // 1. 퇴사자를 제외한 전직원 목록 조회 (필요 시 패치 조인이나 벌크 연산 고려)
-        List<Employee> activeEmployees = employeeRepository.findAllActiveAt(LocalDate.now(clock));
+        LocalDate today = LocalDate.now(clock);
+        Long afterEmployeeId = null;
+
+        TransactionTemplate batchTransaction = new TransactionTemplate(transactionManager);
+        batchTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        while (true) {
+            List<Long> employeeIds = employeeRepository.findActiveEmployeeIdsAfter(
+                    today,
+                    afterEmployeeId,
+                    ROLLOVER_BATCH_SIZE);
+            if (employeeIds.isEmpty()) {
+                return;
+            }
+
+            List<Long> batchIds = List.copyOf(employeeIds);
+            batchTransaction.executeWithoutResult(
+                    status -> renewActiveEmployeeBatch(batchIds, currentYear, today));
+
+            afterEmployeeId = employeeIds.get(employeeIds.size() - 1);
+        }
+    }
+
+    private void renewActiveEmployeeBatch(
+            List<Long> employeeIds,
+            String currentYear,
+            LocalDate today) {
+        List<Employee> activeEmployees =
+                employeeRepository.findAllByEmployeeIdInOrderByEmployeeIdAsc(employeeIds);
         List<Long> renewedEmployeeIds = new ArrayList<>();
-        
-        // 2. 루프를 돌며 안전하게 연차 갱신
+
         for (Employee employee : activeEmployees) {
             try {
-            	String prevYear = employee.getCurrYear();
-            	if (prevYear != null && !prevYear.equals(currentYear)) {
-            		employee.setPrevYear(prevYear);
-            		employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
-            		employee.setCurrYear(currentYear);
-            		employee.setCurrYearLeaveDays(getCalculatedCurrYearLeaveDays(employee));
+                if (!employee.isActive(today)) {
+                    continue;
+                }
+
+                String prevYear = employee.getCurrYear();
+                if (prevYear != null && !prevYear.equals(currentYear)) {
+                    employee.setPrevYear(prevYear);
+                    employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
+                    employee.setCurrYear(currentYear);
+                    employee.setCurrYearLeaveDays(getCalculatedCurrYearLeaveDays(employee));
                     renewedEmployeeIds.add(employee.getEmployeeId());
                     log.info("직원 번호 [{}] 연차 갱신 완료", employee.getEmployeeNumber());
-            	} else {
-            		log.error("직원 번호 [{}] 연차 갱신 실패", employee.getEmployeeNumber());
-            	}
+                } else {
+                    log.info("직원 번호 [{}] 연차 갱신 불필요", employee.getEmployeeNumber());
+                }
             } catch (Exception e) {
-                // 한 명이 에러 나도 다른 직원들은 갱신되어야 하므로 예외 처리 개별 적용
-                log.error("직원 번호 [{}] 연차 갱신 중 에러 발생: {}", employee.getEmployeeNumber(), e.getMessage());
+                log.error(
+                        "직원 번호 [{}] 연차 갱신 중 에러 발생: {}",
+                        employee.getEmployeeNumber(),
+                        e.getMessage(),
+                        e);
             }
         }
 
