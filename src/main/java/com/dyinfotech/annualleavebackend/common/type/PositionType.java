@@ -36,6 +36,9 @@ public enum PositionType {
 	}
 	
 	public static final PositionType getType(String name) {
+		if (name == null || name.isBlank()) {
+			return null;
+		}
 		PositionType type = nameToEnumMap.get(name);
 		return type != null ? type : aliasToEnumMap.get(name);
 	}
