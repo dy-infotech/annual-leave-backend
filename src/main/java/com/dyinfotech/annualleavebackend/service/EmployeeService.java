@@ -75,6 +75,7 @@ public class EmployeeService {
     }
     
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(String searchParam) {
+        validateEmployeeSearch(searchParam, null);
     	List<Employee> employees;
     	EmployeeAuthorityResolver roleResolver;
     	// XXX: 주석 처리된 부분은 remainingLeaveDays가 필요할 경우에만 사용. 현재는 필요하지 않다고 판단함.
@@ -107,6 +108,7 @@ public class EmployeeService {
             int page,
             int size) {
         validateEmployeePage(page, size);
+        validateEmployeeSearch(searchParam, team);
         List<Employee> employees =
                 employeeRepository.findEmployeesPage(searchParam, team, registered, page, size);
         EmployeeAuthorityResolver roleResolver =
@@ -128,6 +130,19 @@ public class EmployeeService {
                     remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
         return responses;
+    }
+
+    private void validateEmployeeSearch(String searchParam, String team) {
+        if (searchParam != null && searchParam.length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "사원 검색어는 100자 이하여야 합니다.");
+        }
+        if (team != null && team.length() > 30) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "팀명은 30자 이하여야 합니다.");
+        }
     }
 
     private void validateEmployeePage(int page, int size) {
