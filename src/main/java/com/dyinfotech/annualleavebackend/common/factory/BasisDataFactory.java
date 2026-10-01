@@ -26,7 +26,8 @@ public class BasisDataFactory {
 	private final Clock clock;
 	private final BasisDataRepository repository;
 
-	private Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
+	// reload()은 scheduler thread에서 immutable snapshot 참조를 교체하므로 request thread에 즉시 안전하게 공개한다.
+	private volatile Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
 	
 	private Map<BasisDataType, BasisData> loadByYear(int year) {
 	    Map<BasisDataType, BasisData> grouped = new EnumMap<>(BasisDataType.class);
