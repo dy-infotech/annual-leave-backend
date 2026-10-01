@@ -6,7 +6,7 @@ on:
       - release
   workflow_dispatch:
 
-# 배포 workflow는 release 전용. develop 브랜치에서는 실행하지 않는다.
+# 수동 실행(workflow_dispatch) 시 선택한 ref를 그대로 배포한다.
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -30,7 +30,6 @@ jobs:
 
       # 1. SSH 접속 테스트 (Fail Fast)
       - name: 1. SSH 접속 테스트
-        if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -107,7 +106,6 @@ jobs:
 
       # 6. 서버 배포 디렉터리 준비
       - name: 6. 서버 배포 디렉터리 준비
-        if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -130,7 +128,6 @@ jobs:
 
       # 6. JAR 업로드
       - name: 7. Build JAR Upload
-        if: github.ref == 'refs/heads/release'
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -144,7 +141,6 @@ jobs:
 
       # 7. 배포 및 재시작
       - name: 8. Deploy & Restart
-        if: github.ref == 'refs/heads/release'
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
