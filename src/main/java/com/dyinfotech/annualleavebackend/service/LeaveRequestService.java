@@ -466,9 +466,8 @@ public class LeaveRequestService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId) {
-        boolean isAdmin = currentEmployeeId != null
-                && currentAuthorityService.isAdmin(currentEmployeeId);
-        return searchLeaveRequests(condition, currentEmployeeId, isAdmin);
+        LeaveVisibility visibility = resolveLeaveVisibility(currentEmployeeId);
+        return searchLeaveRequests(condition, currentEmployeeId, visibility);
     }
 
     @Transactional(readOnly = true)
@@ -542,8 +541,7 @@ public class LeaveRequestService {
             Long cursorRequestId) {
         validatePage(page, size);
         validateCursor(cursorRequestedAt, cursorRequestId);
-        boolean isAdmin = currentEmployeeId != null
-                && currentAuthorityService.isAdmin(currentEmployeeId);
+        LeaveVisibility visibility = resolveLeaveVisibility(currentEmployeeId);
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
 
         long totalCount = leaveRequestRepository.countLeaveRequests(
@@ -570,7 +568,7 @@ public class LeaveRequestService {
                 : fetched;
 
         return new PageResponseDto<>(
-                toListResponses(requests, currentEmployeeId, isAdmin),
+                toListResponses(requests, currentEmployeeId, visibility),
                 totalCount,
                 hasMore);
     }
@@ -578,7 +576,7 @@ public class LeaveRequestService {
     private List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
-            boolean isAdmin) {
+            LeaveVisibility visibility) {
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
         List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequests(
                 condition.getEmployeeId(),
@@ -588,22 +586,59 @@ public class LeaveRequestService {
                 null,
                 condition.getSearchEmployeeParam()
         );
-        return toListResponses(requests, currentEmployeeId, isAdmin);
+        return toListResponses(requests, currentEmployeeId, visibility);
     }
 
     private List<LeaveRequestListDto.LeaveRequestListResponse> toListResponses(
             List<LeaveRequest> requests,
             Long currentEmployeeId,
-            boolean isAdmin) {
+            LeaveVisibility visibility) {
         return requests.stream()
-                .map(leaveRequest -> {
-                    boolean isOwner = currentEmployeeId != null
-                            && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-                    return LeaveRequestListDto.LeaveRequestListResponse.from(
-                            leaveRequest,
-                            isAdmin || isOwner);
-                })
+                .map(leaveRequest -> LeaveRequestListDto.LeaveRequestListResponse.from(
+                        leaveRequest,
+                        canViewPrivateLeave(
+                                leaveRequest,
+                                currentEmployeeId,
+                                visibility)))
                 .toList();
+    }
+
+    private LeaveVisibility resolveLeaveVisibility(Long currentEmployeeId) {
+        if (currentEmployeeId == null) {
+            return new LeaveVisibility(false, Set.of());
+        }
+
+        // 현재 인사권은 Employee.hasPersonnelAuthority() == CEO이므로 대표이사는 전사 열람한다.
+        if (currentAuthorityService.hasPersonnelAuthority(currentEmployeeId)) {
+            return new LeaveVisibility(true, Set.of());
+        }
+
+        if (!currentAuthorityService.isAdmin(currentEmployeeId)) {
+            return new LeaveVisibility(false, Set.of());
+        }
+
+        Set<String> accessibleTeams = teamService.findManagedTeams(currentEmployeeId).stream()
+                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                .map(TeamService.ManagedTeam::teamName)
+                .collect(Collectors.toSet());
+        return new LeaveVisibility(false, accessibleTeams);
+    }
+
+    private boolean canViewPrivateLeave(
+            LeaveRequest leaveRequest,
+            Long currentEmployeeId,
+            LeaveVisibility visibility) {
+        boolean isOwner = currentEmployeeId != null
+                && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        return isOwner
+                || visibility.canViewAll()
+                || visibility.accessibleTeams().contains(
+                        leaveRequest.getEmployee().getTeamName());
+    }
+
+    private record LeaveVisibility(
+            boolean canViewAll,
+            Set<String> accessibleTeams) {
     }
 
     private void validateCursor(LocalDateTime cursorRequestedAt, Long cursorRequestId) {
@@ -639,18 +674,13 @@ public class LeaveRequestService {
                         HttpStatus.NOT_FOUND,
                         "휴가 신청을 찾을 수 없습니다."));
 
-        boolean isOwner =
-                leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        // 조회 권한과 승인/반려 권한은 별개다.
-        // 현재 관리자(PM)는 관리팀 범위와 무관하게 신청 상세의 비공개 필드를 열람할 수 있다.
-        // 승인/반려 가능 범위는 LeaveApprovalService의 조직 계층 검증을 그대로 사용한다.
-        boolean canViewPrivate = isOwner
-                || (currentEmployeeId != null
-                        && currentAuthorityService.isAdmin(currentEmployeeId));
-
+        LeaveVisibility visibility = resolveLeaveVisibility(currentEmployeeId);
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
-                canViewPrivate);
+                canViewPrivateLeave(
+                        leaveRequest,
+                        currentEmployeeId,
+                        visibility));
     }
 
     @Transactional
