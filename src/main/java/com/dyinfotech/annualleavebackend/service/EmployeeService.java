@@ -159,12 +159,6 @@ public class EmployeeService {
     public void resetAccessCount(Long employeeId, LocalDateTime now) {
     	employeeRepository.resetAccessCount(employeeId, now);
     }
-    // 로그인 성공시 평문 패스워드 암호화
-    @Transactional
-    public void updatePassword(Long employeeId, String password) {
-        employeeRepository.updatePassword(employeeId, password);
-    }
-
     @Transactional
     public boolean compareAndSetPassword(Long employeeId, String expectedPassword, String newPassword) {
         return employeeRepository.compareAndSetPassword(employeeId, expectedPassword, newPassword) == 1;

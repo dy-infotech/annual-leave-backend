@@ -136,14 +136,6 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
     
     @Override
-    public long updatePassword(Long employeeId, String password) {
-        return queryFactory.update(qEmployee)
-			                .set(qEmployee.password, password)
-			                .where(qEmployee.employeeId.eq(employeeId))
-			                .execute();
-    }
-    
-    @Override
     public long compareAndSetPassword(Long employeeId, String expectedPassword, String newPassword) {
         return queryFactory.update(qEmployee)
                 .set(qEmployee.password, newPassword)
