@@ -9,6 +9,7 @@ import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.service.TeamService.ManagedTeam;
 import com.dyinfotech.annualleavebackend.service.EmployeeLeaveService.EmployeeAuthorityResolver;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -105,23 +106,30 @@ public final class EmployeeDto {
          * Backend가 현재 상태와 비교해 stale update를 409로 차단한다.
          */
         @NotNull(message = "기준 관리팀 목록은 필수입니다.")
-        private Collection<String> expectedManagedTeams;
+        @Size(max = 100, message = "기준 관리팀은 100개 이하여야 합니다.")
+        private Collection<@Size(max = 30, message = "팀명은 30자 이하여야 합니다.") String> expectedManagedTeams;
 
         /**
          * 저장 후 원하는 최종 관리팀 집합.
          * 동일 요청 재전송 시 current == desired이면 no-op 성공한다.
          */
         @NotNull(message = "최종 관리팀 목록은 필수입니다.")
-        private Collection<String> managedTeams;
+        @Size(max = 100, message = "최종 관리팀은 100개 이하여야 합니다.")
+        private Collection<@Size(max = 30, message = "팀명은 30자 이하여야 합니다.") String> managedTeams;
     }
     
     @Getter
     @NoArgsConstructor
     public static class EmployeeAdminExpectedState {
+        @Size(max = 50, message = "이름은 50자 이하여야 합니다.")
         private String name;
+        @Size(max = 100, message = "이메일은 100자 이하여야 합니다.")
         private String email;
+        @Size(max = 50, message = "부서명은 50자 이하여야 합니다.")
         private String department;
+        @Size(max = 30, message = "팀명은 30자 이하여야 합니다.")
         private String team;
+        @Size(max = 50, message = "직급은 50자 이하여야 합니다.")
         private String position;
         private LocalDate hireDate;
         private LocalDate fireDate;
@@ -135,6 +143,7 @@ public final class EmployeeDto {
          * 값이 있으면 잠금 획득 후 현재 DB 상태와 비교해 stale update를 409로 차단한다.
          * 구 프론트 호환을 위해 생략 가능하다.
          */
+        @Valid
         private EmployeeAdminExpectedState expected;
 
         @NotBlank(message = "이름은 필수입니다.")
