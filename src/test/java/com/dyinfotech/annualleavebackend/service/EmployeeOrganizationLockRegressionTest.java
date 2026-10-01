@@ -60,7 +60,8 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
-        when(employeeRepository.findAllByIdsForUpdate(any())).thenReturn(List.of(employee, approver));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         
@@ -92,10 +93,8 @@ class EmployeeOrganizationLockRegressionTest {
                 teamIds.size() == 2
                         && teamIds.contains(10L)
                         && teamIds.contains(20L)));
-        inOrder.verify(employeeRepository).findAllByIdsForUpdate(argThat(employeeIds ->
-                employeeIds.size() == 2
-                        && employeeIds.contains(1L)
-                        && employeeIds.contains(100L)));
+        inOrder.verify(employeeRepository).findByIdForUpdate(1L);
+        inOrder.verify(employeeRepository).findByIdForUpdate(100L);
         verify(teamService, never()).removeManager(any(), any());
         verify(teamService, never()).addManager(any(), any(), any());
     }
@@ -136,17 +135,16 @@ class EmployeeOrganizationLockRegressionTest {
         when(request.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
         when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
         when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of(10L));
-        when(employeeRepository.findAllByIdsForUpdate(any())).thenReturn(List.of(employee, approver));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
         service.updateEmployeeByAdmin(100L, "E001", request);
 
         InOrder order = inOrder(teamService, employeeRepository);
         order.verify(teamService).lockHierarchyForUpdate();
         order.verify(teamService).lockTeamsForUpdate(any());
-        order.verify(employeeRepository).findAllByIdsForUpdate(argThat(ids ->
-                ids.contains(1L) && ids.contains(100L) && ids.size() == 2));
-        verify(employeeRepository, never()).findByIdForUpdate(100L);
-        verify(employeeRepository, never()).findByIdForUpdate(1L);
+        order.verify(employeeRepository).findByIdForUpdate(1L);
+        order.verify(employeeRepository).findByIdForUpdate(100L);
     }
 
     @Test
@@ -514,6 +512,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
         when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
         when(lockedEmployee.getName()).thenReturn("현재이름");
         when(lockedEmployee.getEmail()).thenReturn("current@example.com");
@@ -586,6 +585,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
         when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
         when(lockedEmployee.getName()).thenReturn("다른관리자수정");
         when(lockedEmployee.getEmail()).thenReturn("other@example.com");
