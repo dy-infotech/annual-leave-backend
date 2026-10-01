@@ -460,6 +460,39 @@ public class TeamService {
      * 조직 hierarchy mutex를 보유한 결재 write path 전용 DB 기준 권한 계산.
      * 캐시 invalidation과 DB commit 사이의 짧은 stale window를 결재 권한 판단에 사용하지 않는다.
      */
+    /**
+     * 조직 hierarchy mutex를 보유한 write path에서 현재 DB 기준으로
+     * 특정 관리자가 대상 팀 또는 그 상위 팀의 PM인지 확인한다.
+     */
+    public boolean isManagerForTeamFromDatabase(Long managerEmployeeId, Long targetTeamId) {
+        if (managerEmployeeId == null || targetTeamId == null) {
+            return false;
+        }
+
+        Set<Long> visited = new HashSet<>();
+        Long currentTeamId = targetTeamId;
+        LocalDate today = LocalDate.now(clock);
+
+        while (currentTeamId != null && visited.add(currentTeamId)) {
+            List<TeamManager> rows = teamManagerRepository.findAllByTeam_TeamId(currentTeamId);
+            if (rows.stream()
+                    .filter(row -> row.getProjectManager().isActive(today))
+                    .anyMatch(row -> managerEmployeeId.equals(row.getProjectManagerId()))) {
+                return true;
+            }
+            if (rows.isEmpty()) {
+                return false;
+            }
+
+            Long parentTeamId = rows.get(0).getParentTeamId();
+            if (parentTeamId == null || parentTeamId.equals(currentTeamId)) {
+                return false;
+            }
+            currentTeamId = parentTeamId;
+        }
+        return false;
+    }
+
     public Set<Long> resolveCurrentApproverIdsFromDatabase(Employee employee) {
         Long employeeTeamId = employee.getTeamId();
         LocalDate today = LocalDate.now(clock);
