@@ -60,6 +60,7 @@ import com.github.benmanes.caffeine.cache.LoadingCache;
 class OrganizationPolicyRegressionTest {
 
     private static final LocalDate TODAY = LocalDate.of(2026, 9, 28);
+    private static final Long REQUESTER_ID = 999L;
 
     private LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache;
     private LoadingCache<String, List<TeamManagerCacheRow>> managerCache;
@@ -82,6 +83,12 @@ class OrganizationPolicyRegressionTest {
         employeeRepository = mock(EmployeeRepository.class);
         departmentRepository = mock(DepartmentRepository.class);
         cacheInvalidator = mock(OrganizationCacheInvalidator.class);
+
+        Employee requester = mock(Employee.class);
+        when(requester.isActive(TODAY)).thenReturn(true);
+        when(requester.hasPersonnelAuthority()).thenReturn(true);
+        when(employeeRepository.findByIdForUpdate(REQUESTER_ID))
+                .thenReturn(Optional.of(requester));
 
         // 조직 write path는 대표이사(root) TEAM row를 공통 mutex로 잠근다.
         // 단위 테스트에서도 실제 운영 전제와 동일한 root 조직을 기본 fixture로 제공한다.
@@ -175,7 +182,7 @@ class OrganizationPolicyRegressionTest {
         when(employeeRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of());
         when(teamManagerRepository.findAllByTeam_TeamId(10L)).thenReturn(List.of());
 
-        teamService.updateTeam(10L, request);
+        teamService.updateTeam(REQUESTER_ID, 10L, request);
 
         verify(cacheInvalidator).afterTeamChange(
                 argThat(names -> names.size() == 1 && names.contains("플랫폼팀")),
@@ -239,7 +246,7 @@ class OrganizationPolicyRegressionTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> teamService.updateTeam(10L, request)
+                () -> teamService.updateTeam(REQUESTER_ID, 10L, request)
         );
 
         assertEquals(400, exception.getStatusCode().value());
@@ -308,7 +315,7 @@ class OrganizationPolicyRegressionTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> teamService.updateTeam(10L, request)
+                () -> teamService.updateTeam(REQUESTER_ID, 10L, request)
         );
 
         assertEquals(400, exception.getStatusCode().value());
@@ -628,7 +635,7 @@ class OrganizationPolicyRegressionTest {
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(manager));
         when(manager.isActive(TODAY)).thenReturn(true);
 
-        teamService.updateTeam(10L, request);
+        teamService.updateTeam(REQUESTER_ID, 10L, request);
 
         verify(teamManagerRepository, never()).deleteAll(any());
         verify(teamManagerRepository, never()).save(any(TeamManager.class));
