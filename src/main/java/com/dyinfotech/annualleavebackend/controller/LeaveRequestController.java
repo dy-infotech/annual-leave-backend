@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -56,8 +57,14 @@ public class LeaveRequestController {
     @Operation(summary = "휴가 신청", description = "휴가를 신청한다.")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody LeaveRequestDto.LeaveRequestCreateRequest request) {
-        return leaveRequestService.createLeaveRequest(principal.employeeId(), request);
+    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(
+            @AuthenticationPrincipal EmployeePrincipal principal,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody LeaveRequestDto.LeaveRequestCreateRequest request) {
+        return leaveRequestService.createLeaveRequest(
+                principal.employeeId(),
+                request,
+                idempotencyKey);
     }
 
     @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 page/size 기반으로 조회한다.")
