@@ -60,7 +60,7 @@ class EmployeeLeaveCacheRegressionTest {
         when(employeeRepository.findActiveEmployeeIdsAfter(
                 any(LocalDate.class), any(), any(Integer.class)))
                 .thenReturn(List.of(1L), List.of());
-        when(employeeRepository.findAllByEmployeeIdInOrderByEmployeeIdAsc(List.of(1L)))
+        when(employeeRepository.findAllByIdsForUpdate(List.of(1L)))
                 .thenReturn(List.of(employee));
         doReturn(15.0f).when(service).getCalculatedCurrYearLeaveDays(employee);
 
