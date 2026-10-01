@@ -201,12 +201,14 @@ class LeaveRequestRegressionTest {
     }
 
     private void prepareCreateRequest(Employee employee, LeaveType leaveType, float useDays) {
-        LeaveRequest approved = mockActiveRequest(LeaveRequestStatus.APPROVED, 5.0f);
-        LeaveRequest pending = mockActiveRequest(LeaveRequestStatus.PENDING, 2.0f);
-
         when(employeeRepository.findByIdForUpdate(EMPLOYEE_ID)).thenReturn(java.util.Optional.of(employee));
         when(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee)).thenReturn(15.0f);
-        when(commonService.getRemainingDays(employee)).thenReturn(8.0f);
+        when(leaveRequestRepository.sumRequestedUseDays(
+                eq(EMPLOYEE_ID),
+                eq(List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING)),
+                eq(LocalDate.of(2026, 1, 1)),
+                eq(LocalDate.of(2026, 12, 31))
+        )).thenReturn(7.0f);
         when(commonService.getRemainingDays(employee, 15.0f, 7.0f)).thenReturn(8.0f);
         when(holidaySyncService.findByYearRange(2026, 2026)).thenReturn(List.of());
         when(leaveRequestRepository.searchLeaveRequests(
@@ -217,25 +219,20 @@ class LeaveRequestRegressionTest {
                 any(),
                 any()
         )).thenReturn(List.of());
-        when(leaveRequestRepository.findActiveLeaveRequests(
-                EMPLOYEE_ID,
-                LocalDate.of(2026, 1, 1),
-                LocalDate.of(2026, 12, 31)
-        )).thenReturn(List.of(approved, pending));
         when(teamService.refreshApproverIds(employee)).thenReturn(Set.of());
 
         leaveRequestService.createLeaveRequest(
                 EMPLOYEE_ID,
                 createRequest(leaveType.getName(), REQUEST_DATE, useDays)
         );
-    }
 
-    private LeaveRequest mockActiveRequest(LeaveRequestStatus status, float useDays) {
-        LeaveRequest request = mock(LeaveRequest.class);
-        when(request.getLeaveType()).thenReturn(LeaveType.FULL.getName());
-        when(request.getStatus()).thenReturn(status);
-        when(request.getUseDays()).thenReturn(useDays);
-        return request;
+        verify(leaveRequestRepository).sumRequestedUseDays(
+                EMPLOYEE_ID,
+                List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING),
+                LocalDate.of(2026, 1, 1),
+                LocalDate.of(2026, 12, 31));
+        verify(leaveRequestRepository, never()).findActiveLeaveRequests(
+                any(), any(), any());
     }
 
     private LeaveRequest captureSavedRequest() {
