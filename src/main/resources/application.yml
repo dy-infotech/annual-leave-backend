@@ -55,7 +55,7 @@ app:
     refresh-replay-grace: ${AUTH_REFRESH_REPLAY_GRACE:5s}
     refresh-session-retention: ${AUTH_REFRESH_SESSION_RETENTION:7d}
     refresh-token-bytes: ${AUTH_REFRESH_TOKEN_BYTES:32}
-    refresh-signing-secret: ${AUTH_REFRESH_SIGNING_SECRET:${JWT_SECRET}}
+    refresh-signing-secret: ${AUTH_REFRESH_SIGNING_SECRET:${jwt.secret}}
     refresh-cookie-name: ${AUTH_REFRESH_COOKIE_NAME:DY_SSO_REFRESH}
     refresh-cookie-path: ${AUTH_REFRESH_COOKIE_PATH:/}
     refresh-cookie-secure: ${AUTH_REFRESH_COOKIE_SECURE:true}
