@@ -48,17 +48,16 @@ public class DashboardService {
         LocalDate leaveYearStart = currentYear.atDay(1);
         LocalDate leaveYearEnd = currentYear.atMonth(Month.DECEMBER).atEndOfMonth();
 
-        // 현재 연도 연차일수 계산
+        // 현재 연도 기준 연차일수를 계산한다
         float currYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
 
-        // 1. 내 휴가 정보
+        // 내 연차 사용 현황을 계산한다
         DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee, currYearLeaveDays, leaveYearStart, leaveYearEnd);
 
-        // 2. 내 휴가 요청 요약
+        // 내 휴가 신청 상태를 집계한다
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId, leaveYearStart, leaveYearEnd);
 
-        // 3. 관리자일 경우, 요청 시점 DB 조직 상태로 관리 범위와 요약을 함께 계산한다.
-        // 관리자 여부와 실제 조회 범위가 서로 다른 snapshot을 사용하지 않게 한다.
+        // 현재 조직 기준으로 관리 범위의 휴가 신청을 집계한다
         TeamService.ManagedScope managedScope =
                 teamService.findManagedScopeFromDatabase(employeeId);
         DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary =
@@ -92,7 +91,7 @@ public class DashboardService {
         float remainingLeaveDays = commonService.getRemainingDays(employee, currTotalLeaveDays, usedDays);
 
         return DashboardDto.MyLeaveInfoResponse.builder()
-                .totalLeaveDays(usedDays + remainingLeaveDays)		// usedDays + remainingLeaveDays - currTotalLeaveDays = adjustedLeaveDays
+                .totalLeaveDays(usedDays + remainingLeaveDays)		// 조정 연차를 포함한 총 연차를 반환한다
                 .usedLeaveDays(usedDays)
                 .remainingLeaveDays(remainingLeaveDays)
                 .build();

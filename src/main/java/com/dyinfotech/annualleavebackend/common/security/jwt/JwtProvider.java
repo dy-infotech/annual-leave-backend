@@ -42,7 +42,7 @@ public class JwtProvider {
         return generateToken(employeeId, role, null);
     }
 
-    // 비밀번호 상태를 credentialVersion에 묶어 비밀번호 변경/재설정 즉시 기존 access token을 무효화한다.
+    // 비밀번호 상태를 토큰 버전에 반영해 변경 시 기존 토큰을 무효화한다
     public String generateToken(Long employeeId, String role, String credentialVersion) {
         Instant now = Instant.now();
         var builder = Jwts.builder()
@@ -70,10 +70,7 @@ public class JwtProvider {
         return parseClaims(token).get(CREDENTIAL_VERSION_CLAIM, String.class);
     }
 
-    /**
-     * BCrypt 문자열 자체를 JWT에 노출하지 않고 서버 비밀키로 HMAC한 버전만 claim에 넣는다.
-     * 비밀번호 hash가 바뀌면 이 값도 바뀌므로 기존 access token을 즉시 거부할 수 있다.
-     */
+    // 비밀번호 해시를 서버 키로 변환해 토큰 버전을 만든다
     public String createCredentialVersion(String passwordHash) {
         if (passwordHash == null || passwordHash.isBlank()) {
             return null;
@@ -97,10 +94,7 @@ public class JwtProvider {
         }
     }
 
-    /**
-     * 서명과 만료를 한 번 검증한 Claims를 반환한다.
-     * 요청 필터는 이 값을 재사용해 만료 경계에서 반복 파싱하지 않는다.
-     */
+    // 서명과 만료를 검증한 토큰 내용을 반환한다
     public Claims parseVerifiedClaims(String token) {
         return jwtParser.parseSignedClaims(token).getPayload();
     }

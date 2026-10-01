@@ -14,9 +14,7 @@ import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * 로그인 시점 JWT role이 아니라 요청 시점의 조직 상태를 권한 정본으로 사용한다.
- */
+// 요청 시점의 현재 조직 상태를 기준으로 권한을 판정한다
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -49,6 +47,7 @@ public class CurrentAuthorityService {
                 .orElse(false);
     }
 
+    // 대표이사와 일정 권한을 가진 관리자의 상세 조회 권한을 확인한다
     public boolean canViewAllLeaveDetails(Long employeeId) {
         if (employeeId == null) {
             return false;
@@ -65,6 +64,7 @@ public class CurrentAuthorityService {
                 .orElse(false);
     }
 
+    // 현재 재직 중인 직원의 인사권 보유 여부를 확인한다
     public boolean hasPersonnelAuthority(Long employeeId) {
         if (employeeId == null) {
             return false;
