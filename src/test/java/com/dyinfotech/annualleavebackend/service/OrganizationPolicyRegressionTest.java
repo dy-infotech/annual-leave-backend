@@ -601,7 +601,8 @@ class OrganizationPolicyRegressionTest {
         Employee manager = mock(Employee.class);
         TeamManager existing = mock(TeamManager.class);
 
-        when(teamCache.get(OrganizationCacheKey.byName("플랫폼팀"))).thenReturn(List.of(teamInfo));
+        when(teamRepository.findByNameEnabledForCache("플랫폼팀"))
+                .thenReturn(Optional.of(teamInfo));
         when(teamRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(team));
         when(team.getTeamId()).thenReturn(10L);
         when(team.getEnabled()).thenReturn(true);
