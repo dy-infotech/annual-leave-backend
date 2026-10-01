@@ -111,6 +111,13 @@ public class TeamService {
         return teamCache.get(OrganizationCacheKey.byName(teamName)).stream().findFirst();
     }
 
+    public Optional<TeamCacheRow> findTeamInfoFromDatabase(String teamName) {
+        if (teamName == null || teamName.isBlank()) {
+            return Optional.empty();
+        }
+        return teamRepository.findByNameEnabledForCache(teamName);
+    }
+
     public List<TeamCacheRow> findAllTeamInfo() {
         return teamCache.get(OrganizationCacheKey.allRows());
     }
@@ -128,8 +135,7 @@ public class TeamService {
      * 쓰기 로직에서 실제 JPA 엔티티가 필요할 때만 조회한다.
      */
     public Optional<Team> findByTeamName(String teamName) {
-        return findTeamInfo(teamName)
-                .flatMap(team -> teamRepository.findById(team.teamId()));
+        return teamRepository.findByTeamNameAndEnabledTrue(teamName);
     }
 
     private List<TeamManagerCacheRow> findManagerRows(Long teamId) {
@@ -891,7 +897,7 @@ public class TeamService {
     @Transactional
     public void addManager(String teamName, Long employeeId, Long parentTeamId) {
         lockHierarchyForUpdate();
-        TeamCacheRow teamInfo = findTeamInfo(teamName)
+        TeamCacheRow teamInfo = findTeamInfoFromDatabase(teamName)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
         Map<Long, Team> lockedTeams = lockTeams(List.of(teamInfo.teamId(), parentTeamId));
         Team team = lockedTeams.get(teamInfo.teamId());
