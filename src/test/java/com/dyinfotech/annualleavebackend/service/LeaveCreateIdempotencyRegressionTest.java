@@ -41,20 +41,20 @@ class LeaveCreateIdempotencyRegressionTest {
 
     private LeaveRequestRepository leaveRequestRepository;
     private EmployeeRepository employeeRepository;
-    private NotificationOutboxService notificationOutboxService;
+    private NotificationService notificationService;
     private LeaveRequestService service;
 
     @BeforeEach
     void setUp() {
         leaveRequestRepository = mock(LeaveRequestRepository.class);
         employeeRepository = mock(EmployeeRepository.class);
-        notificationOutboxService = mock(NotificationOutboxService.class);
+        notificationService = mock(NotificationService.class);
 
         service = new LeaveRequestService(
                 leaveRequestRepository,
                 employeeRepository,
                 mock(EmployeeLeaveService.class),
-                notificationOutboxService,
+                notificationService,
                 mock(HolidaySyncService.class),
                 mock(CommonService.class),
                 mock(TeamService.class),
@@ -89,8 +89,8 @@ class LeaveCreateIdempotencyRegressionTest {
 
         assertEquals(101L, response.getRequestId());
         verify(leaveRequestRepository, never()).saveAndFlush(any(LeaveRequest.class));
-        verify(notificationOutboxService, never())
-                .enqueueTeams(any(), any(), any());
+        verify(notificationService, never())
+                .sendNotificationToTeams(any(), any(), any());
     }
 
     @Test
