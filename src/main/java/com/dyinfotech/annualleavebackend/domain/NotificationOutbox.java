@@ -118,6 +118,16 @@ public class NotificationOutbox {
         nextAttemptAt = now.plusSeconds(delaySeconds);
     }
 
+    public void markDead(LocalDateTime now, String error) {
+        if (status == Status.SENT || status == Status.DEAD) {
+            return;
+        }
+        status = Status.DEAD;
+        claimedAt = null;
+        nextAttemptAt = now;
+        lastError = truncate(error);
+    }
+
     public void recoverStaleClaim(LocalDateTime now) {
         if (status == Status.PROCESSING) {
             status = Status.PENDING;
