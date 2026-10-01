@@ -29,12 +29,12 @@ public class NotificationOutboxWorker {
         outboxService.recoverStaleClaims();
 
         for (Long outboxId : outboxService.findReadyIds(BATCH_SIZE)) {
-            ClaimedNotification notification = outboxService.claim(outboxId).orElse(null);
-            if (notification == null) {
-                continue;
-            }
-
             try {
+                ClaimedNotification notification = outboxService.claim(outboxId).orElse(null);
+                if (notification == null) {
+                    continue;
+                }
+
                 boolean success = fcmService.sendConditionNotificationNowAndReport(
                         notification.approverIds(),
                         notification.title(),
@@ -48,8 +48,13 @@ public class NotificationOutboxWorker {
                             "FCM send returned partial/total failure");
                 }
             } catch (RuntimeException e) {
-                log.error("notification outbox 발송 실패. outboxId={}", notification.outboxId(), e);
-                outboxService.markFailed(notification.outboxId(), e.toString());
+                // 한 row의 payload/DB 문제가 같은 poll의 뒤쪽 정상 알림까지 막지 않게 격리한다.
+                log.error("notification outbox 처리 실패. outboxId={}", outboxId, e);
+                try {
+                    outboxService.markFailed(outboxId, e.toString());
+                } catch (RuntimeException markError) {
+                    log.error("notification outbox 실패 상태 기록도 실패. outboxId={}", outboxId, markError);
+                }
             }
         }
     }
