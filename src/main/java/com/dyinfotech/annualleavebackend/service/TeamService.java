@@ -456,6 +456,51 @@ public class TeamService {
         return resolveApproverIds(employee);
     }
 
+    /**
+     * 조직 hierarchy mutex를 보유한 결재 write path 전용 DB 기준 권한 계산.
+     * 캐시 invalidation과 DB commit 사이의 짧은 stale window를 결재 권한 판단에 사용하지 않는다.
+     */
+    public Set<Long> resolveCurrentApproverIdsFromDatabase(Employee employee) {
+        Long employeeTeamId = employee.getTeamId();
+        LocalDate today = LocalDate.now(clock);
+
+        List<TeamManager> myTeam = teamManagerRepository.findAllByTeam_TeamId(employeeTeamId)
+                .stream()
+                .filter(row -> row.getProjectManager().isActive(today))
+                .toList();
+        if (myTeam.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "팀의 재직 관리자가 존재하지 않습니다.");
+        }
+
+        Optional<TeamManager> selfManager = myTeam.stream()
+                .filter(row -> employee.getEmployeeId().equals(row.getProjectManagerId()))
+                .findFirst();
+
+        List<TeamManager> approvers;
+        if (selfManager.isPresent()) {
+            Long parentTeamId = selfManager.get().getParentTeamId();
+            approvers = parentTeamId.equals(employeeTeamId)
+                    ? myTeam
+                    : teamManagerRepository.findAllByTeam_TeamId(parentTeamId)
+                            .stream()
+                            .filter(row -> row.getProjectManager().isActive(today))
+                            .toList();
+            if (approvers.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "상위 팀의 재직 관리자가 존재하지 않습니다.");
+            }
+        } else {
+            approvers = myTeam;
+        }
+
+        return approvers.stream()
+                .map(TeamManager::getProjectManagerId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
     public Employee resolveCurrentApprover(Employee employee) {
         Set<Long> approverIds = resolveApproverIds(employee);
         Long storedApproverId = employee.getApproverId();

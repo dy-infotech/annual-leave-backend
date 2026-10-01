@@ -55,8 +55,8 @@ class LeaveApprovalIdempotencyRegressionTest {
         LeaveRequest approved = request(100L, LeaveRequestStatus.APPROVED, manager, null);
         when(approved.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(100L)).thenReturn(Optional.of(approved));
-        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(manager, requester));
-        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(10L));
+        when(employeeService.getEmployeeListForUpdate(any())).thenReturn(java.util.List.of(manager, requester));
+        when(teamService.resolveCurrentApproverIdsFromDatabase(requester)).thenReturn(java.util.Set.of(10L));
 
         var response = service.approveLeaveRequest(100L, 10L);
 
@@ -72,8 +72,8 @@ class LeaveApprovalIdempotencyRegressionTest {
         LeaveRequest rejected = request(101L, LeaveRequestStatus.REJECTED, manager, "사유");
         when(rejected.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(101L)).thenReturn(Optional.of(rejected));
-        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(manager, requester));
-        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(10L));
+        when(employeeService.getEmployeeListForUpdate(any())).thenReturn(java.util.List.of(manager, requester));
+        when(teamService.resolveCurrentApproverIdsFromDatabase(requester)).thenReturn(java.util.Set.of(10L));
 
         var response = service.rejectLeaveRequest(101L, 10L, rejectRequest("사유"));
 
@@ -90,8 +90,8 @@ class LeaveApprovalIdempotencyRegressionTest {
         LeaveRequest approved = request(103L, LeaveRequestStatus.APPROVED, formerManager, null);
         when(approved.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(103L)).thenReturn(Optional.of(approved));
-        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(formerManager, requester));
-        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(11L));
+        when(employeeService.getEmployeeListForUpdate(any())).thenReturn(java.util.List.of(formerManager, requester));
+        when(teamService.resolveCurrentApproverIdsFromDatabase(requester)).thenReturn(java.util.Set.of(11L));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
@@ -108,8 +108,8 @@ class LeaveApprovalIdempotencyRegressionTest {
         LeaveRequest rejected = request(102L, LeaveRequestStatus.REJECTED, manager, "기존 사유");
         when(rejected.getEmployee()).thenReturn(requester);
         when(leaveRequestRepository.findById(102L)).thenReturn(Optional.of(rejected));
-        when(employeeService.getEmployeeList(any())).thenReturn(java.util.List.of(manager, requester));
-        when(teamService.resolveCurrentApproverIds(requester)).thenReturn(java.util.Set.of(10L));
+        when(employeeService.getEmployeeListForUpdate(any())).thenReturn(java.util.List.of(manager, requester));
+        when(teamService.resolveCurrentApproverIdsFromDatabase(requester)).thenReturn(java.util.Set.of(10L));
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,

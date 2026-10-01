@@ -165,7 +165,7 @@ public class LeaveApprovalService {
         // 요청자와 관리자 정보 추출
         Long employeeId = leaveRequest.getEmployee().getEmployeeId();
         Set<Long> employeeIds = Stream.of(employeeId, approverId).collect(Collectors.toSet());
-        List<Employee> employees = employeeService.getEmployeeList(employeeIds);
+        List<Employee> employees = employeeService.getEmployeeListForUpdate(employeeIds);
         if (employees.size() < employeeIds.size()) {
         	String errorMsg = null;
         	String detailMsg = null;
@@ -204,7 +204,7 @@ public class LeaveApprovalService {
         // 저장된 approver_id는 신뢰하지 않고 최신 TeamManager 캐시 기준으로 결재 권한을 검증한다.
         boolean isApprover = false;
     	StringBuilder approverString = new StringBuilder();
-    	for (Long id : teamService.resolveCurrentApproverIds(employee)) {
+    	for (Long id : teamService.resolveCurrentApproverIdsFromDatabase(employee)) {
     		if (id.equals(approverId)) {
     			isApprover = true;
     			break;
@@ -227,6 +227,8 @@ public class LeaveApprovalService {
     
     @Transactional
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(Long requestId, Long approverId) {
+        // 조직 변경 write path와 동일한 mutex를 먼저 잡아 권한 검증부터 상태 전이까지 고정한다.
+        teamService.lockHierarchyForUpdate();
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
@@ -270,6 +272,8 @@ public class LeaveApprovalService {
 
     @Transactional
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
+        // 조직 변경 write path와 동일한 mutex를 먼저 잡아 권한 검증부터 상태 전이까지 고정한다.
+        teamService.lockHierarchyForUpdate();
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
