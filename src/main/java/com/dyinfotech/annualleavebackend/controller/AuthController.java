@@ -42,6 +42,7 @@ import io.swagger.v3.oas.annotations.Operation;
 public class AuthController {
     private static final String REFRESH_REQUEST_HEADER = "X-SSO-Refresh";
     private static final String BACKGROUND_LOGOUT_HEADER = "X-SSO-Background-Logout";
+    private static final String SESSION_MARKER_HEADER = "X-SSO-Session-Marker";
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
@@ -149,12 +150,25 @@ public class AuthController {
             @RequestBody(required = false) LogoutDto.LogoutRequest request) {
         requireRefreshRequestHeader(servletRequest);
 
+        boolean backgroundLogout =
+                "1".equals(servletRequest.getHeader(BACKGROUND_LOGOUT_HEADER));
         String refreshToken = refreshTokenCookieService.read(servletRequest);
-        Long refreshEmployeeId =
-                refreshToken == null ? null : refreshTokenService.revoke(refreshToken);
+        String expectedSessionMarker = servletRequest.getHeader(SESSION_MARKER_HEADER);
+
+        Long refreshEmployeeId = null;
+        if (refreshToken != null) {
+            refreshEmployeeId = backgroundLogout
+                    ? refreshTokenService.revokeIfSessionMarker(
+                            refreshToken, expectedSessionMarker)
+                    : refreshTokenService.revoke(refreshToken);
+        }
+
+        // background logout에서 marker가 맞지 않으면 이후 새 세션의 FCM binding도 건드리지 않는다.
         Long employeeId = refreshEmployeeId != null
                 ? refreshEmployeeId
-                : principal != null ? principal.employeeId() : null;
+                : backgroundLogout
+                        ? null
+                        : principal != null ? principal.employeeId() : null;
 
         if (employeeId != null) {
             try {
@@ -179,7 +193,7 @@ public class AuthController {
             }
         }
 
-        if ("1".equals(servletRequest.getHeader(BACKGROUND_LOGOUT_HEADER))) {
+        if (backgroundLogout) {
             // 늦게 도착한 이전 세션의 logout 응답이 이후 로그인 세션의
             // refresh cookie를 삭제하지 않도록 background 요청은 cookie를 건드리지 않는다.
             return CompletableFuture.completedFuture(
