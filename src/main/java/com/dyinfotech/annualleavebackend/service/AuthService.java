@@ -293,6 +293,11 @@ public class AuthService {
                     "관리자 계정을 등록할 현재 인사권이 없습니다.");
         }
 
+        // 최초 중복 검사는 lock 대기 전에 수행되므로 동시 등록이 먼저 커밋됐을 수 있다.
+        if (employeeRepository.existsByEmployeeNumber(request.getEmployeeNumber())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 등록된 사번입니다.");
+        }
+
         LocalDate hireDate = LocalDate.parse(request.getHireDate());
         Employee employee = Employee.builder()
                 .employeeNumber(request.getEmployeeNumber())
