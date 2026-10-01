@@ -595,6 +595,36 @@ class OrganizationPolicyRegressionTest {
         }
     }
     @Test
+    void managedScopeFromDatabase_usesFreshDirectPmAndDescendantEdges() {
+        TeamCacheRow root = new TeamCacheRow(1L, "대표팀", 1L, true);
+        TeamCacheRow direct = new TeamCacheRow(10L, "관리팀", 1L, true);
+        TeamCacheRow child = new TeamCacheRow(11L, "하위팀", 1L, true);
+        when(teamRepository.findAllEnabledForCache())
+                .thenReturn(List.of(root, direct, child));
+
+        TeamManagerCacheRow directManager = new TeamManagerCacheRow(
+                10L, 7L, 1L, "E7", "관리자7", "부장",
+                TODAY.minusYears(1), null);
+        TeamManagerCacheRow childManager = new TeamManagerCacheRow(
+                11L, 8L, 10L, "E8", "관리자8", "과장",
+                TODAY.minusYears(1), null);
+        when(teamManagerRepository.findAllForCache())
+                .thenReturn(List.of(directManager, childManager));
+
+        TeamService.ManagedScope scope =
+                teamService.findManagedScopeFromDatabase(7L);
+
+        assertEquals(Set.of("관리팀"),
+                scope.directTeams().stream()
+                        .map(ManagedTeam::teamName)
+                        .collect(Collectors.toSet()));
+        assertEquals(Set.of("관리팀", "하위팀"),
+                scope.accessibleTeams().stream()
+                        .map(ManagedTeam::teamName)
+                        .collect(Collectors.toSet()));
+    }
+
+    @Test
     void addManager_sameRelationship_isIdempotentNoOp() {
         TeamCacheRow teamInfo = new TeamCacheRow(10L, "플랫폼팀", 1L, true);
         Team team = mock(Team.class);
