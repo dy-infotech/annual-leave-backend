@@ -90,19 +90,19 @@ class LeaveApprovalApiContractRegressionTest {
                 .andExpect(status().isOk())
                 .andExpect(content().json("[]"));
 
-        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
         verify(leaveApprovalService).getPendingRequests(EMPLOYEE_ID, 0, 50);
     }
 
     @Test
     void pending_currentAdminDenialIsReturnedAsForbidden() throws Exception {
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "인가되지 않은 사용자입니다."))
-                .when(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
+                .when(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
 
         mockMvc.perform(get("/api/admin/leave-requests/pending"))
                 .andExpect(status().isForbidden());
 
-        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
         verifyNoInteractions(leaveApprovalService);
     }
 
@@ -115,7 +115,7 @@ class LeaveApprovalApiContractRegressionTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
 
-        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
         verifyNoInteractions(leaveApprovalService);
     }
 }
