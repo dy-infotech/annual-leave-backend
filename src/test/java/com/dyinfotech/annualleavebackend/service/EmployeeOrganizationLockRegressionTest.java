@@ -540,6 +540,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
+        when(lockedEmployee.getEmployeeId()).thenReturn(1L);
         when(lockedEmployee.getName()).thenReturn("현재이름");
         when(lockedEmployee.getEmail()).thenReturn("current@example.com");
         when(lockedEmployee.getDepartmentName()).thenReturn("개발부");
@@ -615,6 +616,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
+        when(lockedEmployee.getEmployeeId()).thenReturn(1L);
         when(lockedEmployee.getName()).thenReturn("다른관리자수정");
         when(lockedEmployee.getEmail()).thenReturn("other@example.com");
         when(lockedEmployee.getDepartmentName()).thenReturn("개발부");
