@@ -20,6 +20,7 @@ public interface EmployeeRepositoryCustom {
 	}
 	Optional<Employee> findByIdForUpdate(Long employeeId);
     List<Employee> findAllActiveAt(LocalDate date);
+    List<Long> findActiveEmployeeIdsAfter(LocalDate date, Long afterEmployeeId, int limit);
     boolean existsActiveEmployeeInTeam(Long teamId, LocalDate date);
     boolean existsEmployeeRequiringTeam(Long teamId, LocalDate date);
     boolean existsActiveEmployeeInTeamExcludingEmployee(Long teamId, Long employeeId, LocalDate date);
