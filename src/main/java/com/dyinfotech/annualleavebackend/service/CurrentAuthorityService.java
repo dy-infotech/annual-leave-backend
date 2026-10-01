@@ -60,7 +60,7 @@ public class CurrentAuthorityService {
                     PositionType position = PositionType.getType(employee.getPosition());
                     return PositionType.isCEO(position)
                             || (PositionType.isDirectorOrAbove(position)
-                                    && teamService.isTeamManager(employeeId));
+                                    && teamService.isTeamManagerFromDatabase(employeeId));
                 })
                 .orElse(false);
     }
