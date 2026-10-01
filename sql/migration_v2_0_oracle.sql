@@ -614,6 +614,112 @@ BEGIN
 END;
 /
 
+PROMPT [8.25/9] Create DB-level PM fire-date guard
+
+-- =====================================================================
+-- DB-level guard: PM 퇴사일 직접 UPDATE로 결재 공백이 생기는 것을 차단한다.
+--
+-- Row trigger에서 EMPLOYEE를 다시 조회하면 ORA-04091(mutating table)이 발생할 수
+-- 있으므로 compound trigger의 AFTER STATEMENT 단계에서 최종 상태를 검증한다.
+-- 한 UPDATE문에서 여러 PM의 FIRE_DATE를 동시에 바꾸는 경우도 최종 상태 기준으로
+-- 함께 검증된다.
+-- =====================================================================
+CREATE OR REPLACE TRIGGER trg_employee_pm_fire_date_guard
+FOR UPDATE OF fire_date ON employee
+COMPOUND TRIGGER
+
+    TYPE t_employee_id_list IS TABLE OF NUMBER(19) INDEX BY PLS_INTEGER;
+    g_employee_ids t_employee_id_list;
+    g_employee_count PLS_INTEGER := 0;
+
+    AFTER EACH ROW IS
+    BEGIN
+        -- 퇴사일 제거(NULL)는 재활성화 방향이므로 차단 대상이 아니다.
+        IF :NEW.fire_date IS NOT NULL
+           AND (:OLD.fire_date IS NULL OR :OLD.fire_date <> :NEW.fire_date) THEN
+            g_employee_count := g_employee_count + 1;
+            g_employee_ids(g_employee_count) := :NEW.employee_id;
+        END IF;
+    END AFTER EACH ROW;
+
+    AFTER STATEMENT IS
+        v_fire_date      DATE;
+        v_inactive_from  DATE;
+        v_check_date     DATE;
+        v_gap_team_count NUMBER;
+    BEGIN
+        FOR i IN 1 .. g_employee_count LOOP
+            SELECT fire_date
+              INTO v_fire_date
+              FROM employee
+             WHERE employee_id = g_employee_ids(i);
+
+            IF v_fire_date IS NULL THEN
+                CONTINUE;
+            END IF;
+
+            -- LocalDate.MAX(9999-12-31)는 +1 시 Oracle DATE 범위를 벗어날 수 있다.
+            IF v_fire_date >= DATE '9999-12-31' THEN
+                v_inactive_from := v_fire_date;
+            ELSE
+                v_inactive_from := v_fire_date + 1;
+            END IF;
+
+            -- 과거 일자로 소급 퇴사 처리하더라도 현재 조직에 결재 공백이 생기면 막는다.
+            v_check_date := GREATEST(v_inactive_from, TRUNC(SYSDATE));
+
+            SELECT COUNT(DISTINCT tm.team_id)
+              INTO v_gap_team_count
+              FROM team_manager tm
+             WHERE tm.project_manager_id = g_employee_ids(i)
+               AND (
+                    EXISTS (
+                        SELECT 1
+                          FROM employee dependent_employee
+                         WHERE dependent_employee.team_id = tm.team_id
+                           AND dependent_employee.employee_id <> g_employee_ids(i)
+                           AND dependent_employee.hire_date <= v_check_date
+                           AND (
+                                dependent_employee.fire_date IS NULL
+                                OR dependent_employee.fire_date >= v_check_date
+                           )
+                    )
+                    OR EXISTS (
+                        SELECT 1
+                          FROM team_manager child_team
+                         WHERE child_team.parent_team_id = tm.team_id
+                           AND child_team.team_id <> tm.team_id
+                    )
+               )
+               AND NOT EXISTS (
+                    SELECT 1
+                      FROM team_manager other_manager
+                      JOIN employee other_pm
+                        ON other_pm.employee_id = other_manager.project_manager_id
+                     WHERE other_manager.team_id = tm.team_id
+                       AND other_manager.project_manager_id <> g_employee_ids(i)
+                       AND other_pm.hire_date <= v_check_date
+                       AND (
+                            other_pm.fire_date IS NULL
+                            OR other_pm.fire_date >= v_check_date
+                       )
+               );
+
+            IF v_gap_team_count > 0 THEN
+                RAISE_APPLICATION_ERROR(
+                    -20031,
+                    'PM 퇴사 처리로 결재 공백이 발생합니다. 다른 재직 PM을 먼저 지정하세요. employee_id='
+                    || g_employee_ids(i)
+                    || ', team_count='
+                    || v_gap_team_count
+                );
+            END IF;
+        END LOOP;
+    END AFTER STATEMENT;
+
+END trg_employee_pm_fire_date_guard;
+/
+
 PROMPT [8.5/9] Create password reset token store
 
 CREATE TABLE password_reset_token (
