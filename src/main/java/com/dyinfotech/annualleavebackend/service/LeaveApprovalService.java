@@ -57,7 +57,14 @@ public class LeaveApprovalService {
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
             Long employeeId, int page, int size) {
+        return getPendingRequests(employeeId, page, size, null, null);
+    }
+
+    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
+            Long employeeId, int page, int size,
+            LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         validatePage(page, size);
+        validateCursor(cursorCreatedAt, cursorRequestId);
         List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
@@ -78,11 +85,18 @@ public class LeaveApprovalService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Year year = Year.now(clock);
-        return leaveRequestRepository.findByStatusAndTeamsInRangePage(
+        List<LeaveRequest> requests = cursorCreatedAt == null
+                ? leaveRequestRepository.findByStatusAndTeamsInRangePage(
                         excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                         DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
                         page, size)
-                .stream().map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from).toList();
+                : leaveRequestRepository.findByStatusAndTeamsInRangeCursor(
+                        excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
+                        DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                        cursorCreatedAt, cursorRequestId, size);
+        return requests.stream()
+                .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
+                .toList();
     }
 
     private Set<String> getAccessibleTeams(Collection<ManagedTeam> teams) {
@@ -103,8 +117,14 @@ public class LeaveApprovalService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
             Long employeeId, String team, String employeeParam,
             int page, int size) {
+        return getApprovedRequests(employeeId, team, employeeParam, page, size, null, null);
+    }
+
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
+            Long employeeId, String team, String employeeParam,
+            int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         return getProcessedRequests(employeeId, team, employeeParam, LeaveRequestStatus.APPROVED,
-                page, size);
+                page, size, cursorCreatedAt, cursorRequestId);
     }
 
     public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
@@ -115,14 +135,21 @@ public class LeaveApprovalService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
             Long employeeId, String team, String employeeParam,
             int page, int size) {
+        return getRejectedRequests(employeeId, team, employeeParam, page, size, null, null);
+    }
+
+    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
+            Long employeeId, String team, String employeeParam,
+            int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         return getProcessedRequests(employeeId, team, employeeParam, LeaveRequestStatus.REJECTED,
-                page, size);
+                page, size, cursorCreatedAt, cursorRequestId);
     }
 
     private List<LeaveRequestListDto.LeaveRequestListResponse> getProcessedRequests(
             Long employeeId, String team, String employeeParam, LeaveRequestStatus status,
-            int page, int size) {
+            int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         validatePage(page, size);
+        validateCursor(cursorCreatedAt, cursorRequestId);
         List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
@@ -134,11 +161,25 @@ public class LeaveApprovalService {
             accessibleTeams = Set.of(team);
         }
         Year year = Year.now(clock);
-        return leaveRequestRepository.searchLeaveRequestsPage(
+        List<LeaveRequest> requests = cursorCreatedAt == null
+                ? leaveRequestRepository.searchLeaveRequestsPage(
+                        null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                        status, accessibleTeams, employeeParam, page, size)
+                : leaveRequestRepository.searchLeaveRequestsCursor(
                         null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
                         status, accessibleTeams, employeeParam,
-                        page, size)
-                .stream().map(LeaveRequestListDto.LeaveRequestListResponse::from).toList();
+                        cursorCreatedAt, cursorRequestId, size);
+        return requests.stream()
+                .map(LeaveRequestListDto.LeaveRequestListResponse::from)
+                .toList();
+    }
+
+    private void validateCursor(LocalDateTime cursorCreatedAt, Long cursorRequestId) {
+        if ((cursorCreatedAt == null) != (cursorRequestId == null)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "cursorCreatedAt과 cursorRequestId는 함께 지정해야 합니다.");
+        }
     }
 
     private void validatePage(int page, int size) {
