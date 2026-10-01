@@ -20,8 +20,6 @@
 --    사전 검증에서 중단한다.
 -- 5) Oracle DDL은 중간 rollback이 불가능하므로 DDL 시작 후 실패한 스크립트를 그대로 재실행하지 않는다.
 --    TEAM_LEGACY / EMPLOYEE_ORG_LEGACY와 외부 백업을 기준으로 수동 복구 후 다시 실행한다.
--- 6) AUTH_REFRESH_SESSION은 공통 SSO 인프라로 이미 존재한다고 가정하며,
---    이 migration의 생성/rename/move/검증 대상이 아니다.
 -- =====================================================================
 
 WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;
