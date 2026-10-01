@@ -273,12 +273,13 @@ public class LeaveApprovalService {
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
-        // idempotency보다 현재 결재권을 먼저 검증한다.
-        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(current, approverId);
+        // 이미 같은 관리자가 같은 결과로 처리한 요청의 재전송은 상태 변경이 아니다.
+        // 이후 조직/결재권이 바뀌었더라도 원래 성공 결과를 안정적으로 재현한다.
         if (isSameApprovalResult(current, approverId)) {
             return LeaveApprovalDto.LeaveApprovalResponse.from(current);
         }
 
+        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(current, approverId);
         LeaveRequest leaveRequest = response.getKey();
         
     	LocalDateTime now = LocalDateTime.now(clock);
@@ -318,12 +319,12 @@ public class LeaveApprovalService {
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
-        // idempotency보다 현재 결재권을 먼저 검증한다.
-        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(current, approverId);
+        // 동일 반려 결과의 재전송은 상태 변경이 아니므로 현재 결재권보다 먼저 판정한다.
         if (isSameRejectionResult(current, approverId, request.getRejectReason())) {
             return LeaveRejectDto.LeaveRejectResponse.from(current);
         }
 
+        Map.Entry<LeaveRequest, Employee> response = validateLeaveRequest(current, approverId);
         LeaveRequest leaveRequest = response.getKey();
         
     	LocalDateTime now = LocalDateTime.now(clock);
