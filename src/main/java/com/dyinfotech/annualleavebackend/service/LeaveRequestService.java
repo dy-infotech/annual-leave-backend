@@ -553,11 +553,13 @@ public class LeaveRequestService {
         List<LeaveRequest> fetched;
         boolean hasMore;
         if (cursorRequestedAt == null) {
+            // totalCount와 row 조회는 Oracle READ COMMITTED에서 서로 다른 statement snapshot일 수 있다.
+            // 다음 페이지 존재 여부는 count가 아니라 같은 row query의 size + 1 결과로 판단한다.
             fetched = leaveRequestRepository.searchLeaveRequestsPage(
                     condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
                     condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                    page, size);
-            hasMore = ((long) page + 1L) * size < totalCount;
+                    page, size + 1);
+            hasMore = fetched.size() > size;
         } else {
             fetched = leaveRequestRepository.searchLeaveRequestsCursor(
                     condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
