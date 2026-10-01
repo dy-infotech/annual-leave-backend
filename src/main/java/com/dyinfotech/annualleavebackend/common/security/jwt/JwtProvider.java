@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,7 @@ public class JwtProvider {
     private static final String CREDENTIAL_VERSION_CLAIM = "credentialVersion";
 
     private final SecretKey secretKey;
+    private final JwtParser jwtParser;
     private final long expirationMs;
 
     public JwtProvider(
@@ -32,6 +34,7 @@ public class JwtProvider {
             @Value("${jwt.expiration}") long expirationMs
     ) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.jwtParser = Jwts.parser().verifyWith(secretKey).build();
         this.expirationMs = expirationMs;
     }
 
@@ -94,11 +97,15 @@ public class JwtProvider {
         }
     }
 
+    /**
+     * 서명과 만료를 한 번 검증한 Claims를 반환한다.
+     * 요청 필터는 이 값을 재사용해 만료 경계에서 반복 파싱하지 않는다.
+     */
+    public Claims parseVerifiedClaims(String token) {
+        return jwtParser.parseSignedClaims(token).getPayload();
+    }
+
     private Claims parseClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return parseVerifiedClaims(token);
     }
 }
