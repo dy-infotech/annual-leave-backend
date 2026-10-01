@@ -69,6 +69,10 @@ public class PasswordResetService {
         String tokenHash = hash(rawToken);
         Long candidateEmployeeId = employee.getEmployeeId();
 
+        // 전역 expired 정리는 employee row lock과 분리한다. 직원 락을 잡은 채 다른 직원의
+        // reset token까지 DELETE하면 confirmReset의 token/employee lock과 교차할 수 있다.
+        transactionTemplate.executeWithoutResult(status -> tokenRepository.deleteExpired(now));
+
         PreparedReset prepared = transactionTemplate.execute(status -> {
             Employee lockedEmployee = employeeRepository.findByIdForUpdate(candidateEmployeeId)
                     .filter(Employee::isRegisted)
@@ -77,7 +81,6 @@ public class PasswordResetService {
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
 
-            tokenRepository.deleteExpired(now);
             tokenRepository.deleteUnusedByEmployeeId(lockedEmployee.getEmployeeId());
             PasswordResetToken saved = tokenRepository.saveAndFlush(new PasswordResetToken(
                     lockedEmployee.getEmployeeId(),
@@ -140,19 +143,26 @@ public class PasswordResetService {
         authRateLimitService.checkRecovery("reset-password:" + tokenHash);
 
         LocalDateTime now = LocalDateTime.now(clock);
+        // requestReset과 동일하게 Employee -> PasswordResetToken 순서로 잠근다.
+        // 최초 조회는 employeeId를 얻기 위한 non-locking probe이며, 직원 lock 획득 후
+        // token을 FOR UPDATE로 다시 읽어 삭제/소비/만료 race를 재검증한다.
+        PasswordResetToken candidate = tokenRepository
+                .findByTokenHashAndConsumedAtIsNull(tokenHash)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "유효하지 않은 재설정 토큰입니다."));
+
+        Employee employee = employeeRepository.findByIdForUpdate(candidate.getEmployeeId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
         PasswordResetToken token = tokenRepository.findUnusedForUpdate(tokenHash)
+                .filter(current -> current.getEmployeeId().equals(employee.getEmployeeId()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "유효하지 않은 재설정 토큰입니다."));
 
         if (token.isExpired(now)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "재설정 토큰이 만료되었습니다.");
         }
-
-        Employee employee = employeeService.getEmployeeList(java.util.List.of(token.getEmployeeId()))
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
             throw new ResponseStatusException(
