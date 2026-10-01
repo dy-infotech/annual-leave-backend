@@ -31,9 +31,19 @@ public class AdminEmployeeController {
 
     @Operation(summary = "전체 사원 조회", description = "관리자가 신규 사원 등록 시 채번된 사번을 조회한다.")
     @GetMapping("/all")
-    public List<EmployeeDto.EmployeeResponse> getAllEmployees(@AuthenticationPrincipal EmployeePrincipal principal, 
-    															@RequestParam(name = "searchParam", required = false) String searchParam) {
-    	return employeeService.getAllEmployees(searchParam);
+    public List<EmployeeDto.EmployeeResponse> getAllEmployees(
+            @AuthenticationPrincipal EmployeePrincipal principal,
+            @RequestParam(name = "searchParam", required = false) String searchParam,
+            @RequestParam(name = "team", required = false) String team,
+            @RequestParam(name = "registered", required = false) Boolean registered,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "50") int size) {
+        return employeeService.getEmployeesPage(
+                searchParam,
+                team,
+                registered,
+                page,
+                size);
     }
     
     
