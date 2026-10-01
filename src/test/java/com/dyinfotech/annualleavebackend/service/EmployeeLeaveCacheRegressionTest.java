@@ -65,17 +65,13 @@ class EmployeeLeaveCacheRegressionTest {
                 .thenReturn(java.util.Optional.of(employee));
         doReturn(16.0f).when(service).getCalculatedCurrYearLeaveDays(employee);
 
-        EmployeeLeaveService.LeaveYearState state =
-                service.ensureCurrentLeaveYear(1L);
+        service.ensureCurrentLeaveYear(1L);
 
         verify(employee).setPrevYear("2025");
         verify(employee).setPrevYearLeaveDays(15.0f);
         verify(employee).setCurrYear("2026");
         verify(employee).setCurrYearLeaveDays(16.0f);
         verify(employeeCacheInvalidator).afterEmployeeViewChange(1L);
-        org.junit.jupiter.api.Assertions.assertEquals("2025", state.currYear());
-        // mock getter는 setter를 반영하지 않으므로 반환 snapshot 자체보다
-        // rollover write와 cache invalidation을 회귀 조건으로 고정한다.
     }
 
     @Test
