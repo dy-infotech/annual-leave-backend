@@ -46,4 +46,40 @@ class AuthRateLimitServiceRegressionTest {
         IpContext.set("10.0.0.99");
         assertDoesNotThrow(() -> service.checkSignIn("EMP-002"));
     }
+    @Test
+    void passwordChange_rejectsBeforeSixthExpensiveAttempt() {
+        for (int i = 0; i < 5; i++) {
+            assertDoesNotThrow(() -> service.checkPasswordChange(100L));
+        }
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.checkPasswordChange(100L));
+
+        assertEquals(429, exception.getStatusCode().value());
+    }
+
+    @Test
+    void successfulPasswordChange_canClearAttemptWindow() {
+        for (int i = 0; i < 5; i++) {
+            service.checkPasswordChange(101L);
+        }
+
+        service.clearPasswordChange(101L);
+
+        assertDoesNotThrow(() -> service.checkPasswordChange(101L));
+    }
+
+    @Test
+    void passwordWorkerSlot_isBoundedAndReusableAfterRelease() {
+        for (int i = 0; i < 4; i++) {
+            assertEquals(true, service.tryAcquirePasswordWorker());
+        }
+        assertEquals(false, service.tryAcquirePasswordWorker());
+
+        service.releasePasswordWorker();
+
+        assertEquals(true, service.tryAcquirePasswordWorker());
+    }
+
 }

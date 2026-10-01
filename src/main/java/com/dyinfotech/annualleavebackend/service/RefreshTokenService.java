@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class RefreshTokenService {
     public record IssuedRefreshToken(String token, Instant expiresAt, String sessionMarker) {}
     public record RefreshResult(SignInDto.SignInResponse access, IssuedRefreshToken refresh) {}
+    public record InitialSignInResult(SignInDto.SignInResponse access, IssuedRefreshToken refresh) {}
     public record CurrentSessionIdentity(Long employeeId, String sessionMarker) {}
 
     private final RefreshTokenSessionRepository repository;
@@ -34,6 +35,22 @@ public class RefreshTokenService {
 
     @Transactional
     public IssuedRefreshToken issue(Long employeeId) {
+        return issueInternal(employeeId);
+    }
+
+    // 로그인 검증 직후 계정 상태를 다시 확인하고 Refresh 세션을 발급한다
+    @Transactional
+    public InitialSignInResult issueAfterSignIn(SignInDto.SignInResponse validatedAccess) {
+        SignInDto.SignInResponse currentAccess =
+                authService.revalidateSignInAccess(
+                        validatedAccess.getEmployeeId(),
+                        validatedAccess.getToken());
+        IssuedRefreshToken refresh = issueInternal(currentAccess.getEmployeeId());
+        return new InitialSignInResult(currentAccess, refresh);
+    }
+
+    private IssuedRefreshToken issueInternal(Long employeeId) {
+        // 만료 시각과 세션 식별자를 만들고 새 세션을 저장한다
         properties.validate();
 
         LocalDateTime now = nowUtc();
@@ -72,6 +89,7 @@ public class RefreshTokenService {
             String presentedToken,
             String expectedSessionMarker,
             boolean requireSessionMarker) {
+        // 전달된 토큰과 세션 식별 정보를 먼저 검증한다
         RefreshTokenCodec.ParsedToken parsed = codec.parse(presentedToken)
                 .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
 
@@ -82,6 +100,7 @@ public class RefreshTokenService {
             throw new RefreshSessionMismatchException();
         }
 
+        // 세션을 잠근 뒤 폐기 여부와 만료 상태를 확인한다
         RefreshTokenSession session = repository.findByIdForUpdate(parsed.sessionId())
                 .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
 
@@ -99,6 +118,7 @@ public class RefreshTokenService {
             throw new RefreshRejectedException("유효하지 않은 refresh token generation입니다.");
         }
 
+        // 이전 세대 토큰은 허용 시간 안에서만 현재 결과를 재사용한다
         if (parsed.generation() < currentGeneration) {
             if (parsed.generation() == currentGeneration - 1
                     && constantEquals(session.getPreviousTokenHash(), parsed.tokenHash())
@@ -106,8 +126,7 @@ public class RefreshTokenService {
                     && now.isBefore(session.getPreviousValidUntil())) {
                 String currentToken = codec.issue(session.getSessionId(), currentGeneration);
                 if (!constantEquals(session.getTokenHash(), codec.hash(currentToken))) {
-                    // 배포 전 random-secret 방식으로 회전된 세션은 현재 raw token을
-                    // 재구성할 수 없으므로 기존 409 계약으로 안전하게 fallback한다.
+                    // 이전 방식 세션은 현재 토큰을 복원할 수 없으면 재시도를 요청한다
                     throw new RefreshAlreadyRotatedException();
                 }
 
@@ -132,6 +151,7 @@ public class RefreshTokenService {
             throw new RefreshRejectedException("refresh token 재사용이 감지되어 세션을 종료했습니다.");
         }
 
+        // 현재 세대 토큰을 검증한 뒤 다음 세대로 회전한다
         if (!constantEquals(session.getTokenHash(), parsed.tokenHash())) {
             throw new RefreshRejectedException("유효하지 않은 refresh token입니다.");
         }
@@ -181,6 +201,7 @@ public class RefreshTokenService {
             throw new RefreshRejectedException("현재 사용할 수 없는 refresh session입니다.");
         }
 
+        // 현재 토큰과 직전 세대 토큰만 유효한 세션으로 인정한다
         int currentGeneration = session.getRotationCount();
         boolean current = parsed.generation() == currentGeneration
                 && constantEquals(session.getTokenHash(), parsed.tokenHash());
@@ -226,6 +247,7 @@ public class RefreshTokenService {
             return null;
         }
 
+        // 로그아웃 대상 세션을 잠근 뒤 사용 중인 세대를 폐기한다
         RefreshTokenSession session = repository.findByIdForUpdate(parsed.sessionId()).orElse(null);
         if (session == null) return null;
 

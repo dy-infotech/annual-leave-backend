@@ -18,9 +18,11 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
@@ -57,6 +59,7 @@ class LeaveRequestRegressionTest {
 
     @BeforeEach
     void setUp() {
+        TransactionSynchronizationManager.initSynchronization();
         leaveRequestRepository = mock(LeaveRequestRepository.class);
         employeeRepository = mock(EmployeeRepository.class);
         employeeLeaveService = mock(EmployeeLeaveService.class);
@@ -79,6 +82,45 @@ class LeaveRequestRegressionTest {
                 employeeCacheInvalidator,
                 clock
         );
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void cancel_locksEmployeeBeforeReadingLeaveRequest() {
+        Employee lockedEmployee = mock(Employee.class);
+        Employee owner = mock(Employee.class);
+        when(owner.getEmployeeId()).thenReturn(EMPLOYEE_ID);
+
+        LeaveRequest request = mock(LeaveRequest.class);
+        when(request.getEmployee()).thenReturn(owner);
+        when(request.getStatus()).thenReturn(LeaveRequestStatus.PENDING);
+
+        when(employeeRepository.findByIdForUpdate(EMPLOYEE_ID))
+                .thenReturn(java.util.Optional.of(lockedEmployee));
+        when(leaveRequestRepository.findById(100L))
+                .thenReturn(java.util.Optional.of(request));
+        when(leaveRequestRepository.cancelLeaveRequest(
+                100L,
+                EMPLOYEE_ID,
+                LocalDate.now(clock)))
+                .thenReturn(1);
+
+        leaveRequestService.cancel(EMPLOYEE_ID, 100L);
+
+        org.mockito.InOrder order =
+                org.mockito.Mockito.inOrder(employeeRepository, leaveRequestRepository);
+        order.verify(employeeRepository).findByIdForUpdate(EMPLOYEE_ID);
+        order.verify(leaveRequestRepository).findById(100L);
+        order.verify(leaveRequestRepository).cancelLeaveRequest(
+                100L,
+                EMPLOYEE_ID,
+                LocalDate.now(clock));
     }
 
     @Test
@@ -129,8 +171,6 @@ class LeaveRequestRegressionTest {
 
     @Test
     void searchManagedLeaveRequests_withoutManagedTeam_isForbidden() {
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of());
-
         LeaveRequestListDto.LeaveRequestListRequest condition =
                 new LeaveRequestListDto.LeaveRequestListRequest(
                         null, null, REQUEST_DATE, REQUEST_DATE, null, null);
@@ -148,16 +188,13 @@ class LeaveRequestRegressionTest {
 
         assertEquals(403, exception.getStatusCode().value());
         verify(leaveRequestRepository, never()).searchLeaveRequestsPage(
-                any(), any(), any(), any(), any(), any(), any(Integer.class), any(Integer.class));
+                any(), any(), any(), any(), any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
     }
 
     @Test
     void searchManagedLeaveRequests_limitsQueryToManagedHierarchy() {
-        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
-        TeamService.ManagedTeam child = managedTeam(11L, "하위팀", 10L, "관리팀");
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
-        when(teamService.getSelfAndDescendants("관리팀"))
-                .thenReturn(Set.of(root, child));
+        when(teamService.findManagedTeamNamesWithDescendantsFromDatabase(EMPLOYEE_ID))
+                .thenReturn(Set.of("관리팀", "하위팀"));
         when(leaveRequestRepository.searchLeaveRequestsPage(
                 org.mockito.ArgumentMatchers.isNull(),
                 eq(REQUEST_DATE),
@@ -166,6 +203,7 @@ class LeaveRequestRegressionTest {
                 eq(Set.of("관리팀", "하위팀")),
                 org.mockito.ArgumentMatchers.isNull(),
                 eq(0),
+                eq(50),
                 eq(50)))
                 .thenReturn(List.of());
 
@@ -190,11 +228,103 @@ class LeaveRequestRegressionTest {
                 eq(Set.of("관리팀", "하위팀")),
                 org.mockito.ArgumentMatchers.isNull(),
                 eq(0),
+                eq(50),
                 eq(50));
     }
 
     @Test
-    void getLeaveRequestDetail_nonOwnerOutsideTargetHierarchy_returnsPublicDetail() {
+    void getLeaveRequestDetail_adminInsideManagedHierarchy_keepsPrivateDetail() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(2L);
+        when(requester.getTeamName()).thenReturn("하위팀");
+
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequest.getStatus()).thenReturn(LeaveRequestStatus.REJECTED);
+        when(leaveRequest.getLeaveReason()).thenReturn("휴가 사유");
+        when(leaveRequest.getRejectReason()).thenReturn("반려 사유");
+        when(leaveRequestRepository.findDetailById(100L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+
+        when(teamService.findManagedTeamNamesWithDescendantsFromDatabase(EMPLOYEE_ID))
+                .thenReturn(Set.of("관리팀", "하위팀"));
+
+        var response = leaveRequestService.getLeaveRequestDetail(100L, EMPLOYEE_ID);
+
+        assertEquals("휴가 사유", response.getLeaveReason());
+        assertEquals("반려 사유", response.getRejectReason());
+    }
+
+    @Test
+    void getLeaveRequestDetail_ceoOutsideManagedHierarchy_keepsPrivateDetail() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(2L);
+        when(requester.getTeamName()).thenReturn("타부서팀");
+
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequest.getStatus()).thenReturn(LeaveRequestStatus.REJECTED);
+        when(leaveRequest.getLeaveReason()).thenReturn("대표 열람 사유");
+        when(leaveRequestRepository.findDetailById(102L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+        when(currentAuthorityService.canViewAllLeaveDetails(EMPLOYEE_ID)).thenReturn(true);
+
+        var response = leaveRequestService.getLeaveRequestDetail(102L, EMPLOYEE_ID);
+
+        assertEquals("대표 열람 사유", response.getLeaveReason());
+        verify(currentAuthorityService, never()).isAdmin(EMPLOYEE_ID);
+        verifyNoInteractions(teamService);
+    }
+
+    @Test
+    void getLeaveRequestDetail_executivePmOutsideManagedHierarchy_keepsPrivateDetail() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(2L);
+        when(requester.getTeamName()).thenReturn("타부서팀");
+
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequest.getLeaveReason()).thenReturn("임원 PM 전사 열람");
+        when(leaveRequestRepository.findDetailById(103L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+        when(currentAuthorityService.canViewAllLeaveDetails(EMPLOYEE_ID))
+                .thenReturn(true);
+
+        var response = leaveRequestService.getLeaveRequestDetail(103L, EMPLOYEE_ID);
+
+        assertEquals("임원 PM 전사 열람", response.getLeaveReason());
+        verifyNoInteractions(teamService);
+    }
+
+    @Test
+    void getLeaveRequestDetail_ownerAlwaysKeepsPrivateDetailWithoutAuthorityLookup() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(EMPLOYEE_ID);
+        when(requester.getTeamName()).thenReturn("일반팀");
+
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequest.getLeaveReason()).thenReturn("내 휴가 사유");
+        when(leaveRequestRepository.findDetailById(104L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+
+        var response = leaveRequestService.getLeaveRequestDetail(104L, EMPLOYEE_ID);
+
+        assertEquals("내 휴가 사유", response.getLeaveReason());
+        verifyNoInteractions(currentAuthorityService);
+        verifyNoInteractions(teamService);
+    }
+
+    @Test
+    void getLeaveRequestDetail_nonAdminNonOwner_redactsPrivateDetail() {
         Employee requester = mock(Employee.class);
         when(requester.getEmployeeId()).thenReturn(2L);
         when(requester.getTeamName()).thenReturn("타부서팀");
@@ -208,16 +338,10 @@ class LeaveRequestRegressionTest {
         when(leaveRequest.getRejectReason()).thenReturn("비공개 반려 사유");
         when(leaveRequest.getPrevTotalLeaveDays()).thenReturn(10.0f);
         when(leaveRequest.getCurrTotalLeaveDays()).thenReturn(9.0f);
-        when(leaveRequestRepository.findDetailById(100L))
+        when(leaveRequestRepository.findDetailById(101L))
                 .thenReturn(java.util.Optional.of(leaveRequest));
-
-        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
-        when(teamService.getSelfAndDescendants("관리팀"))
-                .thenReturn(Set.of(root));
-
         var response = leaveRequestService.getLeaveRequestDetail(
-                100L,
+                101L,
                 EMPLOYEE_ID);
 
         assertEquals("타부서팀", response.getTeam());
@@ -225,40 +349,7 @@ class LeaveRequestRegressionTest {
         assertNull(response.getRejectReason());
         assertNull(response.getPrevTotalLeaveDays());
         assertNull(response.getCurrTotalLeaveDays());
-    }
-
-    @Test
-    void getLeaveRequestDetail_managerInsideTargetHierarchy_keepsPrivateDetail() {
-        Employee requester = mock(Employee.class);
-        when(requester.getEmployeeId()).thenReturn(2L);
-        when(requester.getTeamName()).thenReturn("하위팀");
-
-        LeaveRequest leaveRequest = mock(
-                LeaveRequest.class,
-                org.mockito.Answers.RETURNS_DEEP_STUBS);
-        when(leaveRequest.getEmployee()).thenReturn(requester);
-        when(leaveRequest.getStatus()).thenReturn(LeaveRequestStatus.REJECTED);
-        when(leaveRequest.getLeaveReason()).thenReturn("휴가 사유");
-        when(leaveRequest.getRejectReason()).thenReturn("반려 사유");
-        when(leaveRequest.getPrevTotalLeaveDays()).thenReturn(10.0f);
-        when(leaveRequest.getCurrTotalLeaveDays()).thenReturn(9.0f);
-        when(leaveRequestRepository.findDetailById(101L))
-                .thenReturn(java.util.Optional.of(leaveRequest));
-
-        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
-        TeamService.ManagedTeam child = managedTeam(11L, "하위팀", 10L, "관리팀");
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
-        when(teamService.getSelfAndDescendants("관리팀"))
-                .thenReturn(Set.of(root, child));
-
-        var response = leaveRequestService.getLeaveRequestDetail(
-                101L,
-                EMPLOYEE_ID);
-
-        assertEquals("휴가 사유", response.getLeaveReason());
-        assertEquals("반려 사유", response.getRejectReason());
-        assertEquals(10.0f, response.getPrevTotalLeaveDays());
-        assertEquals(9.0f, response.getCurrTotalLeaveDays());
+        verify(teamService).findManagedTeamNamesWithDescendantsFromDatabase(EMPLOYEE_ID);
     }
 
     @Test

@@ -10,6 +10,7 @@ import com.dyinfotech.annualleavebackend.repository.projection.DepartmentCacheRo
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DepartmentRepositoryImpl implements DepartmentRepositoryCustom {
     private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
     private static final QDepartment qDepartment = QDepartment.department;
 
     @Override
@@ -30,12 +32,14 @@ public class DepartmentRepositoryImpl implements DepartmentRepositoryCustom {
 
     @Override
     public Optional<Department> findByIdForUpdate(Long departmentId) {
-        return Optional.ofNullable(
-                queryFactory.selectFrom(qDepartment)
-                        .where(qDepartment.departmentId.eq(departmentId))
-                        .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                        .fetchOne()
-        );
+        Department department = queryFactory.selectFrom(qDepartment)
+                .where(qDepartment.departmentId.eq(departmentId))
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+        if (department != null) {
+            entityManager.refresh(department, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return Optional.ofNullable(department);
     }
 
     @Override

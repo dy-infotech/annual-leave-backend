@@ -26,8 +26,10 @@ public class BasisDataFactory {
 	private final Clock clock;
 	private final BasisDataRepository repository;
 
-	private Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
+	// 기초데이터는 새 조회 결과로 한 번에 교체한다
+	private volatile Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
 	
+	// 지정 연도의 기초데이터를 코드별로 묶는다
 	private Map<BasisDataType, BasisData> loadByYear(int year) {
 	    Map<BasisDataType, BasisData> grouped = new EnumMap<>(BasisDataType.class);
 
@@ -45,6 +47,7 @@ public class BasisDataFactory {
 		reload();
 	}
 	
+	// 현재 연도 데이터가 없으면 전년도 데이터를 사용한다
 	public void reload() {
 		int currentYear = LocalDate.now(clock).getYear();
 		Map<BasisDataType, BasisData> grouped = loadByYear(currentYear);
@@ -64,7 +67,7 @@ public class BasisDataFactory {
 		return get(BasisDataType.fromCode(seq));
 	}
 
-	// Typed accessors based on schema: 0: bool, 1: int, 2: long, 3: float, 4: double, 5: string
+	// 저장된 자료형에 맞춰 기초데이터를 변환해 반환한다
 	private Optional<Boolean> getAsBoolean(Optional<BasisData> basisData) {
 		return basisData.map(this::parseBoolean);
 	}
@@ -125,7 +128,7 @@ public class BasisDataFactory {
 		return getAsString(get(seq));
 	}
 
-	// Parsing helpers
+	// 요청한 자료형과 저장된 자료형을 확인한 뒤 값을 변환한다
 	private Boolean parseBoolean(BasisData b) throws IllegalArgumentException {
 		BasisDataParseType type = BasisDataParseType.fromCode(Integer.parseInt(b.getType()));
 		if (type == null || type != BasisDataParseType.BOOLEAN) {

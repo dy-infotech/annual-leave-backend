@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
@@ -105,8 +106,7 @@ public class AuthService {
             Long employeeId,
             FcmTokenDto.FcmTokenRequest request,
             String authSessionMarker) {
-		// Web SSO 세션 marker까지 binding해야 같은 계정의 이전 세션 logout이
-		// 새 세션의 FCM token을 삭제하지 못한다. legacy/native client는 null을 허용한다.
+		// 현재 로그인 세션 기준으로 FCM 토큰을 동기화한다
         return notificationService.syncToken(
             employeeId,
             request.getFcmToken(),
@@ -124,6 +124,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "직급 정보가 잘못되었습니다.");
         }
 
+        // 현재 권한 기준으로 등록 가능한 부서와 팀을 조회한다
         var departments = departmentService.findAll();
         java.util.Collection<String> accessibleTeams;
         if (requester.hasPersonnelAuthority()) {
@@ -153,6 +154,7 @@ public class AuthService {
                         .build())
                 .toList();
 
+        // 조회 결과를 등록 화면 공통 데이터로 구성한다
         return RegisterCommonDto.RegisterCommonResponse.builder()
                 .department(departments.stream()
                         .map(department -> department.departmentName())
@@ -185,6 +187,7 @@ public class AuthService {
                     return new ResponseStatusException(HttpStatus.BAD_REQUEST, errorMsg);
                 });
 
+        // 요청한 부서와 직급에 대한 등록 권한을 확인한다
         PositionType targetPosition = PositionType.getType(request.getPosition());
         int validationResult = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
         if (!ManageType.IS_VALID_DEPARTMENT.contains(validationResult)) {
@@ -260,10 +263,57 @@ public class AuthService {
             plannedParentTeamId = teamService.resolveParentTeamId(request.getTeam())
                     .orElseGet(teamService::resolveDefaultParentTeamId);
             registrationTeamLocks.add(plannedParentTeamId);
-            teamService.lockHierarchyForUpdate();
         }
+
+        // 조직 변경을 잠근 뒤 현재 권한과 팀 상태를 다시 검증한다
+        teamService.lockHierarchyForUpdate();
         teamService.lockTeamsForUpdate(registrationTeamLocks);
-        LocalDate hireDate = LocalDate.parse(request.getHireDate());
+
+        var currentTeamInfo = teamService.findTeamInfoFromDatabase(request.getTeam())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "팀 정보가 동시에 변경되었습니다. 다시 조회해주세요."));
+        if (!Objects.equals(currentTeamInfo.teamId(), team.getTeamId())
+                || !Objects.equals(currentTeamInfo.departmentId(), department.getDepartmentId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "팀의 소속 정보가 동시에 변경되었습니다. 다시 조회해주세요.");
+        }
+
+        approver = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        if (!approver.isActive(LocalDate.now(clock))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 관리자는 사원을 등록할 수 없습니다.");
+        }
+
+        int currentValidation = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
+        if (!ManageType.IS_VALID_DEPARTMENT.contains(currentValidation)
+                || !ManageType.IS_VALID_POSITION.contains(currentValidation)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "관리자의 현재 부서/직급 권한으로 사원을 등록할 수 없습니다.");
+        }
+        if (!PositionType.isCEO(PositionType.getType(approver.getPosition()))
+                && !teamService.isManagerForTeamFromDatabase(
+                        approver.getEmployeeId(),
+                        team.getTeamId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "현재 관리 범위에 속하지 않는 팀에는 사원을 등록할 수 없습니다.");
+        }
+        if (Role.isAdmin(request.getRole()) && !approver.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "관리자 계정을 등록할 현재 인사권이 없습니다.");
+        }
+
+        // 잠금 대기 중 발생한 사번 중복을 다시 확인한다
+        if (employeeRepository.existsByEmployeeNumber(request.getEmployeeNumber())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 등록된 사번입니다.");
+        }
+
+        // 검증이 끝난 사원 정보를 생성하고 저장한다
+        LocalDate hireDate = parseHireDate(request.getHireDate());
         Employee employee = Employee.builder()
                 .employeeNumber(request.getEmployeeNumber())
                 .name(request.getName())
@@ -279,6 +329,7 @@ public class AuthService {
 
         employeeService.saveEmployee(employee);
 
+        // 관리자 계정이면 담당 팀을 연결하고 결재자를 다시 계산한다
         if (makeAdminAccount) {
             teamService.addManager(request.getTeam(), employee.getEmployeeId(), plannedParentTeamId);
             teamService.refreshApproverIds(
@@ -294,6 +345,16 @@ public class AuthService {
                 .employeeId(employee.getEmployeeId())
                 .employeeNumber(employee.getEmployeeNumber())
                 .build();
+    }
+
+    LocalDate parseHireDate(String rawHireDate) {
+        try {
+            return LocalDate.parse(rawHireDate);
+        } catch (DateTimeParseException | NullPointerException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "입사일 형식이 올바르지 않습니다.");
+        }
     }
 
     @Transactional
@@ -314,15 +375,14 @@ public class AuthService {
         	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
             throw new ResponseStatusException(HttpStatus.CONFLICT, errorMsg);
         }
-        // BCrypt는 신규 encode 입력을 UTF-8 72 bytes까지만 허용한다.
-        // @Size(max=72)는 문자 수 기준이므로 멀티바이트 비밀번호를 별도로 검증한다.
+        // 비밀번호 인코딩 전에 바이트 길이를 검증한다
         if (!PasswordPolicy.isBcryptEncodable(request.getPassword())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
         }
 
-        // 동시 가입은 password IS NULL CAS로 최초 1건만 성공시킨다.
+        // 비밀번호가 없는 계정만 최초 가입을 완료한다
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         if (!employeeService.completeSignUpIfUnregistered(
                 employee.getEmployeeId(), encodedPassword)) {
@@ -344,8 +404,7 @@ public class AuthService {
         int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
         LocalDateTime now = LocalDateTime.now(clock);
 
-        // 오래된 실패 횟수는 누적하지 않는다. 기존 구현은 29회가 수개월 뒤에도 남아
-        // 한 번의 오타로 24시간 잠길 수 있었다.
+        // 잠금 시간이 지난 로그인 실패 횟수는 초기화한다
         if (employee.getAccessCount() > 0 && employee.getAccessedAt() != null
                 && now.isAfter(employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS))) {
             employeeService.resetAccessCount(employee.getEmployeeId(), now);
@@ -380,8 +439,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        // 실패 횟수는 brute-force 완화용 상태이지 제3자가 계정을 장시간 봉쇄하는
-        // 권한이 되어서는 안 된다. 올바른 비밀번호가 확인되면 잠금 상태라도 복구한다.
+        // 비밀번호가 맞으면 기존 로그인 실패 상태를 초기화한다
         employeeService.resetAccessCount(employee.getEmployeeId(), now);
         employee.initAccessCount(now);
 
@@ -393,17 +451,18 @@ public class AuthService {
                         HttpStatus.CONFLICT,
                         "비밀번호 정보가 동시에 변경되었습니다. 다시 로그인해주세요.");
             }
-            // 이후 JWT credentialVersion이 DB와 동일한 hash를 사용하도록 detached 객체도 맞춘다.
+            // 비밀번호 변경 후 현재 객체도 새 해시로 맞춘다
             employee.changePassword(encodedPassword);
         }
 
-        float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
-        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {
-            employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), calculatedCurrYearLeaveDays);
-            employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
-        }
+        EmployeeLeaveService.LeaveYearState leaveYearState =
+                employeeLeaveService.ensureCurrentLeaveYear(employee.getEmployeeId());
+        employee.setPrevYear(leaveYearState.prevYear());
+        employee.setPrevYearLeaveDays(leaveYearState.prevTotalLeaveDays());
+        employee.setCurrYear(leaveYearState.currYear());
+        employee.setCurrYearLeaveDays(leaveYearState.currTotalLeaveDays());
 
-        // 로그인 self-heal은 detached Employee 전체를 merge하지 않고 approver FK만 targeted update한다.
+        // 현재 조직 기준으로 저장된 결재자를 보정한다
         Long storedApproverId = employee.getApproverId();
         Set<Long> currentApproverIds = teamService.resolveCurrentApproverIds(employee);
         if (!currentApproverIds.isEmpty()
@@ -440,6 +499,37 @@ public class AuthService {
         return issueAccessToken(employee);
     }
 
+    // Refresh 세션 발급 전 계정 상태와 인증 정보를 다시 검증한다
+    @Transactional
+    public SignInDto.SignInResponse revalidateSignInAccess(
+            Long employeeId,
+            String validatedAccessToken) {
+        String expectedCredentialVersion =
+                jwtProvider.getCredentialVersion(validatedAccessToken);
+
+        Employee employee = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "현재 직원 정보를 확인할 수 없습니다."));
+
+        if (!employee.isActive(LocalDate.now(clock)) || employee.getPassword() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "로그인 처리 중 계정 상태가 변경되었습니다. 다시 로그인해주세요.");
+        }
+
+        String currentCredentialVersion =
+                jwtProvider.createCredentialVersion(employee.getPassword());
+        if (expectedCredentialVersion == null
+                || !Objects.equals(expectedCredentialVersion, currentCredentialVersion)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "로그인 처리 중 인증 정보가 변경되었습니다. 다시 로그인해주세요.");
+        }
+
+        return issueAccessToken(employee);
+    }
+
     @Transactional(readOnly = true)
     public SignInDto.SignInResponse issueCurrentAccessToken(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
@@ -462,6 +552,7 @@ public class AuthService {
     }
 
     private SignInDto.SignInResponse issueAccessToken(Employee employee) {
+        // 현재 조직 권한을 반영해 접근 토큰을 발급한다
         EmployeeAuthorityResolver roleResolver =
                 employeeLeaveService.createAuthorityResolver(employee.getEmployeeId());
         Role role = roleResolver.resolveRole(employee.getEmployeeId());

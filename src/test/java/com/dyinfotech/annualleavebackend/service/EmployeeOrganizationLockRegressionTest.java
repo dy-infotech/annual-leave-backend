@@ -50,7 +50,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
         Employee approver = mock(Employee.class);
@@ -60,9 +60,14 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        
 
         when(employee.getEmployeeId()).thenReturn(1L);
         when(employee.getName()).thenReturn("직원");
@@ -92,8 +97,60 @@ class EmployeeOrganizationLockRegressionTest {
                         && teamIds.contains(10L)
                         && teamIds.contains(20L)));
         inOrder.verify(employeeRepository).findByIdForUpdate(1L);
+        inOrder.verify(employeeRepository).findByIdForUpdate(100L);
         verify(teamService, never()).removeManager(any(), any());
         verify(teamService, never()).addManager(any(), any(), any());
+    }
+
+    @Test
+    void employeeAdminUpdate_locksTeamsBeforeSortedEmployeeSet_toAvoidRolloverCycle() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        Employee approver = mock(Employee.class);
+        Employee employee = mock(Employee.class);
+        Team team = mock(Team.class);
+        Department department = mock(Department.class);
+        EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, mock(CommonService.class), mock(EmployeeLeaveService.class),
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository,
+                mock(OrganizationCacheInvalidator.class), mock(EmployeeCacheInvalidator.class),
+                mock(PasswordEncoder.class), mock(AuthRateLimitService.class));
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getTeam()).thenReturn(team);
+        when(employee.getName()).thenReturn("직원");
+        when(employee.getPosition()).thenReturn("사원");
+        when(employee.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
+        when(team.getTeamId()).thenReturn(10L);
+        when(team.getDepartment()).thenReturn(department);
+        when(department.getDepartmentId()).thenReturn(1L);
+        when(department.getDepartmentName()).thenReturn("개발부");
+        when(request.getDepartment()).thenReturn("개발부");
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
+        when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of(10L));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+
+        service.updateEmployeeByAdmin(100L, "E001", request);
+
+        InOrder order = inOrder(teamService, employeeRepository);
+        order.verify(teamService).lockHierarchyForUpdate();
+        order.verify(teamService).lockTeamsForUpdate(any());
+        order.verify(employeeRepository).findByIdForUpdate(1L);
+        order.verify(employeeRepository).findByIdForUpdate(100L);
     }
 
     @Test
@@ -116,7 +173,8 @@ class EmployeeOrganizationLockRegressionTest {
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository,
                 cacheInvalidator,
                 employeeCacheInvalidator,
-                passwordEncoder
+                passwordEncoder,
+                mock(AuthRateLimitService.class)
         );
 
         Employee approver = mock(Employee.class);
@@ -128,9 +186,13 @@ class EmployeeOrganizationLockRegressionTest {
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
 
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(employee.getName()).thenReturn("직원");
@@ -176,7 +238,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
         Employee approver = mock(Employee.class);
@@ -186,8 +248,12 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
 
         when(employee.getEmployeeId()).thenReturn(1L);
@@ -234,7 +300,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
@@ -243,9 +309,13 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
@@ -280,7 +350,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
@@ -290,9 +360,13 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t3 = new TeamCacheRow(30L, "T3", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(40L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
@@ -330,7 +404,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
@@ -339,9 +413,13 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
@@ -376,7 +454,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         Employee approver = mock(Employee.class);
         Employee employee = mock(Employee.class);
@@ -385,9 +463,13 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
 
@@ -422,7 +504,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         Employee approver = mock(Employee.class);
         Employee initialEmployee = mock(Employee.class);
@@ -434,8 +516,11 @@ class EmployeeOrganizationLockRegressionTest {
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(initialEmployee.getEmployeeId()).thenReturn(1L);
         when(initialEmployee.getName()).thenReturn("과거이름");
         when(initialEmployee.getTeamId()).thenReturn(10L);
@@ -453,7 +538,9 @@ class EmployeeOrganizationLockRegressionTest {
         when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
         when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
+        when(lockedEmployee.getEmployeeId()).thenReturn(1L);
         when(lockedEmployee.getName()).thenReturn("현재이름");
         when(lockedEmployee.getEmail()).thenReturn("current@example.com");
         when(lockedEmployee.getDepartmentName()).thenReturn("개발부");
@@ -485,7 +572,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
                 employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
-                employeeCacheInvalidator, passwordEncoder);
+                employeeCacheInvalidator, passwordEncoder, mock(AuthRateLimitService.class));
 
         Employee approver = mock(Employee.class);
         Employee initialEmployee = mock(Employee.class);
@@ -497,8 +584,11 @@ class EmployeeOrganizationLockRegressionTest {
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(initialEmployee.getEmployeeId()).thenReturn(1L);
         when(initialEmployee.getName()).thenReturn("과거이름");
         when(initialEmployee.getTeamId()).thenReturn(10L);
@@ -524,7 +614,9 @@ class EmployeeOrganizationLockRegressionTest {
         when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
         when(teamService.findTeamInfo("T1")).thenReturn(Optional.of(teamInfo));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(lockedEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
 
+        when(lockedEmployee.getEmployeeId()).thenReturn(1L);
         when(lockedEmployee.getName()).thenReturn("다른관리자수정");
         when(lockedEmployee.getEmail()).thenReturn("other@example.com");
         when(lockedEmployee.getDepartmentName()).thenReturn("개발부");

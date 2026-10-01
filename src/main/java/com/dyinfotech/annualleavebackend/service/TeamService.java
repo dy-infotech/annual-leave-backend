@@ -69,6 +69,11 @@ public class TeamService {
         }
     }
 
+    public record ManagedScope(
+            List<ManagedTeam> directTeams,
+            Set<ManagedTeam> accessibleTeams) {
+    }
+
     @Qualifier("teamLoadingCache")
     private final LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache;
     @Qualifier("teamManagerLoadingCache")
@@ -111,6 +116,13 @@ public class TeamService {
         return teamCache.get(OrganizationCacheKey.byName(teamName)).stream().findFirst();
     }
 
+    public Optional<TeamCacheRow> findTeamInfoFromDatabase(String teamName) {
+        if (teamName == null || teamName.isBlank()) {
+            return Optional.empty();
+        }
+        return teamRepository.findByNameEnabledForCache(teamName);
+    }
+
     public List<TeamCacheRow> findAllTeamInfo() {
         return teamCache.get(OrganizationCacheKey.allRows());
     }
@@ -128,8 +140,7 @@ public class TeamService {
      * 쓰기 로직에서 실제 JPA 엔티티가 필요할 때만 조회한다.
      */
     public Optional<Team> findByTeamName(String teamName) {
-        return findTeamInfo(teamName)
-                .flatMap(team -> teamRepository.findById(team.teamId()));
+        return teamRepository.findByTeamNameAndEnabledTrue(teamName);
     }
 
     private List<TeamManagerCacheRow> findManagerRows(Long teamId) {
@@ -197,6 +208,129 @@ public class TeamService {
                 .toList();
     }
 
+    // 권한 판정은 캐시 대신 현재 DB 조직 상태를 사용한다
+    @Transactional(readOnly = true)
+    public Set<Long> findManagedTeamIdsWithDescendantsFromDatabase(Long employeeId) {
+        if (employeeId == null) {
+            return Set.of();
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        if (!teamManagerRepository.existsActiveManagerByEmployeeId(employeeId, today)) {
+            return Set.of();
+        }
+
+        List<TeamManagerCacheRow> rows = teamManagerRepository.findAllForCache();
+
+        Set<Long> roots = rows.stream()
+                .filter(row -> employeeId.equals(row.projectManagerId()))
+                .filter(row -> row.isActive(today))
+                .map(TeamManagerCacheRow::teamId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (roots.isEmpty()) {
+            return Set.of();
+        }
+
+        Map<Long, Set<Long>> childrenByParent = new HashMap<>();
+        for (TeamManagerCacheRow row : rows) {
+            childrenByParent
+                    .computeIfAbsent(row.parentTeamId(), ignored -> new LinkedHashSet<>())
+                    .add(row.teamId());
+        }
+
+        Set<Long> visited = new LinkedHashSet<>();
+        java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>(roots);
+        while (!queue.isEmpty()) {
+            Long teamId = queue.removeFirst();
+            if (!visited.add(teamId)) {
+                continue;
+            }
+            childrenByParent.getOrDefault(teamId, Set.of()).forEach(queue::addLast);
+        }
+
+        Set<Long> enabledTeamIds = teamRepository.findAllById(visited).stream()
+                .filter(team -> Boolean.TRUE.equals(team.getEnabled()))
+                .map(Team::getTeamId)
+                .collect(Collectors.toSet());
+        visited.retainAll(enabledTeamIds);
+        return Set.copyOf(visited);
+    }
+
+    @Transactional(readOnly = true)
+    public Set<String> findManagedTeamNamesWithDescendantsFromDatabase(Long employeeId) {
+        Set<Long> teamIds = findManagedTeamIdsWithDescendantsFromDatabase(employeeId);
+        if (teamIds.isEmpty()) {
+            return Set.of();
+        }
+        return teamRepository.findAllById(teamIds).stream()
+                .filter(team -> Boolean.TRUE.equals(team.getEnabled()))
+                .map(Team::getTeamName)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isTeamManagerFromDatabase(Long employeeId) {
+        if (employeeId == null) {
+            return false;
+        }
+        return teamManagerRepository.existsActiveManagerByEmployeeId(
+                employeeId,
+                LocalDate.now(clock));
+    }
+
+    // 현재 DB 기준으로 직접 관리 팀과 하위 관리 범위를 계산한다
+    @Transactional(readOnly = true)
+    public ManagedScope findManagedScopeFromDatabase(Long employeeId) {
+        if (employeeId == null) {
+            return new ManagedScope(List.of(), Set.of());
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        // 현재 재직 중인 관리자 여부를 먼저 확인한다
+        if (!teamManagerRepository.existsActiveManagerByEmployeeId(employeeId, today)) {
+            return new ManagedScope(List.of(), Set.of());
+        }
+
+        List<TeamManagerCacheRow> managerRows = teamManagerRepository.findAllForCache();
+        Map<Long, TeamCacheRow> teams = teamRepository.findAllEnabledForCache().stream()
+                .collect(Collectors.toMap(TeamCacheRow::teamId, team -> team));
+
+        List<ManagedTeam> hierarchyRows = managerRows.stream()
+                .map(manager -> toManagedTeam(manager, teams))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        List<ManagedTeam> directTeams = managerRows.stream()
+                .filter(manager -> employeeId.equals(manager.projectManagerId()))
+                .filter(manager -> manager.isActive(today))
+                .map(manager -> toManagedTeam(manager, teams))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (directTeams.isEmpty()) {
+            return new ManagedScope(List.of(), Set.of());
+        }
+
+        Map<Long, List<ManagedTeam>> managersByTeam = hierarchyRows.stream()
+                .collect(Collectors.groupingBy(ManagedTeam::teamId));
+        Map<Long, Set<Long>> childrenByParent = new HashMap<>();
+        for (ManagedTeam manager : hierarchyRows) {
+            childrenByParent
+                    .computeIfAbsent(manager.parentTeamId(), ignored -> new LinkedHashSet<>())
+                    .add(manager.teamId());
+        }
+
+        Set<ManagedTeam> accessible = new LinkedHashSet<>();
+        for (ManagedTeam direct : directTeams) {
+            traverseDown(
+                    direct.teamId(),
+                    managersByTeam,
+                    childrenByParent,
+                    new HashSet<>(),
+                    accessible);
+        }
+        return new ManagedScope(List.copyOf(directTeams), Set.copyOf(accessible));
+    }
+
     public Set<Long> findAllProjectManagerIds() {
         return findAll().stream()
                 .map(ManagedTeam::projectManagerId)
@@ -228,7 +362,7 @@ public class TeamService {
             return Collections.emptySet();
         }
 
-        // 조직 관계는 PM 재직 여부와 분리한다. 퇴사 PM row도 parent-child 간선을 유지한다.
+        // 퇴사한 관리자 정보도 조직 계층 연결에는 유지한다
         Map<Long, TeamCacheRow> teams = teamIndex();
         List<ManagedTeam> hierarchyRows = teamManagerCache.get(CacheConfig.TOTAL_KEY).stream()
                 .map(manager -> toManagedTeam(manager, teams))
@@ -360,7 +494,7 @@ public class TeamService {
             return rows;
         }
 
-        // 같은 transaction의 미커밋 TeamManager 변경은 committed cache snapshot에 request delta만 합성한다.
+        // 현재 요청의 관리자 변경분을 캐시 상태에 반영한다
         rows.removeIf(row -> managerId.equals(row.projectManagerId()));
         if (added) {
             rows.add(new TeamManagerCacheRow(
@@ -448,18 +582,41 @@ public class TeamService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    /**
-     * 현재 조직 기준 결재자 ID 집합.
-     * 저장된 approver_id나 Team/TeamManager DB 재조회에 의존하지 않고 최신 조직 캐시 snapshot만 사용한다.
-     */
+    // 현재 조직 기준으로 결재자 후보를 계산한다
     public Set<Long> resolveCurrentApproverIds(Employee employee) {
         return resolveApproverIds(employee);
     }
 
-    /**
-     * 조직 hierarchy mutex를 보유한 결재 write path 전용 DB 기준 권한 계산.
-     * 캐시 invalidation과 DB commit 사이의 짧은 stale window를 결재 권한 판단에 사용하지 않는다.
-     */
+    // 현재 DB 조직 기준으로 대상 팀의 관리자 권한을 확인한다
+    public boolean isManagerForTeamFromDatabase(Long managerEmployeeId, Long targetTeamId) {
+        if (managerEmployeeId == null || targetTeamId == null) {
+            return false;
+        }
+
+        Set<Long> visited = new HashSet<>();
+        Long currentTeamId = targetTeamId;
+        LocalDate today = LocalDate.now(clock);
+
+        while (currentTeamId != null && visited.add(currentTeamId)) {
+            List<TeamManager> rows = teamManagerRepository.findAllByTeam_TeamId(currentTeamId);
+            if (rows.stream()
+                    .filter(row -> row.getProjectManager().isActive(today))
+                    .anyMatch(row -> managerEmployeeId.equals(row.getProjectManagerId()))) {
+                return true;
+            }
+            if (rows.isEmpty()) {
+                return false;
+            }
+
+            Long parentTeamId = rows.get(0).getParentTeamId();
+            if (parentTeamId == null || parentTeamId.equals(currentTeamId)) {
+                return false;
+            }
+            currentTeamId = parentTeamId;
+        }
+        return false;
+    }
+
     public Set<Long> resolveCurrentApproverIdsFromDatabase(Employee employee) {
         Long employeeTeamId = employee.getTeamId();
         LocalDate today = LocalDate.now(clock);
@@ -510,22 +667,17 @@ public class TeamService {
                         .min(Long::compareTo)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 조직 기준 결재자를 찾을 수 없습니다."));
 
-        // 결재자 선정 자체는 조직 캐시에서 끝낸다. DB 조회는 /me 표시용 Employee 1건 materialize 용도다.
+        // 결재자 후보를 정한 뒤 응답에 사용할 직원 정보를 조회한다
         return employeeRepository.findById(currentApproverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 결재자 정보를 찾을 수 없습니다."));
     }
 
-    /**
-     * 저장된 approver_id self-heal 전용. 권한 검증에서는 사용하지 않는다.
-     */
+    // 저장된 결재자를 현재 조직 기준으로 보정한다
     public Set<Long> refreshApproverIds(Employee employee) {
         return refreshApproverIds(employee, Set.of(), Map.of());
     }
 
-    /**
-     * 같은 transaction에서 TeamManager가 함께 바뀌는 write path용 self-heal.
-     * committed Caffeine snapshot에 이번 request의 add/remove delta만 합성하며 DB fallback은 하지 않는다.
-     */
+    // 현재 요청의 조직 변경분까지 반영해 결재자를 보정한다
     public Set<Long> refreshApproverIds(
             Employee employee,
             Collection<Long> removedManagerTeamIds,
@@ -608,8 +760,7 @@ public class TeamService {
 
     @Transactional
     public void lockHierarchyForUpdate() {
-        // 모든 조직 parent-edge 변경은 대표이사(root) 팀 row를 공통 mutex로 사용한다.
-        // 일반 조회에는 영향을 주지 않고 write path끼리만 직렬화한다.
+        // 조직 관계 변경은 공통 잠금으로 순서대로 처리한다
         lockTeam(resolveDefaultParentTeamId());
     }
 
@@ -788,7 +939,7 @@ public class TeamService {
     @Transactional
     public void addManager(String teamName, Long employeeId, Long parentTeamId) {
         lockHierarchyForUpdate();
-        TeamCacheRow teamInfo = findTeamInfo(teamName)
+        TeamCacheRow teamInfo = findTeamInfoFromDatabase(teamName)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "팀 정보가 잘못되었습니다."));
         Map<Long, Team> lockedTeams = lockTeams(List.of(teamInfo.teamId(), parentTeamId));
         Team team = lockedTeams.get(teamInfo.teamId());
@@ -885,6 +1036,14 @@ public class TeamService {
                 .toList();
     }
 
+    private void requireCurrentPersonnelAuthorityForWrite(Long requesterId) {
+        Employee requester = employeeRepository.findByIdForUpdate(requesterId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        if (!requester.isActive(LocalDate.now(clock)) || !requester.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 인사권이 없습니다.");
+        }
+    }
+
     @Transactional
     public Long createTeam(Long requesterId, TeamDto.CreateRequest request) {
         return createTeam(requesterId, request, null);
@@ -923,7 +1082,7 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
         }
 
-        // 부서 삭제와 팀 생성이 교차하지 않도록 department row를 먼저 잠근다.
+        // 부서 상태를 잠근 뒤 팀 생성 권한을 확인한다
         Department department = departmentRepository.findByIdForUpdate(request.getDepartmentId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
         if (!Boolean.TRUE.equals(department.getEnabled())) {
@@ -931,6 +1090,7 @@ public class TeamService {
         }
 
         lockHierarchyForUpdate();
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
 
         Team team = Team.builder()
                 .teamName(teamName)
@@ -954,6 +1114,7 @@ public class TeamService {
 
         cacheInvalidator.afterTeamChange(Set.of(teamName), false);
 
+        // 생성한 팀에 담당자와 상위 팀 관계를 연결한다
         if (request.getProjectManagerId() != null) {
             Employee manager;
 
@@ -1019,8 +1180,8 @@ public class TeamService {
     }
 
     @Transactional
-    public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
-        // department -> team 순서로 잠금 순서를 고정해 deleteDepartment/createTeam과 교착을 피한다.
+    public void updateTeam(Long requesterId, Long teamId, TeamDto.UpdateRequest request) {
+        // 부서와 팀 순서로 잠가 조직 변경을 직렬화한다
         Department lockedRequestedDepartment = null;
         if (request.getDepartmentId() != null) {
             lockedRequestedDepartment = departmentRepository.findByIdForUpdate(request.getDepartmentId())
@@ -1046,11 +1207,13 @@ public class TeamService {
             teamIdsToLock.add(plannedParentTeamId);
         }
         Map<Long, Team> lockedTeams = lockTeams(teamIdsToLock);
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
         Team team = lockedTeams.get(teamId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
         }
 
+        // 팀 기본 정보와 조직 관계 변경을 순서대로 반영한다
         String oldTeamName = team.getTeamName();
         boolean teamChanged = false;
         boolean employeeViewChanged = false;
@@ -1194,12 +1357,15 @@ public class TeamService {
     }
 
     @Transactional
-    public void deleteTeam(Long teamId) {
+    public void deleteTeam(Long requesterId, Long teamId) {
+        lockHierarchyForUpdate();
         Team team = lockTeam(teamId);
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             return;
         }
 
+        // 하위 팀과 소속 사원이 없는 경우에만 팀을 비활성화한다
         if (teamManagerRepository.existsByParentTeam_TeamIdAndTeam_TeamIdNot(teamId, teamId)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

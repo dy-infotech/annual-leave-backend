@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -25,6 +26,47 @@ import com.dyinfotech.annualleavebackend.dto.SignInDto;
 import com.dyinfotech.annualleavebackend.repository.RefreshTokenSessionRepository;
 
 class RefreshTokenServiceTest {
+
+    @Test
+    void initialSignIn_revalidatesBeforeRefreshSessionIsStored() {
+        Fixture fixture = new Fixture();
+        SignInDto.SignInResponse validated = SignInDto.SignInResponse.builder()
+                .token("validated-access")
+                .employeeId(10L)
+                .name("검증 시점")
+                .role("EMPLOYEE")
+                .build();
+
+        RefreshTokenService.InitialSignInResult result =
+                fixture.service.issueAfterSignIn(validated);
+
+        assertEquals("current-access", result.access().getToken());
+        assertEquals(10L, fixture.stored.get().getEmployeeId());
+        verify(fixture.authService)
+                .revalidateSignInAccess(10L, "validated-access");
+    }
+
+    @Test
+    void initialSignIn_revalidationFailureDoesNotCreateRefreshSession() {
+        Fixture fixture = new Fixture();
+        SignInDto.SignInResponse validated = SignInDto.SignInResponse.builder()
+                .token("stale-access")
+                .employeeId(10L)
+                .name("검증 시점")
+                .role("EMPLOYEE")
+                .build();
+        when(fixture.authService.revalidateSignInAccess(10L, "stale-access"))
+                .thenThrow(new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "로그인 처리 중 인증 정보가 변경되었습니다."));
+
+        ResponseStatusException error = assertThrows(
+                ResponseStatusException.class,
+                () -> fixture.service.issueAfterSignIn(validated));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, error.getStatusCode());
+        assertEquals(null, fixture.stored.get());
+    }
 
     @Test
     void rotatesAndAllowsOnlyImmediatePreviousTokenGrace() {
@@ -117,6 +159,14 @@ class RefreshTokenServiceTest {
                             .token("annual-access")
                             .employeeId(10L)
                             .name("테스트")
+                            .role("EMPLOYEE")
+                            .email("test@example.com")
+                            .build());
+            when(authService.revalidateSignInAccess(10L, "validated-access")).thenReturn(
+                    SignInDto.SignInResponse.builder()
+                            .token("current-access")
+                            .employeeId(10L)
+                            .name("현재")
                             .role("EMPLOYEE")
                             .email("test@example.com")
                             .build());

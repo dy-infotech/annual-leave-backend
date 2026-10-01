@@ -58,6 +58,7 @@ public class EmployeeService {
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
 
     private final PasswordEncoder passwordEncoder;
+    private final AuthRateLimitService authRateLimitService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "@employeeViewCacheKey.key(#a0)")
     public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
@@ -93,8 +94,7 @@ public class EmployeeService {
     	
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
-            // 관리자 목록에서는 결재자 정보를 사용하지 않는다.
-            // 사원 본인을 approver로 채우면 의미가 다른 거짓 데이터가 되므로 null로 명시한다.
+            // 관리자 목록은 결재자 정보를 제외하고 반환한다
 			float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
 			responses.add(EmployeeResponse.from(employee, null, roleResolver, currTotalLeaveDays, remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
@@ -179,27 +179,40 @@ public class EmployeeService {
                 });
         
 
-        // 비밀번호 일치 여부 확인
-        if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
-        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccessCount());
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
-        }
-
+        // 값싼 형식 검증은 rate-limit budget과 BCrypt worker를 소비하지 않는다.
         if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
         }
 
-        String expectedPassword = employee.getPassword();
-        String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
-        if (!compareAndSetPassword(employeeId, expectedPassword, encodedNewPassword)) {
+        // BCrypt는 의도적으로 비싼 연산이므로 실제 검증 전에 계정별 횟수와 전역 동시 실행 수를 제한한다.
+        authRateLimitService.checkPasswordChange(employeeId);
+        if (!authRateLimitService.tryAcquirePasswordWorker()) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "비밀번호가 다른 요청에 의해 변경되었습니다. 다시 로그인해주세요.");
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "비밀번호 처리 요청이 많습니다. 잠시 후 다시 시도해주세요.");
         }
-        revokeRefreshSessions(employeeId, "PASSWORD_CHANGED");
+
+        try {
+            if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
+                log.warn("비밀번호 변경 현재 비밀번호 불일치 employeeId: {}", employee.getEmployeeId());
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+            }
+
+            String expectedPassword = employee.getPassword();
+            String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
+            if (!compareAndSetPassword(employeeId, expectedPassword, encodedNewPassword)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "비밀번호가 다른 요청에 의해 변경되었습니다. 다시 로그인해주세요.");
+            }
+            revokeRefreshSessions(employeeId, "PASSWORD_CHANGED");
+            authRateLimitService.clearPasswordChange(employeeId);
+        } finally {
+            authRateLimitService.releasePasswordWorker();
+        }
     }
     @Transactional
     public void revokeRefreshSessions(Long employeeId, String reason) {
@@ -301,7 +314,7 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
-        // 로그인 중 관리자 수정이 먼저 반영됐다면 과거 조직 snapshot으로 self-heal하지 않는다.
+        // 조직 정보가 이미 바뀌었으면 결재자 보정을 중단한다
         if (!Objects.equals(employee.getTeamId(), expectedTeamId)
                 || !Objects.equals(employee.getApproverId(), expectedApproverId)) {
             return;
@@ -366,12 +379,22 @@ public class EmployeeService {
             plannedTeamIds.add(teamInfo.teamId());
         }
 
-        // 관리팀 add/remove는 조직 parent-edge 변경이므로 공통 hierarchy mutex를 먼저 잡는다.
+        // 조직 변경을 잠근 뒤 관련 팀과 직원을 순서대로 잠근다
         teamService.lockHierarchyForUpdate();
-        // 모든 관련 TEAM을 ID 오름차순으로 잠근 뒤 Employee를 잠가 동일 직원의 관리팀 변경을 직렬화한다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
-        employee = employeeRepository.findByIdForUpdate(employeeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
+                .collect(Collectors.toMap(Employee::getEmployeeId, lockedEmployee -> lockedEmployee));
+        approver = lockedEmployees.get(approverId);
+        employee = lockedEmployees.get(employeeId);
+        if (approver == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다.");
+        }
+        if (employee == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
+        if (!approver.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인사권을 가진 관리자가 아닙니다.");
+        }
 
         List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
@@ -391,7 +414,7 @@ public class EmployeeService {
         }
         Set<String> currentManagedTeams = new java.util.LinkedHashSet<>(currentManagedByName.keySet());
 
-        // 동일 요청 재전송: 첫 요청이 이미 반영됐다면 expected가 과거 상태여도 성공 no-op으로 처리한다.
+        // 이미 원하는 관리 팀 상태면 결재자만 보정하고 종료한다
         if (currentManagedTeams.equals(desiredManagedTeams)) {
             Long oldApproverId = employee.getApproverId();
             teamService.refreshApproverIds(employee);
@@ -401,7 +424,7 @@ public class EmployeeService {
             return;
         }
 
-        // 서로 다른 관리자가 같은 과거 화면에서 수정한 경우 뒤늦은 저장으로 덮어쓰지 않는다.
+        // 조회 당시 상태가 달라졌으면 동시 수정 충돌로 처리한다
         if (!currentManagedTeams.equals(expectedManagedTeams)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -449,7 +472,7 @@ public class EmployeeService {
                 .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
-    // 사원 정보가 수정되면 커밋 후 관련 캐시만 무효화하여 데이터 정합성을 유지합니다.
+    // 사원 정보 변경 후 관련 캐시를 함께 갱신한다
     @Transactional
     public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
         Employee approver = employeeRepository.findById(approverId)
@@ -480,8 +503,7 @@ public class EmployeeService {
         Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
 
-        // 관리팀 추가/삭제는 /managed-teams 전용 CAS 엔드포인트에서만 처리한다.
-        // full employee PUT은 기존 관리팀을 잠가 인사정보 변경과의 동시성만 보장한다.
+        // 관리 팀 변경은 전용 요청에서 처리하고 여기서는 기존 상태만 보호한다
         Set<Long> plannedTeamIds = new HashSet<>(managedTeamIdsBeforeUpdate);
         if (employee.getTeamId() != null) {
             plannedTeamIds.add(employee.getTeamId());
@@ -496,12 +518,22 @@ public class EmployeeService {
             plannedTeamIds.add(requestedEmployeeTeamId);
         }
 
-        // 결재 권한 검증과 팀/담당자 변경이 교차하지 않도록 조직 write 공통 mutex를 먼저 잡는다.
+        // 조직 변경을 잠근 뒤 관련 팀과 직원을 순서대로 잠근다
         teamService.lockHierarchyForUpdate();
-        // 이후 TEAM 잠금을 전체 집합에 대해 ID 오름차순으로 획득한 뒤 Employee 잠금을 잡는다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
-        employee = employeeRepository.findByIdForUpdate(employeeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+        Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
+                .collect(Collectors.toMap(Employee::getEmployeeId, lockedEmployee -> lockedEmployee));
+        approver = lockedEmployees.get(approverId);
+        employee = lockedEmployees.get(employeeId);
+        if (approver == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다.");
+        }
+        if (employee == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
+        if (!approver.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인사권을 가진 관리자가 아닙니다.");
+        }
 
         String oldEmployeeName = employee.getName();
         String oldManagerPosition = employee.getPosition();
@@ -510,7 +542,7 @@ public class EmployeeService {
 
         if (request.getExpected() != null) {
             if (employeeMatchesDesiredState(employee, request)) {
-                // 동일 full PUT 재전송이어도 legacy stale approver_id는 현재 조직 기준으로 self-heal한다.
+                // 동일 요청이어도 현재 조직 기준으로 결재자를 보정한다
                 Long oldApproverId = employee.getApproverId();
                 teamService.refreshApproverIds(employee);
                 if (!Objects.equals(oldApproverId, employee.getApproverId())) {
@@ -586,7 +618,7 @@ public class EmployeeService {
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
 
-        // TeamManager 자체는 이 API에서 변경하지 않으므로 현재 조직 snapshot 기준으로 approver_id만 교정한다.
+        // 현재 조직 기준으로 결재자를 다시 계산한다
         teamService.refreshApproverIds(employee);
 
         Set<Long> coverageTeamIds = new HashSet<>();
@@ -595,10 +627,10 @@ public class EmployeeService {
         teamService.validateFutureApprovalCoverage(coverageTeamIds);
 
         if (managerSnapshotChanged && !currentManagedTeamIds.isEmpty()) {
-            // TeamManagerCacheRow에 실제 포함되는 PM 필드가 바뀐 팀만 조직 snapshot을 무효화한다.
+            // 관리자 정보가 바뀐 팀의 조직 캐시를 갱신한다
             cacheInvalidator.afterEmployeeOrganizationChange(currentManagedTeamIds);
         }
-        // 단순 CCC -> ABC 이동은 전 조직 generation 대신 해당 직원 view만 새 세대로 보낸다.
+        // 일반 팀 이동은 해당 직원 캐시만 갱신한다
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
         employeeCacheInvalidator.afterEmailLookupChange(
                 List.of(oldEmployeeName, employee.getName()),

@@ -44,10 +44,11 @@ public class OrganizationCacheInvalidator {
         afterCommitExecutor.execute(() -> clearSpringCache(CacheConfig.CACHE_EMPLOYEES));
     }
 
+    // 조직 정보 변경 후 관련 조직 캐시와 직원 응답 캐시를 갱신한다
     public void afterEmployeeOrganizationChange(Collection<Long> managedTeamIds) {
         afterCommitExecutor.execute(() -> {
             if (managedTeamIds != null && !managedTeamIds.isEmpty()) {
-                // 원본 조직 snapshot을 먼저 비운 뒤 파생 응답 캐시를 제거한다.
+                // 원본 조직 캐시를 먼저 비우고 파생 캐시를 갱신한다
                 teamManagerCache.invalidate(CacheConfig.TOTAL_KEY);
                 managedTeamIds.stream()
                         .filter(id -> id != null)
@@ -60,6 +61,7 @@ public class OrganizationCacheInvalidator {
         });
     }
 
+    // 변경된 부서와 전체 부서 목록 캐시를 갱신한다
     public void afterDepartmentChange(Collection<String> departmentNames, boolean evictEmployeeCache) {
         afterCommitExecutor.execute(() -> {
             departmentCache.invalidate(OrganizationCacheKey.allRows());
@@ -73,6 +75,7 @@ public class OrganizationCacheInvalidator {
         });
     }
 
+    // 변경된 팀과 팀 관리 화면 캐시를 갱신한다
     public void afterTeamChange(Collection<String> teamNames, boolean evictEmployeeCache) {
         afterCommitExecutor.execute(() -> {
             teamCache.invalidate(OrganizationCacheKey.allRows());
@@ -87,6 +90,7 @@ public class OrganizationCacheInvalidator {
         });
     }
 
+    // 담당자 변경 후 조직과 직원 응답 캐시를 갱신한다
     public void afterTeamManagerChange(Collection<Long> teamIds) {
         afterCommitExecutor.execute(() -> {
             teamManagerCache.invalidate(CacheConfig.TOTAL_KEY);

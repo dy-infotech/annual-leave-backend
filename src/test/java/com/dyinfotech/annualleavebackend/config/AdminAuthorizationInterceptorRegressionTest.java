@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.method.HandlerMethod;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequireAdminOrPersonnelAuthority;
 import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.service.CurrentAuthorityService;
@@ -71,6 +72,36 @@ class AdminAuthorizationInterceptorRegressionTest {
         verify(currentAuthorityService, never()).requireAuthenticatedAdmin(EMPLOYEE_ID);
     }
 
+    @Test
+    void adminOrPersonnelAnnotation_personnelAuthorityBypassesPmCheck() throws Exception {
+        HandlerMethod handler = handler(new AdminOrPersonnelController(), "endpoint");
+
+        interceptor.preHandle(
+                new MockHttpServletRequest("GET", "/api/admin/shared"),
+                new MockHttpServletResponse(),
+                handler);
+
+        verify(currentAuthorityService, never()).requireAuthenticatedAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService, never())
+                .requireAuthenticatedPersonnelAuthority(true);
+    }
+
+    @Test
+    void adminOrPersonnelAnnotation_withoutPersonnelAuthorityRequiresCurrentPm() throws Exception {
+        EmployeePrincipal principal =
+                new EmployeePrincipal(EMPLOYEE_ID, Role.EMPLOYEE, false);
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+        HandlerMethod handler = handler(new AdminOrPersonnelController(), "endpoint");
+
+        interceptor.preHandle(
+                new MockHttpServletRequest("GET", "/api/admin/shared"),
+                new MockHttpServletResponse(),
+                handler);
+
+        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
+    }
+
     private HandlerMethod handler(Object controller, String methodName) throws Exception {
         Method method = controller.getClass().getDeclaredMethod(methodName);
         return new HandlerMethod(controller, method);
@@ -83,6 +114,12 @@ class AdminAuthorizationInterceptorRegressionTest {
 
     @RequirePersonnelAuthority
     static class PersonnelController {
+        public void endpoint() {
+        }
+    }
+
+    @RequireAdminOrPersonnelAuthority
+    static class AdminOrPersonnelController {
         public void endpoint() {
         }
     }

@@ -48,17 +48,22 @@ public class DashboardService {
         LocalDate leaveYearStart = currentYear.atDay(1);
         LocalDate leaveYearEnd = currentYear.atMonth(Month.DECEMBER).atEndOfMonth();
 
-        // 현재 연도 연차일수 계산
+        // 현재 연도 기준 연차일수를 계산한다
         float currYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
 
-        // 1. 내 휴가 정보
+        // 내 연차 사용 현황을 계산한다
         DashboardDto.MyLeaveInfoResponse myLeaveInfo = getMyLeaveInfo(employee, currYearLeaveDays, leaveYearStart, leaveYearEnd);
 
-        // 2. 내 휴가 요청 요약
+        // 내 휴가 신청 상태를 집계한다
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId, leaveYearStart, leaveYearEnd);
 
-        // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createAuthorityResolver(employeeId).isAdmin(employeeId) ? getAllEmployeeRequestSummary(employee) : null;
+        // 현재 조직 기준으로 관리 범위의 휴가 신청을 집계한다
+        TeamService.ManagedScope managedScope =
+                teamService.findManagedScopeFromDatabase(employeeId);
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary =
+                managedScope.directTeams().isEmpty()
+                        ? null
+                        : getAllEmployeeRequestSummary(employee, managedScope);
 
         return DashboardDto.builder()
                 .myLeavePeriod(DashboardDto.LeavePeriodResponse.builder()
@@ -86,7 +91,7 @@ public class DashboardService {
         float remainingLeaveDays = commonService.getRemainingDays(employee, currTotalLeaveDays, usedDays);
 
         return DashboardDto.MyLeaveInfoResponse.builder()
-                .totalLeaveDays(usedDays + remainingLeaveDays)		// usedDays + remainingLeaveDays - currTotalLeaveDays = adjustedLeaveDays
+                .totalLeaveDays(usedDays + remainingLeaveDays)		// 조정 연차를 포함한 총 연차를 반환한다
                 .usedLeaveDays(usedDays)
                 .remainingLeaveDays(remainingLeaveDays)
                 .build();
@@ -105,17 +110,17 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
+    private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(
+            Employee employee,
+            TeamService.ManagedScope managedScope) {
         Long excludeId = employee.getEmployeeId();
-        List<ManagedTeam> managedTeams = teamService.findManagedTeams(employee.getEmployeeId());
+        List<ManagedTeam> managedTeams = managedScope.directTeams();
 
         Set<String> directTeams = managedTeams.stream()
                 .map(ManagedTeam::teamName)
                 .collect(Collectors.toSet());
 
-        Set<ManagedTeam> accessibleTeams = managedTeams.stream()
-                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                .collect(Collectors.toSet());
+        Set<ManagedTeam> accessibleTeams = managedScope.accessibleTeams();
 
         if (managedTeams.stream().anyMatch(team -> team.teamId().equals(team.parentTeamId()))) {
             excludeId = null;

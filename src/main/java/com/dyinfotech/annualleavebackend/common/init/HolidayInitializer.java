@@ -23,7 +23,7 @@ public class HolidayInitializer implements ApplicationRunner {
     
 	@Override
 	public void run(ApplicationArguments args) throws Exception {
-		// TODO Auto-generated method stub
+		// 애플리케이션 시작 후 공휴일 동기화를 비동기로 실행한다
 		int currentYear = LocalDate.now(clock).getYear();
 		
 		// CompletableFuture를 사용하여 별도의 백그라운드 스레드에서 비동기로 실행합니다.
@@ -43,6 +43,7 @@ public class HolidayInitializer implements ApplicationRunner {
             return null;
         });
 	}
+    // 한 해의 공휴일을 월 단위로 병렬 조회하고 저장한다
     void syncYear(int year) {
         log.info("=== [시스템 초기화] {}년 1~12월 공휴일 동기화 시작 ===", year);
 
@@ -50,7 +51,15 @@ public class HolidayInitializer implements ApplicationRunner {
             .flatMap(
                 month -> holidaySyncService.fetchHolidaysFromApi(year, month)
                     .flatMap(holidays ->
-                        holidaySyncService.deleteAndSaveHolidays(year, month, holidays)),
+                        holidaySyncService.deleteAndSaveHolidays(year, month, holidays))
+                    .onErrorResume(error -> {
+                        log.error(
+                                "=== [시스템 초기화] {}년 {}월 공휴일 동기화 실패 (다음 월은 계속 진행) ===",
+                                year,
+                                month,
+                                error);
+                        return reactor.core.publisher.Mono.empty();
+                    }),
                 3
             )
             .then()

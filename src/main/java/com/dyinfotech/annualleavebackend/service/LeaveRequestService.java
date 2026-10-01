@@ -111,13 +111,15 @@ public class LeaveRequestService {
     		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 사원은 휴가를 신청할 수 없습니다.");
     	}
         String currentYear = String.valueOf(today.getYear());
-        // 현재 연도를 currYear에 설정
-        if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
-			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
-        	employee.setPrevYear(employee.getCurrYear());
-        	employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
-        	employee.setCurrYear(currentYear);
-		}
+        // 신청 전 현재 연도 기준으로 연차 상태를 맞춘다
+        if (employee.getCurrYear() == null) {
+            employee.setCurrYear(currentYear);
+        } else if (!employee.getCurrYear().equals(currentYear)) {
+            // 연도가 바뀌었으므로 이전 연도 데이터로 이동
+            employee.setPrevYear(employee.getCurrYear());
+            employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
+            employee.setCurrYear(currentYear);
+        }
         
         // 현재 연도 연차일수 계산 및 설정
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
@@ -128,12 +130,10 @@ public class LeaveRequestService {
         validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate(), employee.getFireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
         validateLeaveReason(leaveType, request.getLeaveReason());
-        // 모든 휴가 유형은 신청 기간의 실제 근무일수와 사용일수가 일치해야 한다.
-        // 대체/출산/가족돌봄 휴가는 연차 잔여량만 차감/검증 대상에서 제외한다.
+        // 신청 기간과 사용일수의 근무일 기준 정합성을 확인한다
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
 
-        // 직원 row lock을 잡은 동안 연간 요청 엔티티를 다시 전부 로드하지 않는다.
-        // 같은 SUM 결과를 잔여 검증과 신청 전/후 snapshot 계산에 함께 사용한다.
+        // 현재 연도 사용량을 합산해 신청 전 잔여 연차를 계산한다
         Year leaveYear = Year.from(today);
         LocalDate leaveYearStart = leaveYear.atDay(1);
         LocalDate leaveYearEnd = leaveYear.atMonth(Month.DECEMBER).atEndOfMonth();
@@ -207,24 +207,24 @@ public class LeaveRequestService {
         leaveRequestRepository.saveAndFlush(leaveRequest);
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
  
-        // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
-        Set<Long> resolvedApproverIds = teamService.resolveCurrentApproverIds(employee);
-        if (!resolvedApproverIds.isEmpty()) {
-            Set<Long> notificationApproverIds = Set.copyOf(resolvedApproverIds);
-            String notificationTitle = employee.getName() + "님의 휴가 신청";
-            String notificationBody =
-                    "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
-
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    notificationService.sendNotificationToTeams(
-                            notificationApproverIds,
+        // 신청 저장 후 커밋이 끝나면 최신 조직 기준으로 알림을 보낸다
+        String notificationTitle = employee.getName() + "님의 휴가 신청";
+        String notificationBody =
+                "[" + leaveType.getDesc() + "] " + request.getStartDate() + " ~ " + request.getEndDate();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    notificationService.sendLeaveRequestNotification(
+                            employeeId,
                             notificationTitle,
                             notificationBody);
+                } catch (RuntimeException e) {
+                    // 알림 실패는 완료된 휴가 신청 결과에 영향을 주지 않는다
+                    log.error("휴가 신청 후 알림 처리 실패. employeeId={}", employeeId, e);
                 }
-            });
-        }
+            }
+        });
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
     }
@@ -459,16 +459,15 @@ public class LeaveRequestService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition) {
         // 내부 정합성 검사는 전체 결과를 사용한다. 외부 목록 API만 paging 한다.
-        return searchLeaveRequests(condition, null, false);
+        return searchLeaveRequests(condition, null, new LeaveVisibility(false, Set.of()));
     }
 
     @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId) {
-        boolean isAdmin = currentEmployeeId != null
-                && currentAuthorityService.isAdmin(currentEmployeeId);
-        return searchLeaveRequests(condition, currentEmployeeId, isAdmin);
+        LeaveVisibility visibility = resolveLeaveVisibility(currentEmployeeId);
+        return searchLeaveRequests(condition, currentEmployeeId, visibility);
     }
 
     @Transactional(readOnly = true)
@@ -493,6 +492,7 @@ public class LeaveRequestService {
                         accessibleTeams,
                         condition.getSearchEmployeeParam(),
                         page,
+                        size,
                         size)
                 : leaveRequestRepository.searchLeaveRequestsCursor(
                         condition.getEmployeeId(),
@@ -506,14 +506,12 @@ public class LeaveRequestService {
                         size);
 
         // 이 메서드는 관리자 관리범위로 query 자체가 제한되므로 반환 row의 private 필드 조회를 허용한다.
-        return toListResponses(requests, currentEmployeeId, true);
+        return toListResponses(requests, currentEmployeeId, new LeaveVisibility(true, Set.of()));
     }
 
     private Set<String> requireAccessibleManagedTeamNames(Long managerEmployeeId) {
-        Set<String> accessibleTeams = teamService.findManagedTeams(managerEmployeeId).stream()
-                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                .map(TeamService.ManagedTeam::teamName)
-                .collect(Collectors.toSet());
+        Set<String> accessibleTeams =
+                teamService.findManagedTeamNamesWithDescendantsFromDatabase(managerEmployeeId);
 
         if (accessibleTeams.isEmpty()) {
             throw new ResponseStatusException(
@@ -542,8 +540,7 @@ public class LeaveRequestService {
             Long cursorRequestId) {
         validatePage(page, size);
         validateCursor(cursorRequestedAt, cursorRequestId);
-        boolean isAdmin = currentEmployeeId != null
-                && currentAuthorityService.isAdmin(currentEmployeeId);
+        LeaveVisibility visibility = resolveLeaveVisibility(currentEmployeeId);
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
 
         long totalCount = leaveRequestRepository.countLeaveRequests(
@@ -553,11 +550,13 @@ public class LeaveRequestService {
         List<LeaveRequest> fetched;
         boolean hasMore;
         if (cursorRequestedAt == null) {
+            // totalCount와 row 조회는 Oracle READ COMMITTED에서 서로 다른 statement snapshot일 수 있다.
+            // 다음 페이지 존재 여부는 count가 아니라 같은 row query의 size + 1 결과로 판단한다.
             fetched = leaveRequestRepository.searchLeaveRequestsPage(
                     condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
                     condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                    page, size);
-            hasMore = ((long) page + 1L) * size < totalCount;
+                    page, size, size + 1);
+            hasMore = fetched.size() > size;
         } else {
             fetched = leaveRequestRepository.searchLeaveRequestsCursor(
                     condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
@@ -570,7 +569,7 @@ public class LeaveRequestService {
                 : fetched;
 
         return new PageResponseDto<>(
-                toListResponses(requests, currentEmployeeId, isAdmin),
+                toListResponses(requests, currentEmployeeId, visibility),
                 totalCount,
                 hasMore);
     }
@@ -578,7 +577,7 @@ public class LeaveRequestService {
     private List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
-            boolean isAdmin) {
+            LeaveVisibility visibility) {
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
         List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequests(
                 condition.getEmployeeId(),
@@ -588,22 +587,56 @@ public class LeaveRequestService {
                 null,
                 condition.getSearchEmployeeParam()
         );
-        return toListResponses(requests, currentEmployeeId, isAdmin);
+        return toListResponses(requests, currentEmployeeId, visibility);
     }
 
     private List<LeaveRequestListDto.LeaveRequestListResponse> toListResponses(
             List<LeaveRequest> requests,
             Long currentEmployeeId,
-            boolean isAdmin) {
+            LeaveVisibility visibility) {
         return requests.stream()
-                .map(leaveRequest -> {
-                    boolean isOwner = currentEmployeeId != null
-                            && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-                    return LeaveRequestListDto.LeaveRequestListResponse.from(
-                            leaveRequest,
-                            isAdmin || isOwner);
-                })
+                .map(leaveRequest -> LeaveRequestListDto.LeaveRequestListResponse.from(
+                        leaveRequest,
+                        canViewPrivateLeave(
+                                leaveRequest,
+                                currentEmployeeId,
+                                visibility)))
                 .toList();
+    }
+
+    private LeaveVisibility resolveLeaveVisibility(Long currentEmployeeId) {
+        if (currentEmployeeId == null) {
+            return new LeaveVisibility(false, Set.of());
+        }
+
+        // 대표이사는 인사권 보유 여부와 별개로 전사 휴가 비공개 필드를 열람할 수 있다.
+        if (currentAuthorityService.isCeo(currentEmployeeId)) {
+            return new LeaveVisibility(true, Set.of());
+        }
+
+        Set<String> accessibleTeams =
+                teamService.findManagedTeamNamesWithDescendantsFromDatabase(currentEmployeeId);
+        return new LeaveVisibility(false, accessibleTeams);
+    }
+
+    private boolean canViewPrivateLeave(
+            LeaveRequest leaveRequest,
+            Long currentEmployeeId,
+            LeaveVisibility visibility) {
+        boolean isOwner = currentEmployeeId != null
+                && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        if (isOwner || visibility.canViewAll()) {
+            return true;
+        }
+        String employeeTeamName = leaveRequest.getEmployee().getTeamName();
+        return employeeTeamName != null
+                && !visibility.accessibleTeams().isEmpty()
+                && visibility.accessibleTeams().contains(employeeTeamName);
+    }
+
+    private record LeaveVisibility(
+            boolean canViewAll,
+            Set<String> accessibleTeams) {
     }
 
     private void validateCursor(LocalDateTime cursorRequestedAt, Long cursorRequestId) {
@@ -639,27 +672,36 @@ public class LeaveRequestService {
                         HttpStatus.NOT_FOUND,
                         "휴가 신청을 찾을 수 없습니다."));
 
-        boolean isOwner =
-                leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        boolean canViewPrivate = isOwner;
-
-        if (!canViewPrivate && currentEmployeeId != null) {
-            Set<String> accessibleTeams = teamService.findManagedTeams(currentEmployeeId).stream()
-                    .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                    .map(TeamService.ManagedTeam::teamName)
-                    .collect(Collectors.toSet());
-            canViewPrivate = accessibleTeams.contains(
-                    leaveRequest.getEmployee().getTeamName());
+        boolean isOwner = currentEmployeeId != null
+                && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        if (isOwner) {
+            return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
+                    leaveRequest,
+                    true);
         }
 
+        LeaveVisibility visibility = currentAuthorityService
+                .canViewAllLeaveDetails(currentEmployeeId)
+                        ? new LeaveVisibility(true, Set.of())
+                        : resolveLeaveVisibility(currentEmployeeId);
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
-                canViewPrivate);
+                canViewPrivateLeave(
+                        leaveRequest,
+                        currentEmployeeId,
+                        visibility));
     }
 
     @Transactional
     public void cancel(Long employeeId, Long requestId) {
     	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
+
+        // 취소 처리 중 같은 직원의 신규 신청과 사용량 계산을 직렬화한다
+        employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "존재하지 않는 직원입니다."));
+
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> {
                 	String errorMsg = "존재하지 않는 휴가 신청 정보입니다.";

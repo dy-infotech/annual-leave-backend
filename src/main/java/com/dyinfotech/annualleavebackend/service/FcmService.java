@@ -26,11 +26,7 @@ public class FcmService {
 	
 	private final FirebaseMessaging firebaseMessaging;
 	
-	/**
-	 * FCM Token의 중간 값들을 마스킹. 로그에 표기할 때 보안적으로 방어하기 위함.
-	 * @param token
-	 * @return maskedToken
-	 */
+	// 로그에 남길 FCM 토큰 값을 일부 가린다
 	private String maskFcmToken(String token) {
 	    if (token == null || token.isBlank()) {
 	        return token;
@@ -38,23 +34,24 @@ public class FcmService {
 
 	    int length = token.length();
 	    
-	    // 혹시 모를 아주 짧은 문자열에 대한 예외 처리 (최소 4자 이상일 때만 분할)
+	    // 짧은 토큰은 전체를 가려서 반환한다
 	    if (length < 4) {
 	        return "****";
 	    }
 
-	    // 1/4 지점과 3/4 지점 계산
+	    // 토큰의 가운데 구간을 계산한다
 	    int start = length / 4;
 	    int end = (length * 3) / 4;
 	    int maskLength = end - start;
 
-	    // 앞부분 + 마스킹(*) + 뒷부분 조합
+	    // 가운데 구간만 가린 토큰을 반환한다
 	    return token.substring(0, start) 
 	            + "*".repeat(maskLength) 
 	            + token.substring(end);
 	}
 	
 	@Async("fcmExecutor") // 별도의 스레드 풀 사용 권장
+	// 직원 토큰을 해당 관리자 토픽에 연결한다
 	public CompletableFuture<Boolean> subscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
@@ -75,6 +72,7 @@ public class FcmService {
 	}
 	
 	@Async("fcmExecutor")
+	// 직원 토큰에서 해당 관리자 토픽 연결을 해제한다
 	public CompletableFuture<Boolean> unsubscribeTopics(String fcmToken, Long approverId) {
 		try {
 			List<String> tokens = Collections.singletonList(fcmToken);
@@ -99,10 +97,7 @@ public class FcmService {
 		sendConditionNotificationNow(approverIds, title, body);
 	}
 
-	/**
-	 * 비동기 executor가 포화된 경우 retryExecutor에서 직접 호출할 수 있는 동기 발송 경로.
-	 * 각 partition 실패는 로그로 격리해 휴가 신청 커밋 결과에 영향을 주지 않는다.
-	 */
+	// 수신 토픽을 나눠 조건부 알림을 동기 방식으로 발송한다
 	public void sendConditionNotificationNow(Collection<Long> approverIds, String title, String body) {
 		if (approverIds == null || approverIds.isEmpty()) {
 			return;

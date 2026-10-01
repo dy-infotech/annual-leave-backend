@@ -34,6 +34,7 @@ import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.config.AdminAuthorizationInterceptor;
 import com.dyinfotech.annualleavebackend.controller.LeaveApprovalController;
 import com.dyinfotech.annualleavebackend.dto.PageResponseDto;
+import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.service.CurrentAuthorityService;
 import com.dyinfotech.annualleavebackend.service.LeaveApprovalService;
 
@@ -111,6 +112,35 @@ class LeaveApprovalApiContractRegressionTest {
     }
 
     @Test
+    void approve_replayAwareEndpointDefersCurrentAdminCheckToService() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 관리자가 아닙니다."))
+                .when(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
+
+        mockMvc.perform(post("/api/admin/leave-requests/10/approve"))
+                .andExpect(status().isOk());
+
+        verifyNoInteractions(currentAuthorityService);
+        verify(leaveApprovalService).approveLeaveRequest(10L, EMPLOYEE_ID);
+    }
+
+    @Test
+    void reject_replayAwareEndpointDefersCurrentAdminCheckToService() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 관리자가 아닙니다."))
+                .when(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
+
+        mockMvc.perform(post("/api/admin/leave-requests/10/reject")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"rejectReason\":\"사유\"}"))
+                .andExpect(status().isOk());
+
+        verifyNoInteractions(currentAuthorityService);
+        verify(leaveApprovalService).rejectLeaveRequest(
+                org.mockito.ArgumentMatchers.eq(10L),
+                org.mockito.ArgumentMatchers.eq(EMPLOYEE_ID),
+                org.mockito.ArgumentMatchers.any(LeaveRejectDto.LeaveRejectRequest.class));
+    }
+
+    @Test
     void rejectReasonOverTwoHundredCharactersIsRejectedBeforeService() throws Exception {
         String body = "{\"rejectReason\":\"" + "x".repeat(201) + "\"}";
 
@@ -119,7 +149,7 @@ class LeaveApprovalApiContractRegressionTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
 
-        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
+        verifyNoInteractions(currentAuthorityService);
         verifyNoInteractions(leaveApprovalService);
     }
 }

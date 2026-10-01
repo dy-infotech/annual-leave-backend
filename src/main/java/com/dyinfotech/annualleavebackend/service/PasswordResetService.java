@@ -59,6 +59,7 @@ public class PasswordResetService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다.");
         }
 
+        // 사번과 이메일로 재설정 대상 계정을 확인한다
         Employee employee = employeeService.getEmployee(request.getEmployeeNumber(), realEmail)
                 .filter(Employee::isRegisted)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -69,6 +70,10 @@ public class PasswordResetService {
         String tokenHash = hash(rawToken);
         Long candidateEmployeeId = employee.getEmployeeId();
 
+        // 만료 토큰 정리는 직원 잠금과 분리해 먼저 처리한다
+        transactionTemplate.executeWithoutResult(status -> tokenRepository.deleteExpired(now));
+
+        // 직원 정보를 잠근 뒤 기존 토큰을 지우고 새 토큰을 발급한다
         PreparedReset prepared = transactionTemplate.execute(status -> {
             Employee lockedEmployee = employeeRepository.findByIdForUpdate(candidateEmployeeId)
                     .filter(Employee::isRegisted)
@@ -77,7 +82,6 @@ public class PasswordResetService {
                     .orElseThrow(() -> new ResponseStatusException(
                             HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
 
-            tokenRepository.deleteExpired(now);
             tokenRepository.deleteUnusedByEmployeeId(lockedEmployee.getEmployeeId());
             PasswordResetToken saved = tokenRepository.saveAndFlush(new PasswordResetToken(
                     lockedEmployee.getEmployeeId(),
@@ -95,6 +99,7 @@ public class PasswordResetService {
             throw new IllegalStateException("비밀번호 재설정 토큰 저장에 실패했습니다.");
         }
 
+        // 메일 발송에 실패하면 방금 발급한 토큰을 제거한다
         try {
             sendResetMail(prepared.employeeId(), prepared.recipient(), rawToken);
         } catch (RuntimeException e) {
@@ -140,7 +145,18 @@ public class PasswordResetService {
         authRateLimitService.checkRecovery("reset-password:" + tokenHash);
 
         LocalDateTime now = LocalDateTime.now(clock);
+        // 토큰 대상 직원을 잠근 뒤 토큰 상태를 다시 확인한다
+        PasswordResetToken candidate = tokenRepository
+                .findByTokenHashAndConsumedAtIsNull(tokenHash)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "유효하지 않은 재설정 토큰입니다."));
+
+        Employee employee = employeeRepository.findByIdForUpdate(candidate.getEmployeeId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
         PasswordResetToken token = tokenRepository.findUnusedForUpdate(tokenHash)
+                .filter(current -> current.getEmployeeId().equals(employee.getEmployeeId()))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "유효하지 않은 재설정 토큰입니다."));
 
@@ -148,18 +164,13 @@ public class PasswordResetService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "재설정 토큰이 만료되었습니다.");
         }
 
-        Employee employee = employeeService.getEmployeeList(java.util.List.of(token.getEmployeeId()))
-                .stream()
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
-
         if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
         }
 
+        // 비밀번호를 변경하고 기존 Refresh 세션을 폐기한다
         String expectedPassword = employee.getPassword();
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
         if (!employeeService.compareAndSetPassword(

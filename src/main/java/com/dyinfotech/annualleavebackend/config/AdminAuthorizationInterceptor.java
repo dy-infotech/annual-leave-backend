@@ -10,7 +10,9 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequireAdminOrPersonnelAuthority;
 import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
+import com.dyinfotech.annualleavebackend.common.security.ReplayAwareApproval;
 import com.dyinfotech.annualleavebackend.service.CurrentAuthorityService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -37,21 +39,51 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // 인증된 직원 정보를 꺼내 요청별 권한 규칙을 적용한다
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null
                 || !(authentication.getPrincipal() instanceof EmployeePrincipal principal)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "인증 정보가 없습니다.");
         }
 
-        if (handler instanceof HandlerMethod handlerMethod
-                && requiresPersonnelAuthority(handlerMethod)) {
-            currentAuthorityService.requireAuthenticatedPersonnelAuthority(
-                    principal.personnelAuthority());
-        } else {
-            currentAuthorityService.requireAuthenticatedAdmin(principal.employeeId());
+        if (handler instanceof HandlerMethod handlerMethod) {
+            if (isReplayAwareApproval(handlerMethod)) {
+                // 승인/반려는 서비스가 조직 mutex 아래에서 동일 결과 재전송을 먼저 판정하고,
+                // 새 상태 변경일 때만 최신 DB 결재권을 검증한다.
+                return true;
+            }
+            if (requiresPersonnelAuthority(handlerMethod)) {
+                // 현재 요청의 인사권 보유 여부를 검증한다
+                currentAuthorityService.requireAuthenticatedPersonnelAuthority(
+                        principal.personnelAuthority());
+                return true;
+            }
+            if (requiresAdminOrPersonnelAuthority(handlerMethod)) {
+                if (!principal.personnelAuthority()) {
+                    currentAuthorityService.requireAuthenticatedAdmin(
+                            principal.employeeId());
+                }
+                return true;
+            }
         }
 
+        currentAuthorityService.requireAuthenticatedAdmin(principal.employeeId());
         return true;
+    }
+
+    private boolean isReplayAwareApproval(HandlerMethod handlerMethod) {
+        return AnnotatedElementUtils.hasAnnotation(
+                handlerMethod.getMethod(),
+                ReplayAwareApproval.class);
+    }
+
+    private boolean requiresAdminOrPersonnelAuthority(HandlerMethod handlerMethod) {
+        return AnnotatedElementUtils.hasAnnotation(
+                        handlerMethod.getMethod(),
+                        RequireAdminOrPersonnelAuthority.class)
+                || AnnotatedElementUtils.hasAnnotation(
+                        handlerMethod.getBeanType(),
+                        RequireAdminOrPersonnelAuthority.class);
     }
 
     private boolean requiresPersonnelAuthority(HandlerMethod handlerMethod) {

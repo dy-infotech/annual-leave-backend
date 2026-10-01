@@ -64,6 +64,33 @@ class AuthRegistrationRegressionTest {
         verifyNoInteractions(departmentService);
     }
 
+    @Test
+    void parseHireDate_invalidCalendarDate_returnsBadRequest() {
+        AuthService authService = new AuthService(
+                mock(BasisDataFactory.class),
+                mock(EmployeeRepository.class),
+                mock(PasswordEncoder.class),
+                mock(JwtProvider.class),
+                mock(EmployeeLeaveService.class),
+                mock(NotificationService.class),
+                mock(DepartmentService.class),
+                mock(EmployeeService.class),
+                mock(TeamService.class),
+                mock(AuthRateLimitService.class),
+                Clock.fixed(
+                        Instant.parse("2026-09-30T00:00:00Z"),
+                        ZoneId.of("Asia/Seoul")),
+                mock(JavaMailSender.class)
+        );
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> authService.parseHireDate("2026-99-99"));
+
+        assertEquals(400, exception.getStatusCode().value());
+        assertEquals("입사일 형식이 올바르지 않습니다.", exception.getReason());
+    }
+
     private static void setField(Object target, String fieldName, Object value) {
         try {
             Field field = target.getClass().getDeclaredField(fieldName);

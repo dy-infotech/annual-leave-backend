@@ -59,14 +59,18 @@ public class AuthController {
     @PostMapping("/signin")
     public ResponseEntity<SignInDto.SignInResponse> signIn(
             @Valid @RequestBody SignInDto.SignInRequest request) {
-        SignInDto.SignInResponse access = authService.signIn(request);
-        RefreshTokenService.IssuedRefreshToken refresh =
-                refreshTokenService.issue(access.getEmployeeId());
+        SignInDto.SignInResponse validatedAccess = authService.signIn(request);
+        RefreshTokenService.InitialSignInResult session =
+                refreshTokenService.issueAfterSignIn(validatedAccess);
 
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(refresh).toString())
-                .body(withSessionMarker(access, refresh.sessionMarker()));
+                .header(
+                        HttpHeaders.SET_COOKIE,
+                        refreshTokenCookieService.issue(session.refresh()).toString())
+                .body(withSessionMarker(
+                        session.access(),
+                        session.refresh().sessionMarker()));
     }
 
     @Operation(summary = "Access Token 갱신", description = "공통 Refresh Token Rotation으로 annual-leave Access JWT를 재발급한다.")

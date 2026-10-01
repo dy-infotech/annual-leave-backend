@@ -22,6 +22,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	private static final QFcmToken qFcmToken = QFcmToken.fcmToken;
 	
 	@Override
+	// 오래 사용하지 않은 토큰을 식별자 순서로 나눠 조회한다
 	public List<com.dyinfotech.annualleavebackend.domain.FcmToken> findInactiveTokensBatch(
 			LocalDateTime threshold,
 			Long afterTokenId,
@@ -49,7 +50,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 						                .where(qFcmToken.token.eq(token))
 						                .execute();
 		
-		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
+		// 변경 쿼리 후 기존 영속성 상태를 비운다
         entityManager.clear();
 
         return result;
@@ -78,6 +79,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 
 	@Override
 	@Transactional
+	// 기존 소유자와 세션 연결이 같을 때만 토큰 정보를 갱신한다
 	public int updateTokenAndTouchIfBinding(
 			Long expectedEmployeeId,
 			String expectedAuthSessionMarker,
@@ -119,6 +121,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 
 	@Override
 	@Transactional
+	// 현재 소유자와 세션 연결이 일치하는 토큰만 삭제한다
 	public long deleteByTokenAndBinding(
 			String token,
 			Long employeeId,
@@ -144,7 +147,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	    			.where(qFcmToken.updatedAudit.updatedAt.before(threshold))
 			        .execute();
 
-		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
+		// 변경 쿼리 후 기존 영속성 상태를 비운다
         entityManager.clear();
 	}
 

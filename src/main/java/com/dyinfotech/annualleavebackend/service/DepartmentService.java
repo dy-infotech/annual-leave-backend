@@ -1,5 +1,7 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -16,6 +18,8 @@ import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.config.CacheConfig.OrganizationCacheKey;
 import com.dyinfotech.annualleavebackend.domain.Department;
+import com.dyinfotech.annualleavebackend.domain.Employee;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.DepartmentRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.DepartmentCacheRow;
@@ -28,17 +32,26 @@ public class DepartmentService {
     private final LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache;
     private final DepartmentRepository departmentRepository;
     private final TeamRepository teamRepository;
+    private final EmployeeRepository employeeRepository;
+    private final TeamService teamService;
     private final OrganizationCacheInvalidator cacheInvalidator;
+    private final Clock clock;
 
     public DepartmentService(
             @Qualifier("departmentLoadingCache") LoadingCache<OrganizationCacheKey, List<DepartmentCacheRow>> departmentCache,
             DepartmentRepository departmentRepository,
             TeamRepository teamRepository,
-            OrganizationCacheInvalidator cacheInvalidator) {
+            EmployeeRepository employeeRepository,
+            TeamService teamService,
+            OrganizationCacheInvalidator cacheInvalidator,
+            Clock clock) {
         this.departmentCache = departmentCache;
         this.departmentRepository = departmentRepository;
         this.teamRepository = teamRepository;
+        this.employeeRepository = employeeRepository;
+        this.teamService = teamService;
         this.cacheInvalidator = cacheInvalidator;
+        this.clock = clock;
     }
 
     public Optional<DepartmentCacheRow> findCachedByDepartmentName(String departmentName) {
@@ -65,8 +78,20 @@ public class DepartmentService {
         return findAll();
     }
 
+    private void requireCurrentPersonnelAuthorityForWrite(Long requesterId) {
+        Employee requester = employeeRepository.findByIdForUpdate(requesterId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        if (!requester.isActive(LocalDate.now(clock)) || !requester.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 인사권이 없습니다.");
+        }
+    }
+
     @Transactional
-    public Long createDepartment(String departmentName) {
+    // 조직 변경을 잠근 뒤 현재 인사권을 확인한다
+    public Long createDepartment(Long requesterId, String departmentName) {
+        teamService.lockHierarchyForUpdate();
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
+
         String name = departmentName.trim();
         if (departmentRepository.findByDepartmentName(name).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
@@ -88,9 +113,12 @@ public class DepartmentService {
     }
 
     @Transactional
-    public void renameDepartment(Long departmentId, String departmentName) {
+    // 대상 부서를 잠근 뒤 이름 변경 조건을 확인한다
+    public void renameDepartment(Long requesterId, Long departmentId, String departmentName) {
         Department department = departmentRepository.findByIdForUpdate(departmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
+        teamService.lockHierarchyForUpdate();
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
 
         if (DepartmentType.getParentDepartmentType().getName().equals(department.getDepartmentName())) {
             throw new ResponseStatusException(
@@ -114,14 +142,17 @@ public class DepartmentService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
         }
 
-        // Employee 응답에는 부서명이 포함되므로 해당 파생 캐시는 함께 만료한다.
+        // 부서명 변경 후 관련 직원 응답 캐시도 갱신한다
         cacheInvalidator.afterDepartmentChange(Set.of(oldName, name), true);
     }
 
     @Transactional
-    public void deleteDepartment(Long departmentId) {
+    // 소속 팀이 없는 부서만 비활성화한다
+    public void deleteDepartment(Long requesterId, Long departmentId) {
         Department department = departmentRepository.findByIdForUpdate(departmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
+        teamService.lockHierarchyForUpdate();
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
         if (!Boolean.TRUE.equals(department.getEnabled())) {
             return;
         }

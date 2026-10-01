@@ -44,6 +44,18 @@ public class TeamManagerRepositoryImpl implements TeamManagerRepositoryCustom {
     }
 
     @Override
+    public boolean existsActiveManagerByEmployeeId(Long employeeId, LocalDate date) {
+        return queryFactory.selectOne()
+                .from(qTeamManager)
+                .join(qTeamManager.projectManager, qProjectManager)
+                .where(
+                        qProjectManager.employeeId.eq(employeeId),
+                        managerActiveAt(date)
+                )
+                .fetchFirst() != null;
+    }
+
+    @Override
     public boolean existsOtherActiveManagerInTeam(Long teamId, Long employeeId, LocalDate date) {
         return queryFactory.selectOne()
                 .from(qTeamManager)

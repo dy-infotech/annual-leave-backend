@@ -8,6 +8,7 @@ import com.dyinfotech.annualleavebackend.repository.projection.TeamManagerCacheR
 public interface TeamManagerRepositoryCustom {
     List<Long> findTeamIdsByProjectManagerId(Long projectManagerId);
     boolean existsActiveManagerInTeam(Long teamId, LocalDate date);
+    boolean existsActiveManagerByEmployeeId(Long employeeId, LocalDate date);
     boolean existsOtherActiveManagerInTeam(Long teamId, Long employeeId, LocalDate date);
     List<TeamManagerCacheRow> findAllForCache();
     List<TeamManagerCacheRow> findAllByTeamIdForCache(Long teamId);

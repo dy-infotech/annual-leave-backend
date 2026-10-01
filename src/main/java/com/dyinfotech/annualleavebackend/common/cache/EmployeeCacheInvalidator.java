@@ -20,6 +20,7 @@ public class EmployeeCacheInvalidator {
         this.employeeViewCacheKey = employeeViewCacheKey;
     }
 
+    // 커밋 후 해당 직원의 응답 캐시 세대를 갱신한다
     public void afterEmployeeViewChange(Long employeeId) {
         afterCommitExecutor.execute(() -> employeeViewCacheKey.bumpEmployee(employeeId));
     }
@@ -36,6 +37,7 @@ public class EmployeeCacheInvalidator {
         });
     }
 
+    // 직원 정보와 관련 이메일 조회 캐시를 함께 갱신한다
     public void afterEmployeeChange(
             Long employeeId,
             Collection<String> names,

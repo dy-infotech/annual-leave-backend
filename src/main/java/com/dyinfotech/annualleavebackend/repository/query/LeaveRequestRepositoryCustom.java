@@ -37,7 +37,7 @@ public interface LeaveRequestRepositoryCustom {
             Long excludeId, LeaveRequestStatus status,
             Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds,
             LocalDate startRange, LocalDate endRange,
-            int page, int size
+            int page, int pageSize, int fetchLimit
     );
     List<LeaveRequest> findByStatusAndTeamsInRangeCursor(
             Long excludeId, LeaveRequestStatus status,
@@ -77,7 +77,7 @@ public interface LeaveRequestRepositoryCustom {
     List<LeaveRequest> searchLeaveRequestsPage(
             Long employeeId, LocalDate startDate, LocalDate endDate,
             LeaveRequestStatus status, Collection<String> team, String searchEmployeeParam,
-            int page, int size
+            int page, int pageSize, int fetchLimit
     );
     List<LeaveRequest> searchLeaveRequestsCursor(
             Long employeeId, LocalDate startDate, LocalDate endDate,

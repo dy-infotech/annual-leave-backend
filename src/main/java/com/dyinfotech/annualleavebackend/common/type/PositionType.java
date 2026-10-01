@@ -36,10 +36,19 @@ public enum PositionType {
 	}
 	
 	public static final PositionType getType(String name) {
+		if (name == null || name.isBlank()) {
+			return null;
+		}
 		PositionType type = nameToEnumMap.get(name);
 		return type != null ? type : aliasToEnumMap.get(name);
 	}
 	public static final boolean isCEO(PositionType position) {
 		return CEO.equals(position);
+	}
+	public static final boolean isDirectorOrAbove(PositionType position) {
+		return position == DIRECTOR
+				|| position == MANAGING_DIRECTOR
+				|| position == SENIOR_MANAGING_DIRECTOR
+				|| position == CEO;
 	}
 }

@@ -148,11 +148,15 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         if (employeeIds == null || employeeIds.isEmpty()) {
             return List.of();
         }
-        return queryFactory.selectFrom(qEmployee)
+        List<Employee> employees = queryFactory.selectFrom(qEmployee)
                 .where(qEmployee.employeeId.in(employeeIds))
                 .orderBy(qEmployee.employeeId.asc())
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetch();
+        // 잠금 획득 후 직원 정보를 현재 DB 상태로 다시 읽는다
+        employees.forEach(employee ->
+                entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE));
+        return employees;
     }
 
     @Override
@@ -162,7 +166,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetchOne();
         if (employee != null) {
-            // 동일 persistence context에 선행 조회 entity가 있어도 lock 대기 후 DB 최신값을 다시 읽는다.
+            // 잠금 획득 후 직원 정보를 현재 DB 상태로 다시 읽는다
             entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE);
         }
         return Optional.ofNullable(employee);
@@ -208,8 +212,7 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
                 )
                 .execute();
 
-        // bulk update는 1차 캐시의 Employee.password를 갱신하지 않는다.
-        // 같은 transaction/EntityManager에서 이어지는 로그인 검증이 stale null을 보지 않게 한다.
+        // 가입 처리 후 이전 영속성 상태를 비운다
         entityManager.clear();
         return updated;
     }
