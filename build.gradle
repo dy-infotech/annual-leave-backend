@@ -93,7 +93,7 @@ dependencies {
     
     // Firebase Admin SDK
     implementation platform('com.google.cloud:libraries-bom:26.32.0')
-    implementation('com.google.firebase:firebase-admin:9.10.0') {
+    implementation('com.google.firebase:firebase-admin:9.11.0') {
     	// don't need Firestore(NoSQL DB) feature
 	    exclude group: 'com.google.cloud', module: 'google-cloud-firestore'
 	    exclude group: 'com.google.api.grpc', module: 'proto-google-cloud-firestore-v1'
