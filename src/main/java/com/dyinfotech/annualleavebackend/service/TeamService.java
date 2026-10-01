@@ -918,6 +918,14 @@ public class TeamService {
                 .toList();
     }
 
+    private void requireCurrentPersonnelAuthorityForWrite(Long requesterId) {
+        Employee requester = employeeRepository.findByIdForUpdate(requesterId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        if (!requester.isActive(LocalDate.now(clock)) || !requester.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "현재 인사권이 없습니다.");
+        }
+    }
+
     @Transactional
     public Long createTeam(Long requesterId, TeamDto.CreateRequest request) {
         return createTeam(requesterId, request, null);
@@ -964,6 +972,7 @@ public class TeamService {
         }
 
         lockHierarchyForUpdate();
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
 
         Team team = Team.builder()
                 .teamName(teamName)
@@ -1052,7 +1061,7 @@ public class TeamService {
     }
 
     @Transactional
-    public void updateTeam(Long teamId, TeamDto.UpdateRequest request) {
+    public void updateTeam(Long requesterId, Long teamId, TeamDto.UpdateRequest request) {
         // department -> team 순서로 잠금 순서를 고정해 deleteDepartment/createTeam과 교착을 피한다.
         Department lockedRequestedDepartment = null;
         if (request.getDepartmentId() != null) {
@@ -1079,6 +1088,7 @@ public class TeamService {
             teamIdsToLock.add(plannedParentTeamId);
         }
         Map<Long, Team> lockedTeams = lockTeams(teamIdsToLock);
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
         Team team = lockedTeams.get(teamId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀 정보를 찾을 수 없습니다.");
@@ -1227,8 +1237,10 @@ public class TeamService {
     }
 
     @Transactional
-    public void deleteTeam(Long teamId) {
+    public void deleteTeam(Long requesterId, Long teamId) {
+        lockHierarchyForUpdate();
         Team team = lockTeam(teamId);
+        requireCurrentPersonnelAuthorityForWrite(requesterId);
         if (!Boolean.TRUE.equals(team.getEnabled())) {
             return;
         }
