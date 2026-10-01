@@ -148,11 +148,15 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         if (employeeIds == null || employeeIds.isEmpty()) {
             return List.of();
         }
-        return queryFactory.selectFrom(qEmployee)
+        List<Employee> employees = queryFactory.selectFrom(qEmployee)
                 .where(qEmployee.employeeId.in(employeeIds))
                 .orderBy(qEmployee.employeeId.asc())
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
                 .fetch();
+        // 선행 조회로 이미 managed 상태인 직원도 lock 대기 후 DB 최신값을 보도록 보강한다.
+        employees.forEach(employee ->
+                entityManager.refresh(employee, LockModeType.PESSIMISTIC_WRITE));
+        return employees;
     }
 
     @Override
