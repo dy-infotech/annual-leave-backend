@@ -32,6 +32,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.domain.support.UpdatedAudit;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 
 class NotificationFcmRegressionTest {
@@ -59,6 +60,8 @@ class NotificationFcmRegressionTest {
 
         notificationService = new NotificationService(
                 tokenRepository,
+                mock(EmployeeRepository.class),
+                mock(TeamService.class),
                 fcmService,
                 clock,
                 retryExecutor
