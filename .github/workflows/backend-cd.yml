@@ -1,14 +1,12 @@
-name: Spring Boot Backend CI/CD
+name: Spring Boot Backend CD
 
 on:
   push:
     branches:
       - release
-      - develop_v1.0
-      - develop_v2.0
   workflow_dispatch:
 
-# develop_v1.0/develop_v2.0에서는 CI만 수행하고 release에서만 배포
+# 배포 workflow는 release 전용. develop 브랜치에서는 실행하지 않는다.
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
