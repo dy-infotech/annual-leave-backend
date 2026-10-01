@@ -34,6 +34,27 @@ class NotificationOutboxWorkerRegressionTest {
     }
 
     @Test
+    void claimFailure_doesNotStarveLaterReadyRows() {
+        NotificationOutboxService outboxService = mock(NotificationOutboxService.class);
+        FcmService fcmService = mock(FcmService.class);
+        NotificationOutboxWorker worker = new NotificationOutboxWorker(outboxService, fcmService);
+
+        ClaimedNotification second =
+                new ClaimedNotification(21L, Set.of(201L), "title-2", "body-2");
+        when(outboxService.findReadyIds(50)).thenReturn(List.of(20L, 21L));
+        when(outboxService.claim(20L)).thenThrow(new IllegalStateException("poison row"));
+        when(outboxService.claim(21L)).thenReturn(Optional.of(second));
+        when(fcmService.sendConditionNotificationNowAndReport(
+                Set.of(201L), "title-2", "body-2"))
+                .thenReturn(true);
+
+        worker.processPending();
+
+        verify(outboxService).markFailed(20L, "java.lang.IllegalStateException: poison row");
+        verify(outboxService).markSent(21L);
+    }
+
+    @Test
     void failedSend_keepsOutboxForRetry() {
         NotificationOutboxService outboxService = mock(NotificationOutboxService.class);
         FcmService fcmService = mock(FcmService.class);
