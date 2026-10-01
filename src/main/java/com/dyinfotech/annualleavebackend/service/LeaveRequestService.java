@@ -641,16 +641,12 @@ public class LeaveRequestService {
 
         boolean isOwner =
                 leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        boolean canViewPrivate = isOwner;
-
-        if (!canViewPrivate && currentEmployeeId != null) {
-            Set<String> accessibleTeams = teamService.findManagedTeams(currentEmployeeId).stream()
-                    .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                    .map(TeamService.ManagedTeam::teamName)
-                    .collect(Collectors.toSet());
-            canViewPrivate = accessibleTeams.contains(
-                    leaveRequest.getEmployee().getTeamName());
-        }
+        // 조회 권한과 승인/반려 권한은 별개다.
+        // 현재 관리자(PM)는 관리팀 범위와 무관하게 신청 상세의 비공개 필드를 열람할 수 있다.
+        // 승인/반려 가능 범위는 LeaveApprovalService의 조직 계층 검증을 그대로 사용한다.
+        boolean canViewPrivate = isOwner
+                || (currentEmployeeId != null
+                        && currentAuthorityService.isAdmin(currentEmployeeId));
 
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
