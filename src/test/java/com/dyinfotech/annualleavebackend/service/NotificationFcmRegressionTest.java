@@ -227,4 +227,23 @@ class NotificationFcmRegressionTest {
                 eq("body"));
     }
 
+
+    @Test
+    void inactiveCleanup_skipsDeleteWhenTokenOwnerChangedBeforeSerializedCleanup() {
+        FcmToken staleSnapshot = mock(FcmToken.class);
+        FcmToken currentToken = mock(FcmToken.class);
+        when(staleSnapshot.getToken()).thenReturn(TOKEN);
+        when(staleSnapshot.getEmployeeId()).thenReturn(OLD_EMPLOYEE_ID);
+        when(currentToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+
+        when(tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(any(LocalDateTime.class)))
+                .thenReturn(java.util.List.of(staleSnapshot));
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(currentToken));
+
+        notificationService.cleanupInactiveTokens(LocalDateTime.now(clock), 3);
+
+        verify(fcmService, never()).unsubscribeTopics(TOKEN, OLD_EMPLOYEE_ID);
+        verify(tokenRepository, never()).deleteByTokenAndEmployeeId(TOKEN, OLD_EMPLOYEE_ID);
+    }
+
 }

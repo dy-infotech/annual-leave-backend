@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.dyinfotech.annualleavebackend.config.TimeConfig;
-import com.dyinfotech.annualleavebackend.service.FcmService;
+import com.dyinfotech.annualleavebackend.service.NotificationService;
 import com.dyinfotech.annualleavebackend.service.HolidaySyncService;
 
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 public class MonthlyScheduler {
 	
 	private final HolidaySyncService holidaySyncService;
-	private final FcmService fcmService;
+	private final NotificationService notificationService;
 	
 	private final Clock clock;
 	
@@ -48,7 +48,7 @@ public class MonthlyScheduler {
         log.info("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 시작 ===", now.getYear(), now.getMonthValue());
         try {
         	// TODO: 비활성 토큰 삭제 주기 기초데이터 전환 필요
-        	fcmService.deleteInactiveToken(LocalDateTime.now(clock), 3);
+        	notificationService.cleanupInactiveTokens(LocalDateTime.now(clock), 3);
             log.info("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 완료 ===", now.getYear(), now.getMonthValue());
         } catch (Exception e) {
             log.error("=== [월간 스케줄러] {}년 {}월 비활성 FCM Push 토큰 정리 중 예외 발생 (스케줄러는 계속 진행) ===", now.getYear(), now.getMonthValue(), e);

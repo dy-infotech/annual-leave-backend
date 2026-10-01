@@ -306,6 +306,53 @@ public class NotificationService {
         return queued;
     }
 
+    public void cleanupInactiveTokens(LocalDateTime now, int monthCount) {
+        Collection<FcmToken> inactiveTokens =
+                tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));
+        if (inactiveTokens.isEmpty()) {
+            return;
+        }
+
+        CompletableFuture<?>[] operations = inactiveTokens.stream()
+                .map(token -> serializeTokenOperation(
+                        token.getToken(),
+                        () -> cleanupInactiveTokenNow(token.getToken(), token.getEmployeeId())))
+                .toArray(CompletableFuture[]::new);
+        CompletableFuture.allOf(operations).join();
+    }
+
+    private CompletableFuture<Void> cleanupInactiveTokenNow(String fcmToken, Long expectedEmployeeId) {
+        FcmToken current = tokenRepository.findByToken(fcmToken).orElse(null);
+        if (current == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        if (!java.util.Objects.equals(current.getEmployeeId(), expectedEmployeeId)) {
+            log.info(
+                    "FCM inactive cleanup skipped because owner changed. expectedEmployeeId={}, currentOwnerId={}",
+                    expectedEmployeeId,
+                    current.getEmployeeId());
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return fcmService.unsubscribeTopics(fcmToken, expectedEmployeeId)
+                .thenAccept(success -> {
+                    if (!success) {
+                        log.warn("비활성 FCM token topic 해제 실패. employeeId={}", expectedEmployeeId);
+                        return;
+                    }
+
+                    long deleted = tokenRepository.deleteByTokenAndEmployeeId(
+                            fcmToken,
+                            expectedEmployeeId);
+                    if (deleted == 0) {
+                        log.info(
+                                "FCM inactive cleanup delete skipped because owner changed concurrently. employeeId={}",
+                                expectedEmployeeId);
+                    }
+                });
+    }
+
     /**
      * ③ 알림 발송 공통 메서드
      */

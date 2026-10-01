@@ -1,6 +1,5 @@
 package com.dyinfotech.annualleavebackend.service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,8 +10,6 @@ import java.util.stream.Collectors;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import com.dyinfotech.annualleavebackend.domain.FcmToken;
-import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
@@ -28,7 +25,6 @@ public class FcmService {
 	public static final String TEAM_TOPIC_PREFIX = "team_";
 	
 	private final FirebaseMessaging firebaseMessaging;
-	private final FcmTokenRepository fcmTokenRepository;
 	
 	/**
 	 * FCM Token의 중간 값들을 마스킹. 로그에 표기할 때 보안적으로 방어하기 위함.
@@ -147,15 +143,4 @@ public class FcmService {
         return allSucceeded;
     }
 
-	public void deleteInactiveToken(LocalDateTime now, int monthCount) {
-		List<FcmToken> inactiveTokens =
-				fcmTokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));
-		for (FcmToken inactiveToken : inactiveTokens) {
-			if (!unsubscribeTopics(inactiveToken.getToken(), inactiveToken.getEmployeeId()).join()) {
-				log.warn("비활성 FCM token topic 해제 실패 - Token: {}, employeeId={}", maskFcmToken(inactiveToken.getToken()), inactiveToken.getEmployeeId());
-				continue;
-			}
-			fcmTokenRepository.deleteByToken(inactiveToken.getToken());
-		}
-	}
 }
