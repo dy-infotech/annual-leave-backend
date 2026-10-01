@@ -149,7 +149,7 @@ class LeaveApprovalApiContractRegressionTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
 
-        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
+        verifyNoInteractions(currentAuthorityService);
         verifyNoInteractions(leaveApprovalService);
     }
 }
