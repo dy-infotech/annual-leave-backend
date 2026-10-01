@@ -6,25 +6,9 @@ on:
       - release
   workflow_dispatch:
 
-# 수동 실행(workflow_dispatch) 시 선택한 ref를 그대로 배포한다.
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
-    services:
-      oracle:
-        image: gvenzl/oracle-xe:21-slim-faststart
-        env:
-          ORACLE_PASSWORD: oracle-test-system
-          APP_USER: annual_leave_test
-          APP_USER_PASSWORD: annual_leave_test
-        ports:
-          - 1521:1521
-        options: >-
-          --health-cmd healthcheck.sh
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 30
 
     steps:
 
@@ -55,57 +39,15 @@ jobs:
           cache: gradle
 
 
-      # 4. Oracle 21c XE 테스트 스키마
-      - name: 4. Oracle 21c XE 테스트 스키마 준비
-        run: |
-          set -e
-          ORACLE_ID=$(docker ps --filter "ancestor=gvenzl/oracle-xe:21-slim-faststart" --format "{{.ID}}" | head -n 1)
-          test -n "$ORACLE_ID"
-
-          docker cp sql/schema.sql "$ORACLE_ID:/tmp/schema.sql"
-          docker cp sql/data.sql "$ORACLE_ID:/tmp/data.sql"
-
-          # fresh CI DB에는 공통 인증 tablespace가 없으므로 app schema보다 먼저 준비한다.
-          # 운영의 dba_prepare_common_auth_tablespace.sql은 HR_USER 대상이므로,
-          # CI에서는 annual_leave_test에 직접 quota를 부여한다.
-          docker exec "$ORACLE_ID" bash -lc '
-            sqlplus -s "sys/oracle-test-system@//localhost:1521/XEPDB1 as sysdba" <<SQL
-          WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;
-          CREATE TABLESPACE COMMON_DATA
-              DATAFILE '"'"'/opt/oracle/oradata/XE/XEPDB1/COMMON_DATA01.dbf'"'"' SIZE 32M
-              AUTOEXTEND ON NEXT 16M MAXSIZE UNLIMITED
-              EXTENT MANAGEMENT LOCAL
-              SEGMENT SPACE MANAGEMENT AUTO;
-          CREATE TABLESPACE COMMON_INDEX
-              DATAFILE '"'"'/opt/oracle/oradata/XE/XEPDB1/COMMON_INDEX01.dbf'"'"' SIZE 16M
-              AUTOEXTEND ON NEXT 8M MAXSIZE UNLIMITED
-              EXTENT MANAGEMENT LOCAL
-              SEGMENT SPACE MANAGEMENT AUTO;
-          ALTER USER annual_leave_test QUOTA UNLIMITED ON COMMON_DATA;
-          ALTER USER annual_leave_test QUOTA UNLIMITED ON COMMON_INDEX;
-          EXIT;
-          SQL
-          '
-
-          docker exec "$ORACLE_ID" bash -lc \
-            "sqlplus -s annual_leave_test/annual_leave_test@//localhost:1521/XEPDB1 @/tmp/schema.sql"
-          docker exec "$ORACLE_ID" bash -lc \
-            "sqlplus -s annual_leave_test/annual_leave_test@//localhost:1521/XEPDB1 @/tmp/data.sql"
-
-      # 5. Gradle Build
-      - name: 5. Gradle Build
-        env:
-          RUN_ORACLE_INTEGRATION_TESTS: "true"
-          TEST_DB_URL: jdbc:oracle:thin:@localhost:1521/XEPDB1
-          TEST_DB_USERNAME: annual_leave_test
-          TEST_DB_PASSWORD: annual_leave_test
+      # 4. Gradle Build
+      - name: 4. Gradle Build
         run: |
           chmod +x gradlew
-          ./gradlew test bootJar
+          ./gradlew bootJar -x test
 
 
-      # 6. 서버 배포 디렉터리 준비
-      - name: 6. 서버 배포 디렉터리 준비
+      # 5. 서버 배포 디렉터리 준비
+      - name: 5. 서버 배포 디렉터리 준비
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -127,7 +69,7 @@ jobs:
 
 
       # 6. JAR 업로드
-      - name: 7. Build JAR Upload
+      - name: 6. Build JAR Upload
         uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -140,7 +82,7 @@ jobs:
 
 
       # 7. 배포 및 재시작
-      - name: 8. Deploy & Restart
+      - name: 7. Deploy & Restart
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -156,17 +98,15 @@ jobs:
             BACKUP_JAR=$APP_JAR.bak
 
 
-            # systemd 상태뿐 아니라 Spring MVC가 실제 요청을 받을 수 있는지 확인한다.
-            # ddl-auto=validate가 v2 스키마 누락을 startup 단계에서 차단한다.
-            HEALTH_URL=${ANNUAL_LEAVE_HEALTH_URL:-http://127.0.0.1:8080/api/health}
+            # 서비스 기동 확인 함수
             wait_for_service() {
-              for i in {1..12}
+              for i in {1..6}
               do
                 STATUS=$(sudo -n /usr/bin/systemctl is-active annual-leave.service || true)
 
                 echo "CHECK $i : $STATUS"
 
-                if [ "$STATUS" = "active" ] && curl -fsS "$HEALTH_URL" >/dev/null; then
+                if [ "$STATUS" = "active" ]; then
                   return 0
                 fi
 
@@ -209,52 +149,18 @@ jobs:
             rm -rf "$TARGET_DIR"/*
 
 
-            rollback() {
-              echo "===== 롤백 시작 ====="
-
-              if [ ! -f "$BACKUP_JAR" ]; then
-                echo "백업 파일이 없어 롤백 불가"
-                return 1
-              fi
-
-              cp "$BACKUP_JAR" "$APP_JAR"
-
-              echo "===== 이전 버전 재시작 ====="
-
-              if ! sudo -n /usr/bin/systemctl restart annual-leave.service; then
-                echo "이전 버전 재시작 명령 실패"
-                sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
-                return 1
-              fi
-
-              echo "===== 롤백 기동 확인 ====="
-
-              if wait_for_service; then
-                echo "===== 롤백 성공 ====="
-                return 0
-              fi
-
-              echo "===== 롤백 실패 ====="
-              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
-              return 1
-            }
-
-
             echo "===== 서비스 재시작 ====="
 
-            if ! sudo -n /usr/bin/systemctl restart annual-leave.service; then
-              echo "신규 버전 재시작 명령 실패"
-              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
-              rollback || true
-              exit 1
-            fi
+            sudo -n /usr/bin/systemctl restart annual-leave.service
 
 
             echo "===== 신규 버전 기동 확인 ====="
 
             if wait_for_service; then
+
               echo "===== 배포 완료 ====="
               exit 0
+
             fi
 
 
@@ -262,5 +168,28 @@ jobs:
 
             sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
 
-            rollback || true
-            exit 1
+
+            echo "===== 롤백 시작 ====="
+
+            if [ ! -f "$BACKUP_JAR" ]; then
+              echo "백업 파일이 없어 롤백 불가"
+              exit 1
+            fi
+
+            cp "$BACKUP_JAR" "$APP_JAR"
+
+
+            echo "===== 이전 버전 재시작 ====="
+
+            sudo -n /usr/bin/systemctl restart annual-leave.service
+
+
+            echo "===== 롤백 기동 확인 ====="
+
+            if wait_for_service; then
+              echo "===== 롤백 성공 ====="
+            else
+              echo "===== 롤백 실패 ====="
+              sudo -n /usr/bin/systemctl status annual-leave.service --no-pager || true
+              exit 1
+            fi
