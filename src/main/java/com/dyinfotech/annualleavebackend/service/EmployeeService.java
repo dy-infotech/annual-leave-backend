@@ -385,7 +385,7 @@ public class EmployeeService {
         // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
-                .collect(Collectors.toMap(Employee::getEmployeeId, Function.identity()));
+                .collect(Collectors.toMap(Employee::getEmployeeId, employee -> employee));
         approver = lockedEmployees.get(approverId);
         employee = lockedEmployees.get(employeeId);
         if (approver == null) {
@@ -526,7 +526,7 @@ public class EmployeeService {
         // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
-                .collect(Collectors.toMap(Employee::getEmployeeId, Function.identity()));
+                .collect(Collectors.toMap(Employee::getEmployeeId, employee -> employee));
         approver = lockedEmployees.get(approverId);
         employee = lockedEmployees.get(employeeId);
         if (approver == null) {
