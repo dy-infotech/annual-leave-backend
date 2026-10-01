@@ -69,6 +69,11 @@ public class TeamService {
         }
     }
 
+    public record ManagedScope(
+            List<ManagedTeam> directTeams,
+            Set<ManagedTeam> accessibleTeams) {
+    }
+
     @Qualifier("teamLoadingCache")
     private final LoadingCache<OrganizationCacheKey, List<TeamCacheRow>> teamCache;
     @Qualifier("teamManagerLoadingCache")
@@ -271,6 +276,58 @@ public class TeamService {
         return teamManagerRepository.existsActiveManagerByEmployeeId(
                 employeeId,
                 LocalDate.now(clock));
+    }
+
+    /**
+     * 승인/민감 조회 authorization용 DB 최신 관리 범위 snapshot.
+     * direct manager의 재직 여부는 현재 날짜로 판정하고, descendant 간선은 기존 정책처럼
+     * 퇴사 PM row도 유지해 조직 parent-child 구조 자체가 끊기지 않게 한다.
+     */
+    @Transactional(readOnly = true)
+    public ManagedScope findManagedScopeFromDatabase(Long employeeId) {
+        if (employeeId == null) {
+            return new ManagedScope(List.of(), Set.of());
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        List<TeamManagerCacheRow> managerRows = teamManagerRepository.findAllForCache();
+        Map<Long, TeamCacheRow> teams = teamRepository.findAllEnabledForCache().stream()
+                .collect(Collectors.toMap(TeamCacheRow::teamId, team -> team));
+
+        List<ManagedTeam> hierarchyRows = managerRows.stream()
+                .map(manager -> toManagedTeam(manager, teams))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        List<ManagedTeam> directTeams = managerRows.stream()
+                .filter(manager -> employeeId.equals(manager.projectManagerId()))
+                .filter(manager -> manager.isActive(today))
+                .map(manager -> toManagedTeam(manager, teams))
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (directTeams.isEmpty()) {
+            return new ManagedScope(List.of(), Set.of());
+        }
+
+        Map<Long, List<ManagedTeam>> managersByTeam = hierarchyRows.stream()
+                .collect(Collectors.groupingBy(ManagedTeam::teamId));
+        Map<Long, Set<Long>> childrenByParent = new HashMap<>();
+        for (ManagedTeam manager : hierarchyRows) {
+            childrenByParent
+                    .computeIfAbsent(manager.parentTeamId(), ignored -> new LinkedHashSet<>())
+                    .add(manager.teamId());
+        }
+
+        Set<ManagedTeam> accessible = new LinkedHashSet<>();
+        for (ManagedTeam direct : directTeams) {
+            traverseDown(
+                    direct.teamId(),
+                    managersByTeam,
+                    childrenByParent,
+                    new HashSet<>(),
+                    accessible);
+        }
+        return new ManagedScope(List.copyOf(directTeams), Set.copyOf(accessible));
     }
 
     public Set<Long> findAllProjectManagerIds() {
