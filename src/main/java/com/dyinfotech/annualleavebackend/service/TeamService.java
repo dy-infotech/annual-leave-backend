@@ -220,6 +220,10 @@ public class TeamService {
         }
 
         LocalDate today = LocalDate.now(clock);
+        if (!teamManagerRepository.existsActiveManagerByEmployeeId(employeeId, today)) {
+            return Set.of();
+        }
+
         List<TeamManagerCacheRow> rows = teamManagerRepository.findAllForCache();
 
         Set<Long> roots = rows.stream()
