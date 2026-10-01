@@ -3,8 +3,9 @@
 -- Oracle 21c XE canonical fresh-install schema
 --
 -- Fresh database: use this file after DBA creates COMMON_DATA / COMMON_INDEX.
--- Existing develop_v1.0 database: use migration_v2_0_oracle.sql, then
--- migrate_common_auth_refresh_session.sql to prepare the shared SSO session table.
+-- Existing develop_v1.0 database: use migration_v2_0_oracle.sql only.
+-- Shared RTR / FCM session binding / notification outbox are part of the
+-- canonical v2 schema and migration; separate compatibility migrations are obsolete.
 -- Oracle DDL performs implicit commits; back up an existing database first.
 -- =====================================================================
 
