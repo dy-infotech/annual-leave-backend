@@ -236,7 +236,7 @@ class LeaveRequestRegressionTest {
         when(leaveRequest.getLeaveReason()).thenReturn("대표 열람 사유");
         when(leaveRequestRepository.findDetailById(102L))
                 .thenReturn(java.util.Optional.of(leaveRequest));
-        when(currentAuthorityService.isCeo(EMPLOYEE_ID)).thenReturn(true);
+        when(currentAuthorityService.canViewAllLeaveDetails(EMPLOYEE_ID)).thenReturn(true);
 
         var response = leaveRequestService.getLeaveRequestDetail(102L, EMPLOYEE_ID);
 
