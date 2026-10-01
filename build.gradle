@@ -18,11 +18,11 @@ dependencyCheck {
 }
 
 java {
-	// disable toolchain because of avoiding error
-	// Class org.gradle.jvm.toolchain.JvmVendorSpec does not have member field 'org.gradle.jvm.toolchain.JvmVendorSpec IBM_SEMERU'
-    //toolchain {
-    //    languageVersion = JavaLanguageVersion.of(21)
-    //}
+    // CI와 로컬 test worker가 같은 Java 21을 사용하도록 toolchain을 고정한다.
+    // settings.gradle의 Foojay resolver가 로컬에 JDK 21이 없을 때도 toolchain을 해결한다.
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
