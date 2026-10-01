@@ -51,8 +51,10 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
                 return true;
             }
             if (requiresPersonnelAuthority(handlerMethod)) {
-                currentAuthorityService.requireAuthenticatedPersonnelAuthority(
-                        principal.personnelAuthority());
+                // JWT의 personnelAuthority는 로그인 시점 snapshot일 뿐 최종 권한 근거가 아니다.
+                // 직책/인사권이 회수된 뒤 기존 access token으로 조직 write를 계속하지 못하게
+                // 요청 시점 DB 상태를 다시 검증한다.
+                currentAuthorityService.requirePersonnelAuthority(principal.employeeId());
                 return true;
             }
         }
