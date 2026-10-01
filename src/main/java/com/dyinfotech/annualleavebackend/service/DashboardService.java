@@ -105,17 +105,17 @@ public class DashboardService {
                 .build();
     }
 
-    private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(Employee employee) {
+    private DashboardDto.LeaveRequestSummaryResponse getAllEmployeeRequestSummary(
+            Employee employee,
+            TeamService.ManagedScope managedScope) {
         Long excludeId = employee.getEmployeeId();
-        List<ManagedTeam> managedTeams = teamService.findManagedTeams(employee.getEmployeeId());
+        List<ManagedTeam> managedTeams = managedScope.directTeams();
 
         Set<String> directTeams = managedTeams.stream()
                 .map(ManagedTeam::teamName)
                 .collect(Collectors.toSet());
 
-        Set<ManagedTeam> accessibleTeams = managedTeams.stream()
-                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                .collect(Collectors.toSet());
+        Set<ManagedTeam> accessibleTeams = managedScope.accessibleTeams();
 
         if (managedTeams.stream().anyMatch(team -> team.teamId().equals(team.parentTeamId()))) {
             excludeId = null;
