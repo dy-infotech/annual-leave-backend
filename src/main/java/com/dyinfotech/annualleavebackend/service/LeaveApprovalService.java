@@ -100,7 +100,7 @@ public class LeaveApprovalService {
             requests = leaveRequestRepository.findByStatusAndTeamsInRangePage(
                     excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                     DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                    page, size + 1);
+                    page, size, size + 1);
             hasMore = requests.size() > size;
             if (hasMore) {
                 requests = requests.subList(0, size);
@@ -202,8 +202,11 @@ public class LeaveApprovalService {
         if (cursorCreatedAt == null) {
             requests = leaveRequestRepository.searchLeaveRequestsPage(
                     null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                    status, accessibleTeams, employeeParam, page, size);
-            hasMore = ((long) page + 1L) * size < totalCount;
+                    status, accessibleTeams, employeeParam, page, size, size + 1);
+            hasMore = requests.size() > size;
+            if (hasMore) {
+                requests = requests.subList(0, size);
+            }
         } else {
             requests = leaveRequestRepository.searchLeaveRequestsCursor(
                     null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
