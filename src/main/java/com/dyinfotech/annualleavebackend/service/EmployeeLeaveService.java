@@ -55,9 +55,11 @@ public class EmployeeLeaveService {
     private final Clock clock;
     
     /**
-     * 전직원 새해 연차 롤오버 및 재계산
-     * 이 메서드가 끝나는 순간 전직원 변경사항이 DB에 Commit 되며 락(Lock)이 즉시 해제
-     * @param currentYear
+     * 전직원 새해 연차 롤오버 및 재계산.
+     * employee_id keyset으로 대상을 나누고 각 batch를 독립 transaction으로 commit해
+     * 장시간 transaction/lock 보유와 stale overwrite 범위를 제한한다.
+     *
+     * @param currentYear 갱신할 현재 연도
      */
     public void renewAllActiveEmployeesLeave(String currentYear) {
         LocalDate today = LocalDate.now(clock);
