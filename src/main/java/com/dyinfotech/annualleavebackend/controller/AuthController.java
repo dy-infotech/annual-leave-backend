@@ -28,10 +28,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.Operation;
 
+@Slf4j
 @Tag(name = "전체 사용자 인증 관리", description = "사용자의 로그인, 사용 등록, 계정 찾기 등 신원 확인 API")
 @RestController
 @RequestMapping("/api/auth")
@@ -139,16 +141,36 @@ public class AuthController {
                 ? refreshEmployeeId
                 : principal != null ? principal.employeeId() : null;
 
-        CompletableFuture<Void> cleanup = employeeId == null
-                ? CompletableFuture.completedFuture(null)
-                : authService.logout(
+        if (employeeId != null) {
+            try {
+                authService.logout(
+                                employeeId,
+                                request == null ? null : request.getFcmToken())
+                        .whenComplete((ignored, error) -> {
+                            if (error != null) {
+                                log.warn(
+                                        "로그아웃 후 FCM 정리에 실패했습니다. employeeId={}",
+                                        employeeId,
+                                        error);
+                            }
+                        });
+            } catch (RuntimeException e) {
+                // refresh session 폐기와 브라우저 로그아웃은 이미 독립적으로 처리할 수 있다.
+                // FCM 정리 시작 실패가 로그아웃 응답을 지연하거나 실패시키지 않게 격리한다.
+                log.warn(
+                        "로그아웃 후 FCM 정리를 시작하지 못했습니다. employeeId={}",
                         employeeId,
-                        request == null ? null : request.getFcmToken());
+                        e);
+            }
+        }
 
-        return cleanup.thenApply(v -> ResponseEntity.noContent()
-                .cacheControl(CacheControl.noStore())
-                .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString())
-                .build());
+        return CompletableFuture.completedFuture(
+                ResponseEntity.noContent()
+                        .cacheControl(CacheControl.noStore())
+                        .header(
+                                HttpHeaders.SET_COOKIE,
+                                refreshTokenCookieService.clear().toString())
+                        .build());
     }
 
     private void requireRefreshRequestHeader(HttpServletRequest request) {
