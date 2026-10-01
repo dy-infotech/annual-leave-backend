@@ -57,8 +57,14 @@ public class DashboardService {
         // 2. 내 휴가 요청 요약
         DashboardDto.LeaveRequestSummaryResponse myRequestSummary = getMyRequestSummary(employeeId, leaveYearStart, leaveYearEnd);
 
-        // 3. 관리자일 경우, 전직원 요약 포함
-        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary = employeeLeaveService.createAuthorityResolver(employeeId).isAdmin(employeeId) ? getAllEmployeeRequestSummary(employee) : null;
+        // 3. 관리자일 경우, 요청 시점 DB 조직 상태로 관리 범위와 요약을 함께 계산한다.
+        // 관리자 여부와 실제 조회 범위가 서로 다른 snapshot을 사용하지 않게 한다.
+        TeamService.ManagedScope managedScope =
+                teamService.findManagedScopeFromDatabase(employeeId);
+        DashboardDto.LeaveRequestSummaryResponse allEmployeeSummary =
+                managedScope.directTeams().isEmpty()
+                        ? null
+                        : getAllEmployeeRequestSummary(employee, managedScope);
 
         return DashboardDto.builder()
                 .myLeavePeriod(DashboardDto.LeavePeriodResponse.builder()
