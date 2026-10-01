@@ -382,17 +382,21 @@ public class EmployeeService {
 
         // 관리팀 add/remove는 조직 parent-edge 변경이므로 공통 hierarchy mutex를 먼저 잡는다.
         teamService.lockHierarchyForUpdate();
-        // 인터셉터/메서드 진입 시점의 권한은 대기 중 회수될 수 있다.
-        // hierarchy mutex 획득 뒤 DB 최신 관리자 row를 잠가 인사권을 다시 검증한다.
-        approver = employeeRepository.findByIdForUpdate(approverId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
+        teamService.lockTeamsForUpdate(plannedTeamIds);
+        Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
+                .collect(Collectors.toMap(Employee::getEmployeeId, Function.identity()));
+        approver = lockedEmployees.get(approverId);
+        employee = lockedEmployees.get(employeeId);
+        if (approver == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다.");
+        }
+        if (employee == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
         if (!approver.hasPersonnelAuthority()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인사권을 가진 관리자가 아닙니다.");
         }
-        // 모든 관련 TEAM을 ID 오름차순으로 잠근 뒤 Employee를 잠가 동일 직원의 관리팀 변경을 직렬화한다.
-        teamService.lockTeamsForUpdate(plannedTeamIds);
-        employee = employeeRepository.findByIdForUpdate(employeeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         List<Long> currentManagedTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
@@ -519,16 +523,21 @@ public class EmployeeService {
 
         // 결재 권한 검증과 팀/담당자 변경이 교차하지 않도록 조직 write 공통 mutex를 먼저 잡는다.
         teamService.lockHierarchyForUpdate();
-        // 요청 진입 뒤 권한이 회수된 경우 과거 권한 snapshot으로 인사 변경을 계속하지 않는다.
-        approver = employeeRepository.findByIdForUpdate(approverId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
+        teamService.lockTeamsForUpdate(plannedTeamIds);
+        Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
+                .collect(Collectors.toMap(Employee::getEmployeeId, Function.identity()));
+        approver = lockedEmployees.get(approverId);
+        employee = lockedEmployees.get(employeeId);
+        if (approver == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다.");
+        }
+        if (employee == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
+        }
         if (!approver.hasPersonnelAuthority()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "인사권을 가진 관리자가 아닙니다.");
         }
-        // 이후 TEAM 잠금을 전체 집합에 대해 ID 오름차순으로 획득한 뒤 Employee 잠금을 잡는다.
-        teamService.lockTeamsForUpdate(plannedTeamIds);
-        employee = employeeRepository.findByIdForUpdate(employeeId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
         String oldEmployeeName = employee.getName();
         String oldManagerPosition = employee.getPosition();
