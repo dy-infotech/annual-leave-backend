@@ -8,6 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -34,7 +35,10 @@ public class NotificationService {
 	private final ScheduledExecutorService retryExecutor;
     
     private static final int MAX_RETRY_COUNT = 3;
+    private static final int MAX_PENDING_RETRY_TASKS = 500;
     private static final int FCM_CLEANUP_BATCH_SIZE = 20;
+
+    private final AtomicInteger pendingRetryTasks = new AtomicInteger();
 
     /**
      * 동일 FCM token의 owner sync/logout은 외부 Firebase topic 작업까지 순서를 보장한다.
@@ -122,11 +126,34 @@ public class NotificationService {
 	
 	private CompletableFuture<Void> delay(long millis) {
 	    CompletableFuture<Void> future = new CompletableFuture<>();
-
-	    retryExecutor.schedule(() -> future.complete(null), millis, TimeUnit.MILLISECONDS);
-
+        try {
+            scheduleRetryBounded(() -> future.complete(null), millis);
+        } catch (RuntimeException e) {
+            future.completeExceptionally(e);
+        }
 	    return future;
 	}
+
+    private void scheduleRetryBounded(Runnable task, long delayMillis) {
+        int pending = pendingRetryTasks.incrementAndGet();
+        if (pending > MAX_PENDING_RETRY_TASKS) {
+            pendingRetryTasks.decrementAndGet();
+            throw new TaskRejectedException("FCM retry queue limit exceeded");
+        }
+
+        try {
+            retryExecutor.schedule(() -> {
+                try {
+                    task.run();
+                } finally {
+                    pendingRetryTasks.decrementAndGet();
+                }
+            }, delayMillis, TimeUnit.MILLISECONDS);
+        } catch (RuntimeException e) {
+            pendingRetryTasks.decrementAndGet();
+            throw e;
+        }
+    }
 	
 	public CompletableFuture<Void> syncToken(Long employeeId, String fcmToken, String deviceOs) {
         return syncToken(employeeId, fcmToken, deviceOs, null);
@@ -548,7 +575,7 @@ public class NotificationService {
             int retryCount) {
         long delayMillis = retryCount <= 1 ? 0L : 100L << (retryCount - 2);
         try {
-            retryExecutor.schedule(() -> {
+            scheduleRetryBounded(() -> {
                 try {
                     fcmService.sendConditionNotificationNow(approverIds, title, body);
                 } catch (RuntimeException e) {
@@ -563,7 +590,7 @@ public class NotificationService {
                         log.error("FCM fallback 발송 최종 실패. retry={}/{}", retryCount, MAX_RETRY_COUNT, e);
                     }
                 }
-            }, delayMillis, TimeUnit.MILLISECONDS);
+            }, delayMillis);
         } catch (RuntimeException e) {
             // retry executor까지 종료/포화된 경우에도 이미 커밋된 비즈니스 결과는 성공으로 유지한다.
             log.error("FCM fallback 작업 예약 실패. 알림은 유실될 수 있습니다.", e);
