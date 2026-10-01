@@ -546,22 +546,28 @@ public class LeaveRequestService {
                 && currentAuthorityService.isAdmin(currentEmployeeId);
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
 
-        int fetchSize = size + 1;
-        List<LeaveRequest> fetched = cursorRequestedAt == null
-                ? leaveRequestRepository.searchLeaveRequestsPage(
-                        condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
-                        condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                        page, fetchSize)
-                : leaveRequestRepository.searchLeaveRequestsCursor(
-                        condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
-                        condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                        cursorRequestedAt, cursorRequestId, fetchSize);
-
-        boolean hasMore = fetched.size() > size;
-        List<LeaveRequest> requests = hasMore ? fetched.subList(0, size) : fetched;
         long totalCount = leaveRequestRepository.countLeaveRequests(
                 condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
                 condition.getStatus(), null, condition.getSearchEmployeeParam());
+
+        List<LeaveRequest> fetched;
+        boolean hasMore;
+        if (cursorRequestedAt == null) {
+            fetched = leaveRequestRepository.searchLeaveRequestsPage(
+                    condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
+                    condition.getStatus(), null, condition.getSearchEmployeeParam(),
+                    page, size);
+            hasMore = ((long) page + 1L) * size < totalCount;
+        } else {
+            fetched = leaveRequestRepository.searchLeaveRequestsCursor(
+                    condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
+                    condition.getStatus(), null, condition.getSearchEmployeeParam(),
+                    cursorRequestedAt, cursorRequestId, size + 1);
+            hasMore = fetched.size() > size;
+        }
+        List<LeaveRequest> requests = hasMore && fetched.size() > size
+                ? fetched.subList(0, size)
+                : fetched;
 
         return new PageResponseDto<>(
                 toListResponses(requests, currentEmployeeId, isAdmin),
