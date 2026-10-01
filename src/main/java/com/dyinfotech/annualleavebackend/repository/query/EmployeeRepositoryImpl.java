@@ -188,13 +188,18 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
     @Override
     public long completeSignUpIfUnregistered(Long employeeId, String newPassword) {
-        return queryFactory.update(qEmployee)
+        long updated = queryFactory.update(qEmployee)
                 .set(qEmployee.password, newPassword)
                 .where(
                         qEmployee.employeeId.eq(employeeId),
                         qEmployee.password.isNull()
                 )
                 .execute();
+
+        // bulk update는 1차 캐시의 Employee.password를 갱신하지 않는다.
+        // 같은 transaction/EntityManager에서 이어지는 로그인 검증이 stale null을 보지 않게 한다.
+        entityManager.clear();
+        return updated;
     }
 
 
