@@ -77,6 +77,10 @@ public interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long
     @EntityGraph(attributePaths = {"employee", "manager"})
     Optional<LeaveRequest> findByRequestId(Long requestId);
 
+    Optional<LeaveRequest> findByEmployee_EmployeeIdAndCreateRequestKey(
+            Long employeeId,
+            String createRequestKey);
+
     default Optional<LeaveRequest> findDetailById(Long requestId) {
         return findByRequestId(requestId);
     }
