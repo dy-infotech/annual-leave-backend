@@ -215,10 +215,16 @@ public class LeaveRequestService {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                notificationService.sendLeaveRequestNotification(
-                        employeeId,
-                        notificationTitle,
-                        notificationBody);
+                try {
+                    notificationService.sendLeaveRequestNotification(
+                            employeeId,
+                            notificationTitle,
+                            notificationBody);
+                } catch (RuntimeException e) {
+                    // 비즈니스 commit은 이미 끝났다. 후속 알림 transaction 실패가
+                    // 성공한 휴가 신청 응답을 실패로 뒤집지 않는다.
+                    log.error("휴가 신청 후 알림 처리 실패. employeeId={}", employeeId, e);
+                }
             }
         });
 
