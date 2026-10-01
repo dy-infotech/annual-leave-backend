@@ -496,6 +496,7 @@ public class LeaveRequestService {
                         accessibleTeams,
                         condition.getSearchEmployeeParam(),
                         page,
+                        size,
                         size)
                 : leaveRequestRepository.searchLeaveRequestsCursor(
                         condition.getEmployeeId(),
