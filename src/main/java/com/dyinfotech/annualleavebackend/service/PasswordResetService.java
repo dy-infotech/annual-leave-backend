@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
+import com.dyinfotech.annualleavebackend.common.security.PasswordPolicy;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.PasswordResetToken;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto;
@@ -152,6 +153,12 @@ public class PasswordResetService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
+        }
 
         String expectedPassword = employee.getPassword();
         String encodedPassword = passwordEncoder.encode(request.getNewPassword());
