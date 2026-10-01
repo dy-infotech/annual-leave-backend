@@ -94,12 +94,23 @@ public class AuthService {
         }
     }
     
-    public CompletableFuture<Void> syncFcmToken(Long employeeId, FcmTokenDto.FcmTokenRequest request) {
-		// FCM topic 동기화 완료 후 DB 저장(UPSERT)
+    public CompletableFuture<Void> syncFcmToken(
+            Long employeeId,
+            FcmTokenDto.FcmTokenRequest request) {
+        return syncFcmToken(employeeId, request, null);
+    }
+
+    public CompletableFuture<Void> syncFcmToken(
+            Long employeeId,
+            FcmTokenDto.FcmTokenRequest request,
+            String authSessionMarker) {
+		// Web SSO 세션 marker까지 binding해야 같은 계정의 이전 세션 logout이
+		// 새 세션의 FCM token을 삭제하지 못한다. legacy/native client는 null을 허용한다.
         return notificationService.syncToken(
             employeeId,
-            request.getFcmToken(), 
-            request.getDeviceOs()
+            request.getFcmToken(),
+            request.getDeviceOs(),
+            authSessionMarker
         );
     }
     
@@ -540,8 +551,18 @@ public class AuthService {
     // 비밀번호 재설정은 PasswordResetService의 일회용 token 흐름으로만 처리한다.
     
     public CompletableFuture<Void> logout(Long employeeId, String fcmToken) {
+        return logout(employeeId, fcmToken, null);
+    }
+
+    public CompletableFuture<Void> logout(
+            Long employeeId,
+            String fcmToken,
+            String expectedAuthSessionMarker) {
         if (fcmToken != null && !fcmToken.isBlank()) {
-            return notificationService.logoutToken(fcmToken, employeeId);
+            return notificationService.logoutToken(
+                    fcmToken,
+                    employeeId,
+                    expectedAuthSessionMarker);
         }
         // fcmToken 없으면 서버 측 정리 불필요 — 클라가 토큰 폐기 (200 반환)
         return CompletableFuture.completedFuture(null);
