@@ -671,6 +671,14 @@ public class LeaveRequestService {
                         HttpStatus.NOT_FOUND,
                         "휴가 신청을 찾을 수 없습니다."));
 
+        boolean isOwner = currentEmployeeId != null
+                && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        if (isOwner) {
+            return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
+                    leaveRequest,
+                    true);
+        }
+
         LeaveVisibility visibility = currentAuthorityService
                 .canViewAllLeaveDetails(currentEmployeeId)
                         ? new LeaveVisibility(true, Set.of())
