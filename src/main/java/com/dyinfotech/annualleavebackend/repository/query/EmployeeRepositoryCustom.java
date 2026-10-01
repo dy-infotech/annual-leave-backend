@@ -25,6 +25,7 @@ public interface EmployeeRepositoryCustom {
 		return findAllEmployees(null, null);
 	}
 	Optional<Employee> findByIdForUpdate(Long employeeId);
+    List<Employee> findAllByIdsForUpdate(java.util.Collection<Long> employeeIds);
     List<Employee> findAllActiveAt(LocalDate date);
     List<Long> findActiveEmployeeIdsAfter(LocalDate date, Long afterEmployeeId, int limit);
     boolean existsActiveEmployeeInTeam(Long teamId, LocalDate date);
