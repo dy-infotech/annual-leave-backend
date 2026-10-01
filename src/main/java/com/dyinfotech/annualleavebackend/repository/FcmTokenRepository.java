@@ -19,13 +19,5 @@ public interface FcmTokenRepository extends JpaRepository<FcmToken, Long>, FcmTo
 	@Transactional
 	void deleteByToken(String token);
 	
-//	// 더티 체킹 우회하고 update_at을 현재 시간으로 갱신
-//	@Modifying(clearAutomatically = true) // 쿼리 실행 후 영속성 컨텍스트 자동 클리어
-//    @Query("UPDATE FcmToken f " +
-//           "SET f.employeeId = :employeeId, f.deviceOs = :deviceOs, f.updatedAt = :now " +
-//           "WHERE f.token = :token")
-//    int updateTokenAndTouch(@Param("employeeId") Long employeeId, 
-//                            @Param("deviceOs") String deviceOs, 
-//                            @Param("now") LocalDateTime now, 
-//                            @Param("token") String token);
+
 }
