@@ -72,6 +72,20 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
 
     @Override
+    public List<Long> findActiveEmployeeIdsAfter(LocalDate date, Long afterEmployeeId, int limit) {
+        BooleanExpression afterId = afterEmployeeId == null
+                ? null
+                : qEmployee.employeeId.gt(afterEmployeeId);
+
+        return queryFactory.select(qEmployee.employeeId)
+                .from(qEmployee)
+                .where(activeAt(date), afterId)
+                .orderBy(qEmployee.employeeId.asc())
+                .limit(limit)
+                .fetch();
+    }
+
+    @Override
     public boolean existsActiveEmployeeInTeam(Long teamId, LocalDate date) {
         return queryFactory.selectOne()
                 .from(qEmployee)
