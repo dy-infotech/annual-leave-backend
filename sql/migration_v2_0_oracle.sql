@@ -209,6 +209,40 @@ END;
 
 PROMPT [2/9] Preserve legacy organization data
 
+-- 이전 실패를 롤백한 뒤 재시도하는 경우 EMPLOYEE_ORG_LEGACY만 남아 있을 수 있다.
+-- 현재 TEAM이 v1 정본이고 TEAM_LEGACY가 없는 경우에만 stale backup으로 판단해
+-- 삭제 후 현재 EMPLOYEE 기준으로 다시 캡처한다. 그 외 상태는 자동 삭제하지 않는다.
+DECLARE
+    v_team_count        NUMBER;
+    v_team_legacy_count NUMBER;
+    v_backup_count      NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_team_count
+      FROM user_tables
+     WHERE table_name = 'TEAM';
+
+    SELECT COUNT(*) INTO v_team_legacy_count
+      FROM user_tables
+     WHERE table_name = 'TEAM_LEGACY';
+
+    SELECT COUNT(*) INTO v_backup_count
+      FROM user_tables
+     WHERE table_name = 'EMPLOYEE_ORG_LEGACY';
+
+    IF v_team_count = 1 AND v_team_legacy_count = 0 THEN
+        IF v_backup_count = 1 THEN
+            EXECUTE IMMEDIATE 'DROP TABLE employee_org_legacy PURGE';
+        END IF;
+    ELSE
+        RAISE_APPLICATION_ERROR(
+            -20020,
+            'v1 조직 스키마 상태가 아닙니다. TEAM='
+            || v_team_count || ', TEAM_LEGACY=' || v_team_legacy_count
+        );
+    END IF;
+END;
+/
+
 CREATE TABLE employee_org_legacy AS
 SELECT employee_id,
        department AS department_name,
@@ -555,19 +589,11 @@ BEGIN
 END;
 /
 
--- develop_v1.0에는 CREATE_REQUEST_KEY/HASH가 존재하지 않는다.
--- 따라서 이 값들이 남아 있다면 이전의 부분 실행 산물이며 v1 원본 데이터가 아니다.
--- UNIQUE 제약을 추가하기 전에 둘을 함께 NULL로 정규화해 부분 실패 재시도 시
--- ORA-02299(중복 키)로 다시 중단되지 않게 한다.
-UPDATE leave_request
-   SET create_request_key = NULL,
-       create_request_hash = NULL
- WHERE create_request_key IS NOT NULL
-    OR create_request_hash IS NOT NULL;
-
+-- develop_v1.0에는 이 두 컬럼/제약이 존재하지 않는다.
+-- 따라서 동명 제약이나 값이 남아 있다면 이전 실패의 부분 실행 산물이다.
+-- 재시도 시 ENABLE 하지 않고 제거한 뒤 새로 구성한다.
 DECLARE
-    v_count  NUMBER;
-    v_status VARCHAR2(8);
+    v_count NUMBER;
 BEGIN
     SELECT COUNT(*)
       INTO v_count
@@ -575,22 +601,9 @@ BEGIN
      WHERE table_name = 'LEAVE_REQUEST'
        AND constraint_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
 
-    IF v_count = 0 THEN
+    IF v_count > 0 THEN
         EXECUTE IMMEDIATE
-            'ALTER TABLE leave_request ADD CONSTRAINT uk_leave_request_create_request '
-            || 'UNIQUE (employee_id, create_request_key)';
-    ELSE
-        SELECT status
-          INTO v_status
-          FROM user_constraints
-         WHERE table_name = 'LEAVE_REQUEST'
-           AND constraint_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
-
-        IF v_status = 'DISABLED' THEN
-            EXECUTE IMMEDIATE
-                'ALTER TABLE leave_request ENABLE VALIDATE CONSTRAINT '
-                || 'uk_leave_request_create_request';
-        END IF;
+            'ALTER TABLE leave_request DROP CONSTRAINT uk_leave_request_create_request';
     END IF;
 
     SELECT COUNT(*)
@@ -599,26 +612,40 @@ BEGIN
      WHERE table_name = 'LEAVE_REQUEST'
        AND constraint_name = 'CK_LEAVE_REQUEST_CREATE_PAIR';
 
-    IF v_count = 0 THEN
+    IF v_count > 0 THEN
         EXECUTE IMMEDIATE
-            'ALTER TABLE leave_request ADD CONSTRAINT ck_leave_request_create_pair CHECK '
-            || '((create_request_key IS NULL AND create_request_hash IS NULL) '
-            || 'OR (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL))';
-    ELSE
-        SELECT status
-          INTO v_status
-          FROM user_constraints
-         WHERE table_name = 'LEAVE_REQUEST'
-           AND constraint_name = 'CK_LEAVE_REQUEST_CREATE_PAIR';
+            'ALTER TABLE leave_request DROP CONSTRAINT ck_leave_request_create_pair';
+    END IF;
 
-        IF v_status = 'DISABLED' THEN
-            EXECUTE IMMEDIATE
-                'ALTER TABLE leave_request ENABLE VALIDATE CONSTRAINT '
-                || 'ck_leave_request_create_pair';
-        END IF;
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_indexes
+     WHERE index_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
+
+    IF v_count > 0 THEN
+        EXECUTE IMMEDIATE
+            'DROP INDEX uk_leave_request_create_request';
     END IF;
 END;
 /
+
+UPDATE leave_request
+   SET create_request_key = NULL,
+       create_request_hash = NULL
+ WHERE create_request_key IS NOT NULL
+    OR create_request_hash IS NOT NULL;
+
+ALTER TABLE leave_request
+    ADD CONSTRAINT uk_leave_request_create_request
+    UNIQUE (employee_id, create_request_key);
+
+ALTER TABLE leave_request
+    ADD CONSTRAINT ck_leave_request_create_pair
+    CHECK (
+        (create_request_key IS NULL AND create_request_hash IS NULL)
+        OR
+        (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL)
+    );
 
 PROMPT [7.5/9] Create v2 query indexes
 
