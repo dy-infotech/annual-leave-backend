@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
@@ -31,8 +32,15 @@ public class AdminAuthController {
     
     @Operation(summary = "FCM 토큰 등록", description = "로그인 시 FCM 토큰 발급에 의한 병목때문에 별도로 처리한다.")
     @PostMapping("/sync-fcm-token")
-    public CompletableFuture<ResponseEntity<Void>> syncFcmToken(@AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody FcmTokenDto.FcmTokenRequest request) {
-    	return authService.syncFcmToken(principal.employeeId(), request)
+    public CompletableFuture<ResponseEntity<Void>> syncFcmToken(
+            @AuthenticationPrincipal EmployeePrincipal principal,
+            @RequestHeader(value = "X-SSO-Session-Marker", required = false)
+            String authSessionMarker,
+            @Valid @RequestBody FcmTokenDto.FcmTokenRequest request) {
+    	return authService.syncFcmToken(
+                            principal.employeeId(),
+                            request,
+                            authSessionMarker)
     						.thenApply(v -> ResponseEntity.ok().build());
     }
 
