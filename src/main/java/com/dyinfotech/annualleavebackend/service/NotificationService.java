@@ -307,8 +307,9 @@ public class NotificationService {
     }
 
     public void cleanupInactiveTokens(LocalDateTime now, int monthCount) {
+        LocalDateTime cutoff = now.minusMonths(monthCount);
         Collection<FcmToken> inactiveTokens =
-                tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(now.minusMonths(monthCount));
+                tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(cutoff);
         if (inactiveTokens.isEmpty()) {
             return;
         }
@@ -316,12 +317,18 @@ public class NotificationService {
         CompletableFuture<?>[] operations = inactiveTokens.stream()
                 .map(token -> serializeTokenOperation(
                         token.getToken(),
-                        () -> cleanupInactiveTokenNow(token.getToken(), token.getEmployeeId())))
+                        () -> cleanupInactiveTokenNow(
+                                token.getToken(),
+                                token.getEmployeeId(),
+                                cutoff)))
                 .toArray(CompletableFuture[]::new);
         CompletableFuture.allOf(operations).join();
     }
 
-    private CompletableFuture<Void> cleanupInactiveTokenNow(String fcmToken, Long expectedEmployeeId) {
+    private CompletableFuture<Void> cleanupInactiveTokenNow(
+            String fcmToken,
+            Long expectedEmployeeId,
+            LocalDateTime cutoff) {
         FcmToken current = tokenRepository.findByToken(fcmToken).orElse(null);
         if (current == null) {
             return CompletableFuture.completedFuture(null);
@@ -332,6 +339,15 @@ public class NotificationService {
                     "FCM inactive cleanup skipped because owner changed. expectedEmployeeId={}, currentOwnerId={}",
                     expectedEmployeeId,
                     current.getEmployeeId());
+            return CompletableFuture.completedFuture(null);
+        }
+
+        LocalDateTime updatedAt = current.getUpdatedAudit().getUpdatedAt();
+        if (updatedAt == null || !updatedAt.isBefore(cutoff)) {
+            log.info(
+                    "FCM inactive cleanup skipped because token was refreshed. employeeId={}, updatedAt={}",
+                    expectedEmployeeId,
+                    updatedAt);
             return CompletableFuture.completedFuture(null);
         }
 
