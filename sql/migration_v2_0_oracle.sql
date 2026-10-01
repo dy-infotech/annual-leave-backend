@@ -26,6 +26,44 @@ WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;
 
 SET SERVEROUTPUT ON;
 
+-- v2 공통 인증 세션은 COMMON_DATA / COMMON_INDEX를 사용한다.
+-- destructive DDL 전에 선행 DBA 준비 누락을 먼저 차단한다.
+DECLARE
+    v_common_data  NUMBER;
+    v_common_index NUMBER;
+    v_auth         NUMBER;
+    v_resource     NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_common_data
+      FROM user_tablespaces
+     WHERE tablespace_name = 'COMMON_DATA';
+
+    SELECT COUNT(*) INTO v_common_index
+      FROM user_tablespaces
+     WHERE tablespace_name = 'COMMON_INDEX';
+
+    IF v_common_data = 0 OR v_common_index = 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20980,
+            'COMMON_DATA/COMMON_INDEX가 없습니다. sql/dba_prepare_common_auth_tablespace.sql을 먼저 실행하세요.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_auth
+      FROM user_tables
+     WHERE table_name = 'AUTH_REFRESH_SESSION';
+
+    SELECT COUNT(*) INTO v_resource
+      FROM user_tables
+     WHERE table_name = 'RESOURCE_REFRESH_SESSION';
+
+    IF v_auth = 1 AND v_resource = 1 THEN
+        RAISE_APPLICATION_ERROR(
+            -20981,
+            'AUTH_REFRESH_SESSION과 RESOURCE_REFRESH_SESSION이 동시에 존재합니다. 수동 정리 후 다시 실행하세요.');
+    END IF;
+END;
+/
+
 PROMPT [1/9] Precheck legacy organization data
 
 DECLARE
@@ -881,6 +919,359 @@ CREATE TABLE password_reset_token (
 );
 
 CREATE INDEX ix_password_reset_employee ON password_reset_token(employee_id);
+
+PROMPT [8.6/9] Normalize shared SSO refresh session
+
+DECLARE
+    v_auth     NUMBER;
+    v_resource NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_auth
+      FROM user_tables
+     WHERE table_name = 'AUTH_REFRESH_SESSION';
+
+    SELECT COUNT(*) INTO v_resource
+      FROM user_tables
+     WHERE table_name = 'RESOURCE_REFRESH_SESSION';
+
+    IF v_auth = 0 AND v_resource = 1 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE resource_refresh_session RENAME TO auth_refresh_session';
+        DBMS_OUTPUT.PUT_LINE('TABLE RENAME: RESOURCE_REFRESH_SESSION -> AUTH_REFRESH_SESSION');
+    ELSIF v_auth = 0 THEN
+        EXECUTE IMMEDIATE q'[
+            CREATE TABLE auth_refresh_session (
+                session_id                VARCHAR2(36)      NOT NULL,
+                employee_id               NUMBER(19)        NOT NULL,
+                token_hash                VARCHAR2(64)      NOT NULL,
+                previous_token_hash       VARCHAR2(64),
+                previous_valid_until      TIMESTAMP(6),
+                created_at                TIMESTAMP(6)      NOT NULL,
+                last_rotated_at           TIMESTAMP(6)      NOT NULL,
+                idle_expires_at           TIMESTAMP(6)      NOT NULL,
+                absolute_expires_at       TIMESTAMP(6)      NOT NULL,
+                revoked_at                TIMESTAMP(6),
+                revoked_reason            VARCHAR2(40),
+                rotation_count            NUMBER(10) DEFAULT 0 NOT NULL,
+                CONSTRAINT pk_auth_refresh_session
+                    PRIMARY KEY (session_id) USING INDEX TABLESPACE COMMON_INDEX,
+                CONSTRAINT fk_ars_employee
+                    FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
+                CONSTRAINT ck_ars_rotation_count CHECK (rotation_count >= 0),
+                CONSTRAINT ck_ars_expiry_order
+                    CHECK (idle_expires_at <= absolute_expires_at)
+            ) TABLESPACE COMMON_DATA
+        ]';
+
+        EXECUTE IMMEDIATE
+            'CREATE INDEX ix_ars_employee '
+            || 'ON auth_refresh_session(employee_id) TABLESPACE COMMON_INDEX';
+        EXECUTE IMMEDIATE
+            'CREATE INDEX ix_ars_expiry '
+            || 'ON auth_refresh_session(absolute_expires_at, idle_expires_at) '
+            || 'TABLESPACE COMMON_INDEX';
+    END IF;
+END;
+/
+
+DECLARE
+    PROCEDURE rename_constraint_if_needed(
+        p_old_name IN VARCHAR2,
+        p_new_name IN VARCHAR2
+    ) IS
+        v_old_count NUMBER;
+        v_new_count NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO v_old_count
+          FROM user_constraints
+         WHERE table_name = 'AUTH_REFRESH_SESSION'
+           AND constraint_name = UPPER(p_old_name);
+
+        SELECT COUNT(*) INTO v_new_count
+          FROM user_constraints
+         WHERE table_name = 'AUTH_REFRESH_SESSION'
+           AND constraint_name = UPPER(p_new_name);
+
+        IF v_old_count = 1 AND v_new_count = 0 THEN
+            EXECUTE IMMEDIATE
+                'ALTER TABLE auth_refresh_session RENAME CONSTRAINT '
+                || DBMS_ASSERT.SIMPLE_SQL_NAME(p_old_name)
+                || ' TO '
+                || DBMS_ASSERT.SIMPLE_SQL_NAME(p_new_name);
+        ELSIF v_old_count = 1 AND v_new_count = 1 THEN
+            RAISE_APPLICATION_ERROR(
+                -20982,
+                '구/신 constraint가 동시에 존재합니다: '
+                || p_old_name || ', ' || p_new_name);
+        END IF;
+    END;
+BEGIN
+    rename_constraint_if_needed(
+        'PK_RESOURCE_REFRESH_SESSION',
+        'PK_AUTH_REFRESH_SESSION');
+    rename_constraint_if_needed(
+        'FK_RRS_EMPLOYEE',
+        'FK_ARS_EMPLOYEE');
+    rename_constraint_if_needed(
+        'CK_RRS_ROTATION_COUNT',
+        'CK_ARS_ROTATION_COUNT');
+    rename_constraint_if_needed(
+        'CK_RRS_EXPIRY_ORDER',
+        'CK_ARS_EXPIRY_ORDER');
+END;
+/
+
+DECLARE
+    PROCEDURE rename_index_if_needed(
+        p_old_name IN VARCHAR2,
+        p_new_name IN VARCHAR2
+    ) IS
+        v_old_count NUMBER;
+        v_new_count NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO v_old_count
+          FROM user_indexes
+         WHERE table_name = 'AUTH_REFRESH_SESSION'
+           AND index_name = UPPER(p_old_name);
+
+        SELECT COUNT(*) INTO v_new_count
+          FROM user_indexes
+         WHERE table_name = 'AUTH_REFRESH_SESSION'
+           AND index_name = UPPER(p_new_name);
+
+        IF v_old_count = 1 AND v_new_count = 0 THEN
+            EXECUTE IMMEDIATE
+                'ALTER INDEX '
+                || DBMS_ASSERT.SIMPLE_SQL_NAME(p_old_name)
+                || ' RENAME TO '
+                || DBMS_ASSERT.SIMPLE_SQL_NAME(p_new_name);
+        ELSIF v_old_count = 1 AND v_new_count = 1 THEN
+            RAISE_APPLICATION_ERROR(
+                -20983,
+                '구/신 index가 동시에 존재합니다: '
+                || p_old_name || ', ' || p_new_name);
+        END IF;
+    END;
+BEGIN
+    rename_index_if_needed(
+        'PK_RESOURCE_REFRESH_SESSION',
+        'PK_AUTH_REFRESH_SESSION');
+    rename_index_if_needed(
+        'IX_RRS_EMPLOYEE',
+        'IX_ARS_EMPLOYEE');
+    rename_index_if_needed(
+        'IX_RRS_EXPIRY',
+        'IX_ARS_EXPIRY');
+END;
+/
+
+DECLARE
+    v_tablespace user_tables.tablespace_name%TYPE;
+BEGIN
+    SELECT tablespace_name
+      INTO v_tablespace
+      FROM user_tables
+     WHERE table_name = 'AUTH_REFRESH_SESSION';
+
+    IF v_tablespace <> 'COMMON_DATA' THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE auth_refresh_session '
+            || 'MOVE TABLESPACE COMMON_DATA UPDATE INDEXES';
+    END IF;
+END;
+/
+
+DECLARE
+    PROCEDURE ensure_index(
+        p_name VARCHAR2,
+        p_ddl VARCHAR2
+    ) IS
+        v_count NUMBER;
+        v_tablespace user_indexes.tablespace_name%TYPE;
+    BEGIN
+        SELECT COUNT(*) INTO v_count
+          FROM user_indexes
+         WHERE table_name = 'AUTH_REFRESH_SESSION'
+           AND index_name = UPPER(p_name);
+
+        IF v_count = 0 THEN
+            EXECUTE IMMEDIATE p_ddl;
+            RETURN;
+        END IF;
+
+        SELECT tablespace_name
+          INTO v_tablespace
+          FROM user_indexes
+         WHERE table_name = 'AUTH_REFRESH_SESSION'
+           AND index_name = UPPER(p_name);
+
+        IF v_tablespace <> 'COMMON_INDEX' THEN
+            EXECUTE IMMEDIATE
+                'ALTER INDEX '
+                || DBMS_ASSERT.SIMPLE_SQL_NAME(p_name)
+                || ' REBUILD TABLESPACE COMMON_INDEX';
+        END IF;
+    END;
+BEGIN
+    ensure_index(
+        'PK_AUTH_REFRESH_SESSION',
+        'ALTER INDEX pk_auth_refresh_session REBUILD TABLESPACE COMMON_INDEX');
+    ensure_index(
+        'IX_ARS_EMPLOYEE',
+        'CREATE INDEX ix_ars_employee '
+        || 'ON auth_refresh_session(employee_id) TABLESPACE COMMON_INDEX');
+    ensure_index(
+        'IX_ARS_EXPIRY',
+        'CREATE INDEX ix_ars_expiry '
+        || 'ON auth_refresh_session(absolute_expires_at, idle_expires_at) '
+        || 'TABLESPACE COMMON_INDEX');
+END;
+/
+
+COMMENT ON TABLE auth_refresh_session
+    IS '연차/자산관리 공통 Web SSO Refresh Token Rotation 세션. 원문 token은 저장하지 않는다.';
+
+PROMPT [8.7/9] Add FCM auth-session marker
+
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'FCM_TOKEN'
+       AND column_name = 'AUTH_SESSION_MARKER';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE fcm_token '
+            || 'ADD (auth_session_marker VARCHAR2(64 CHAR))';
+    END IF;
+END;
+/
+
+PROMPT [8.8/9] Create notification outbox
+
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tables
+     WHERE table_name = 'NOTIFICATION_OUTBOX';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE q'[
+            CREATE TABLE notification_outbox (
+                outbox_id        NUMBER(19)
+                    GENERATED BY DEFAULT AS IDENTITY,
+                approver_ids     CLOB NOT NULL,
+                title            VARCHAR2(200 CHAR) NOT NULL,
+                body             VARCHAR2(1000 CHAR) NOT NULL,
+                status           VARCHAR2(20 CHAR)
+                    DEFAULT 'PENDING' NOT NULL,
+                attempt_count    NUMBER(10) DEFAULT 0 NOT NULL,
+                next_attempt_at  TIMESTAMP(6) NOT NULL,
+                claimed_at       TIMESTAMP(6),
+                sent_at          TIMESTAMP(6),
+                last_error       VARCHAR2(1000 CHAR),
+                created_at       TIMESTAMP(6) NOT NULL,
+                CONSTRAINT pk_notification_outbox
+                    PRIMARY KEY (outbox_id),
+                CONSTRAINT ck_notification_outbox_status
+                    CHECK (
+                        status IN (
+                            'PENDING',
+                            'PROCESSING',
+                            'SENT',
+                            'DEAD'
+                        )
+                    ),
+                CONSTRAINT ck_notification_outbox_attempt
+                    CHECK (attempt_count >= 0)
+            )
+        ]';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_indexes
+     WHERE index_name = 'IX_NOTIFICATION_OUTBOX_READY';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'CREATE INDEX ix_notification_outbox_ready '
+            || 'ON notification_outbox('
+            || 'status, next_attempt_at, outbox_id)';
+    END IF;
+END;
+/
+
+PROMPT [8.9/9] Validate canonical v2 support objects
+
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_count
+      FROM user_tables
+     WHERE table_name = 'AUTH_REFRESH_SESSION'
+       AND tablespace_name = 'COMMON_DATA';
+
+    IF v_count <> 1 THEN
+        RAISE_APPLICATION_ERROR(
+            -20985,
+            'AUTH_REFRESH_SESSION이 COMMON_DATA에 있지 않습니다.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+      FROM user_indexes
+     WHERE table_name = 'AUTH_REFRESH_SESSION'
+       AND index_name IN (
+           'PK_AUTH_REFRESH_SESSION',
+           'IX_ARS_EMPLOYEE',
+           'IX_ARS_EXPIRY'
+       )
+       AND tablespace_name = 'COMMON_INDEX'
+       AND status = 'VALID';
+
+    IF v_count <> 3 THEN
+        RAISE_APPLICATION_ERROR(
+            -20986,
+            'AUTH_REFRESH_SESSION index가 COMMON_INDEX에 정규화되지 않았습니다.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+      FROM user_tables
+     WHERE table_name = 'RESOURCE_REFRESH_SESSION';
+
+    IF v_count <> 0 THEN
+        RAISE_APPLICATION_ERROR(
+            -20987,
+            'RESOURCE_REFRESH_SESSION 구 테이블이 남아 있습니다.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'FCM_TOKEN'
+       AND column_name = 'AUTH_SESSION_MARKER';
+
+    IF v_count <> 1 THEN
+        RAISE_APPLICATION_ERROR(
+            -20988,
+            'FCM_TOKEN.AUTH_SESSION_MARKER 생성에 실패했습니다.');
+    END IF;
+
+    SELECT COUNT(*) INTO v_count
+      FROM user_tables
+     WHERE table_name = 'NOTIFICATION_OUTBOX';
+
+    IF v_count <> 1 THEN
+        RAISE_APPLICATION_ERROR(
+            -20989,
+            'NOTIFICATION_OUTBOX 생성에 실패했습니다.');
+    END IF;
+END;
+/
 
 PROMPT [9/9] Migration completed
 
