@@ -266,6 +266,18 @@ public class AuthService {
         // 최신 관리자 row와 DB hierarchy를 다시 확인해 요청 대기 중 권한 회수 race를 막는다.
         teamService.lockHierarchyForUpdate();
         teamService.lockTeamsForUpdate(registrationTeamLocks);
+
+        var currentTeamInfo = teamService.findTeamInfoFromDatabase(request.getTeam())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "팀 정보가 동시에 변경되었습니다. 다시 조회해주세요."));
+        if (!Objects.equals(currentTeamInfo.teamId(), team.getTeamId())
+                || !Objects.equals(currentTeamInfo.departmentId(), department.getDepartmentId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "팀의 소속 정보가 동시에 변경되었습니다. 다시 조회해주세요.");
+        }
+
         approver = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
         if (!approver.isActive(LocalDate.now(clock))) {
