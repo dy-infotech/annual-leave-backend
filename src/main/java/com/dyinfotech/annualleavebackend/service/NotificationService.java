@@ -34,6 +34,7 @@ public class NotificationService {
 	private final ScheduledExecutorService retryExecutor;
     
     private static final int MAX_RETRY_COUNT = 3;
+    private static final int FCM_CLEANUP_BATCH_SIZE = 20;
 
     /**
      * 동일 FCM token의 owner sync/logout은 외부 Firebase topic 작업까지 순서를 보장한다.
@@ -425,22 +426,42 @@ public class NotificationService {
 
     public void cleanupInactiveTokens(LocalDateTime now, int monthCount) {
         LocalDateTime cutoff = now.minusMonths(monthCount);
-        Collection<FcmToken> inactiveTokens =
-                tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(cutoff);
-        if (inactiveTokens.isEmpty()) {
-            return;
-        }
+        Long cursorTokenId = null;
 
-        CompletableFuture<?>[] operations = inactiveTokens.stream()
-                .map(token -> serializeTokenOperation(
-                        token.getToken(),
-                        () -> cleanupInactiveTokenNow(
-                                token.getToken(),
-                                token.getEmployeeId(),
-                                token.getAuthSessionMarker(),
-                                cutoff)))
-                .toArray(CompletableFuture[]::new);
-        CompletableFuture.allOf(operations).join();
+        while (true) {
+            var batch = tokenRepository.findInactiveTokensBatch(
+                    cutoff,
+                    cursorTokenId,
+                    FCM_CLEANUP_BATCH_SIZE);
+            if (batch.isEmpty()) {
+                return;
+            }
+
+            cursorTokenId = batch.get(batch.size() - 1).getTokenId();
+
+            CompletableFuture<?>[] operations = batch.stream()
+                    .map(token -> serializeTokenOperation(
+                            token.getToken(),
+                            () -> cleanupInactiveTokenNow(
+                                    token.getToken(),
+                                    token.getEmployeeId(),
+                                    token.getAuthSessionMarker(),
+                                    cutoff))
+                            .exceptionally(error -> {
+                                log.warn(
+                                        "FCM inactive cleanup 개별 작업 실패. tokenId={}, employeeId={}",
+                                        token.getTokenId(),
+                                        token.getEmployeeId(),
+                                        error);
+                                return null;
+                            }))
+                    .toArray(CompletableFuture[]::new);
+            CompletableFuture.allOf(operations).join();
+
+            if (batch.size() < FCM_CLEANUP_BATCH_SIZE) {
+                return;
+            }
+        }
     }
 
     private CompletableFuture<Void> cleanupInactiveTokenNow(

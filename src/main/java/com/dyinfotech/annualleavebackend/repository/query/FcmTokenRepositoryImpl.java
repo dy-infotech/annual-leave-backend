@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.repository.query;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,23 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
     private final EntityManager entityManager;
 	private static final QFcmToken qFcmToken = QFcmToken.fcmToken;
 	
+	@Override
+	public List<com.dyinfotech.annualleavebackend.domain.FcmToken> findInactiveTokensBatch(
+			LocalDateTime threshold,
+			Long afterTokenId,
+			int limit) {
+		BooleanExpression afterId = afterTokenId == null
+				? null
+				: qFcmToken.tokenId.gt(afterTokenId);
+		return queryFactory.selectFrom(qFcmToken)
+				.where(
+						qFcmToken.updatedAudit.updatedAt.before(threshold),
+						afterId)
+				.orderBy(qFcmToken.tokenId.asc())
+				.limit(limit)
+				.fetch();
+	}
+
 	@Override
 	@Transactional
 	public int updateTokenAndTouch(Long employeeId, String deviceOs, LocalDateTime now, String token) {
