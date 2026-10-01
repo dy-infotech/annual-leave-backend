@@ -696,6 +696,15 @@ public class LeaveRequestService {
     @Transactional
     public void cancel(Long employeeId, Long requestId) {
     	String detailMsg = "requestId : " + requestId + ",employeeId : " + employeeId;
+
+        // 신청 생성/승인과 같은 직원 단위 정합성 경계로 직렬화한다.
+        // 취소가 커밋되기 직전의 PENDING/APPROVED row를 새 신청이 다시 합산해
+        // 중복/잔여량 부족으로 잘못 거절하는 race를 막는다.
+        employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "존재하지 않는 직원입니다."));
+
         LeaveRequest leaveRequest = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> {
                 	String errorMsg = "존재하지 않는 휴가 신청 정보입니다.";
