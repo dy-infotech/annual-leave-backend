@@ -674,7 +674,10 @@ public class LeaveRequestService {
                         HttpStatus.NOT_FOUND,
                         "휴가 신청을 찾을 수 없습니다."));
 
-        LeaveVisibility visibility = resolveLeaveVisibility(currentEmployeeId);
+        LeaveVisibility visibility = currentAuthorityService
+                .canViewAllLeaveDetails(currentEmployeeId)
+                        ? new LeaveVisibility(true, Set.of())
+                        : resolveLeaveVisibility(currentEmployeeId);
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
                 canViewPrivateLeave(
