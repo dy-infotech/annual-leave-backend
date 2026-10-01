@@ -42,8 +42,6 @@ public class HolidaySyncService {
 
     private final String serviceKey;
     
-    private final String apiUrl;
-    
     public HolidaySyncService(
     		BasisDataFactory basisDataFactory,
             HolidayRepository holidayRepository,
@@ -56,8 +54,6 @@ public class HolidaySyncService {
     	this.objectMapper = objectMapper;
     	this.webClient = webClient;
     	this.serviceKey = serviceKey;
-    	this.apiUrl = this.basisDataFactory.getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL).orElse("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService") + "/" + 
-    					this.basisDataFactory.getAsString(BasisDataType.KASI_HOLIDAY_REQUEST_ADDRESS).orElse("getRestDeInfo");
     }
     
     @Transactional(readOnly = true)
@@ -78,7 +74,7 @@ public class HolidaySyncService {
         String yearStr = String.valueOf(year);
         String monthStr = String.format("%02d", month);
 
-        URI uri = UriComponentsBuilder.fromUriString(apiUrl)
+        URI uri = UriComponentsBuilder.fromUriString(resolveApiUrl())
         		.queryParam("serviceKey", serviceKey)
         		.queryParam("solYear", yearStr)
         		.queryParam("solMonth", monthStr)
@@ -112,6 +108,21 @@ public class HolidaySyncService {
         		// 상위 scheduler stack trace로 노출되지 않도록 credential-safe 예외로 경계를 닫는다.
         		.onErrorMap(e -> new IllegalStateException(
         		        "공휴일 API 호출 실패 (" + e.getClass().getSimpleName() + ")"));
+    }
+
+    String resolveApiUrl() {
+        String baseUrl = basisDataFactory
+                .getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL)
+                .filter(value -> !value.isBlank())
+                .orElse("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService");
+        String requestAddress = basisDataFactory
+                .getAsString(BasisDataType.KASI_HOLIDAY_REQUEST_ADDRESS)
+                .filter(value -> !value.isBlank())
+                .orElse("getRestDeInfo");
+
+        return baseUrl.endsWith("/")
+                ? baseUrl + requestAddress
+                : baseUrl + "/" + requestAddress;
     }
 
     private boolean isRetryable(Throwable e) {
