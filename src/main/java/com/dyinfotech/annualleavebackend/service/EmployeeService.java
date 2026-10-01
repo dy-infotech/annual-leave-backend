@@ -58,6 +58,7 @@ public class EmployeeService {
     private final EmployeeCacheInvalidator employeeCacheInvalidator;
 
     private final PasswordEncoder passwordEncoder;
+    private final AuthRateLimitService authRateLimitService;
     
     @Cacheable(value = CacheConfig.CACHE_EMPLOYEES, key = "@employeeViewCacheKey.key(#a0)")
     public EmployeeDto.EmployeeResponse getMyInfo(Long employeeId) {
@@ -179,27 +180,39 @@ public class EmployeeService {
                 });
         
 
-        // 비밀번호 일치 여부 확인
-        if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
-        	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccessCount());
+        // BCrypt는 의도적으로 비싼 연산이므로 검증 전에 계정별 횟수와 전역 동시 실행 수를 제한한다.
+        authRateLimitService.checkPasswordChange(employeeId);
+        if (!authRateLimitService.tryAcquirePasswordWorker()) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "비밀번호 처리 요청이 많습니다. 잠시 후 다시 시도해주세요.");
         }
 
-        if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
-        }
+        try {
+            if (!passwordEncoder.matches(request.getCurrentPassword(), employee.getPassword())) {
+                log.warn("비밀번호 변경 현재 비밀번호 불일치 employeeId: {}", employee.getEmployeeId());
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+            }
 
-        String expectedPassword = employee.getPassword();
-        String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
-        if (!compareAndSetPassword(employeeId, expectedPassword, encodedNewPassword)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "비밀번호가 다른 요청에 의해 변경되었습니다. 다시 로그인해주세요.");
+            if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
+            }
+
+            String expectedPassword = employee.getPassword();
+            String encodedNewPassword = passwordEncoder.encode(request.getNewPassword());
+            if (!compareAndSetPassword(employeeId, expectedPassword, encodedNewPassword)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "비밀번호가 다른 요청에 의해 변경되었습니다. 다시 로그인해주세요.");
+            }
+            revokeRefreshSessions(employeeId, "PASSWORD_CHANGED");
+            authRateLimitService.clearPasswordChange(employeeId);
+        } finally {
+            authRateLimitService.releasePasswordWorker();
         }
-        revokeRefreshSessions(employeeId, "PASSWORD_CHANGED");
     }
     @Transactional
     public void revokeRefreshSessions(Long employeeId, String reason) {
