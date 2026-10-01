@@ -10,6 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequireAdminOrPersonnelAuthority;
 import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
 import com.dyinfotech.annualleavebackend.common.security.ReplayAwareApproval;
 import com.dyinfotech.annualleavebackend.service.CurrentAuthorityService;
@@ -56,6 +57,13 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
                         principal.personnelAuthority());
                 return true;
             }
+            if (requiresAdminOrPersonnelAuthority(handlerMethod)) {
+                if (!principal.personnelAuthority()) {
+                    currentAuthorityService.requireAuthenticatedAdmin(
+                            principal.employeeId());
+                }
+                return true;
+            }
         }
 
         currentAuthorityService.requireAuthenticatedAdmin(principal.employeeId());
@@ -66,6 +74,15 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
         return AnnotatedElementUtils.hasAnnotation(
                 handlerMethod.getMethod(),
                 ReplayAwareApproval.class);
+    }
+
+    private boolean requiresAdminOrPersonnelAuthority(HandlerMethod handlerMethod) {
+        return AnnotatedElementUtils.hasAnnotation(
+                        handlerMethod.getMethod(),
+                        RequireAdminOrPersonnelAuthority.class)
+                || AnnotatedElementUtils.hasAnnotation(
+                        handlerMethod.getBeanType(),
+                        RequireAdminOrPersonnelAuthority.class);
     }
 
     private boolean requiresPersonnelAuthority(HandlerMethod handlerMethod) {
