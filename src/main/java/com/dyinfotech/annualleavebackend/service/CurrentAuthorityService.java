@@ -33,7 +33,7 @@ public class CurrentAuthorityService {
 
         return employeeRepository.findById(employeeId)
                 .filter(employee -> employee.isActive(LocalDate.now(clock)))
-                .map(employee -> teamService.isTeamManager(employeeId))
+                .map(employee -> teamService.isTeamManagerFromDatabase(employeeId))
                 .orElse(false);
     }
 
@@ -77,7 +77,7 @@ public class CurrentAuthorityService {
     }
 
     public void requireAuthenticatedAdmin(Long employeeId) {
-        if (employeeId == null || !teamService.isTeamManager(employeeId)) {
+        if (employeeId == null || !teamService.isTeamManagerFromDatabase(employeeId)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "인가되지 않은 사용자입니다. 다시 로그인해주세요.");
         }
@@ -92,7 +92,8 @@ public class CurrentAuthorityService {
 
     public void requireAdmin(Long employeeId) {
         Employee employee = requireEmployee(employeeId);
-        if (!employee.isActive(LocalDate.now(clock)) || !teamService.isTeamManager(employeeId)) {
+        if (!employee.isActive(LocalDate.now(clock))
+                || !teamService.isTeamManagerFromDatabase(employeeId)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "인가되지 않은 사용자입니다. 다시 로그인해주세요.");
