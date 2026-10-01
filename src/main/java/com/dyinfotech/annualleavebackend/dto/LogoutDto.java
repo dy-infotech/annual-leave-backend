@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.dto;
 
+import jakarta.validation.constraints.Size;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,7 +12,7 @@ public final class LogoutDto {
     @NoArgsConstructor
     public static class LogoutRequest {
 
-        //@NotBlank(message = "FCM 토큰을 입력해 주세요.")
+        @Size(max = 255, message = "FCM 토큰은 255자 이하여야 합니다.")
         private String fcmToken;
     }
 }
