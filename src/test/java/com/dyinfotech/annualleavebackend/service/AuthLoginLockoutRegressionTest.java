@@ -51,7 +51,9 @@ class AuthLoginLockoutRegressionTest {
         when(employee.getAccessedAt()).thenReturn(LocalDateTime.of(2026, 10, 1, 10, 55));
         when(employee.getPassword()).thenReturn(passwordEncoder.encode("correct-password"));
         when(employee.getCurrTotalLeaveDays()).thenReturn(0.0f);
-        when(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee)).thenReturn(0.0f);
+        when(employeeLeaveService.ensureCurrentLeaveYear(10L))
+                .thenReturn(new EmployeeLeaveService.LeaveYearState(
+                        "2026", 0.0f, "2025", 15.0f));
         when(teamService.resolveCurrentApproverIds(employee)).thenReturn(Set.of());
 
         AuthService service = new AuthService(
