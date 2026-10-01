@@ -4,9 +4,6 @@
 --
 -- Fresh database: use this file after DBA creates COMMON_DATA / COMMON_INDEX.
 -- This fresh-install schema includes AUTH_REFRESH_SESSION.
--- Existing develop_v1.0 database: use migration_v2_0_oracle.sql only.
--- The v1 -> v2 application migration leaves an already-existing shared
--- AUTH_REFRESH_SESSION untouched; it only migrates annual-leave application objects.
 -- Oracle DDL performs implicit commits; back up an existing database first.
 -- =====================================================================
 
