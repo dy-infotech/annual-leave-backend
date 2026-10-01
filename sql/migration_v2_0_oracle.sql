@@ -612,6 +612,12 @@ BEGIN
         'IX_LEAVE_REQUEST_STATUS_DATES',
         'CREATE INDEX ix_leave_request_status_dates ON leave_request(status, start_date, end_date)');
     ensure_index(
+        'IX_LEAVE_REQUEST_STATUS_CREATED',
+        'CREATE INDEX ix_leave_request_status_created ON leave_request(status, created_at, leave_request_id)');
+    ensure_index(
+        'IX_LEAVE_REQUEST_EMPLOYEE_CREATED',
+        'CREATE INDEX ix_leave_request_employee_created ON leave_request(employee_id, created_at, leave_request_id)');
+    ensure_index(
         'IX_TEAM_MANAGER_PARENT',
         'CREATE INDEX ix_team_manager_parent ON team_manager(parent_team_id)');
     ensure_index(
