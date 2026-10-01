@@ -217,6 +217,91 @@ SELECT employee_id,
 
 ALTER TABLE team RENAME TO team_legacy;
 
+-- Oracle은 TABLE rename 시 constraint / index 이름을 자동으로 바꾸지 않는다.
+-- 기존 TEAM의 이름을 그대로 두면 신규 TEAM 생성 시 PK_TEAM 등의 이름이
+-- schema 단위에서 충돌하므로 legacy 객체 이름도 명시적으로 분리한다.
+DECLARE
+    PROCEDURE rename_constraint_if_exists(
+        p_old_name VARCHAR2,
+        p_new_name VARCHAR2
+    ) IS
+        v_count NUMBER;
+    BEGIN
+        SELECT COUNT(*)
+          INTO v_count
+          FROM user_constraints
+         WHERE table_name = 'TEAM_LEGACY'
+           AND constraint_name = UPPER(p_old_name);
+
+        IF v_count > 0 THEN
+            SELECT COUNT(*)
+              INTO v_count
+              FROM user_constraints
+             WHERE constraint_name = UPPER(p_new_name);
+
+            IF v_count > 0 THEN
+                RAISE_APPLICATION_ERROR(
+                    -20018,
+                    'legacy constraint rename 대상 이름이 이미 존재합니다. name=' || p_new_name
+                );
+            END IF;
+
+            EXECUTE IMMEDIATE
+                'ALTER TABLE team_legacy RENAME CONSTRAINT '
+                || p_old_name || ' TO ' || p_new_name;
+        END IF;
+    END;
+
+    PROCEDURE rename_index_if_exists(
+        p_old_name VARCHAR2,
+        p_new_name VARCHAR2
+    ) IS
+        v_count NUMBER;
+    BEGIN
+        SELECT COUNT(*)
+          INTO v_count
+          FROM user_indexes
+         WHERE table_name = 'TEAM_LEGACY'
+           AND index_name = UPPER(p_old_name);
+
+        IF v_count > 0 THEN
+            SELECT COUNT(*)
+              INTO v_count
+              FROM user_indexes
+             WHERE index_name = UPPER(p_new_name);
+
+            IF v_count > 0 THEN
+                RAISE_APPLICATION_ERROR(
+                    -20019,
+                    'legacy index rename 대상 이름이 이미 존재합니다. name=' || p_new_name
+                );
+            END IF;
+
+            EXECUTE IMMEDIATE
+                'ALTER INDEX ' || p_old_name || ' RENAME TO ' || p_new_name;
+        END IF;
+    END;
+BEGIN
+    -- v1에서 명시적으로 사용하던 이름들. 존재하는 경우에만 변경한다.
+    rename_constraint_if_exists('PK_TEAM', 'PK_TEAM_LEGACY');
+    rename_constraint_if_exists(
+        'UK_TEAM_PROJECT_MANAGER',
+        'UK_TEAM_PROJECT_MANAGER_LEGACY'
+    );
+    rename_constraint_if_exists(
+        'FK_PROJECT_MANAGER',
+        'FK_PROJECT_MANAGER_LEGACY'
+    );
+
+    -- PK/UNIQUE backing index는 constraint rename과 별개로 이름이 유지될 수 있다.
+    rename_index_if_exists('PK_TEAM', 'PK_TEAM_LEGACY');
+    rename_index_if_exists(
+        'UK_TEAM_PROJECT_MANAGER',
+        'UK_TEAM_PROJECT_MANAGER_LEGACY'
+    );
+END;
+/
+
 PROMPT [3/9] Create DEPARTMENT
 
 CREATE TABLE department (
