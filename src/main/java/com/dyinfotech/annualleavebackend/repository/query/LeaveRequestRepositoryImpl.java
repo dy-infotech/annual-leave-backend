@@ -216,6 +216,20 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				.fetch();
 	}
 
+	@Override
+	public List<LeaveRequest> findByStatusAndTeamsInRangeCursor(
+			Long excludeId, LeaveRequestStatus status,
+			Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds,
+			LocalDate startDate, LocalDate endDate,
+			LocalDateTime cursorCreatedAt, Long cursorRequestId,
+			int size) {
+		BooleanExpression targetCondition = pendingTargetCondition(excludeId, directTeams, childTeamProjectManagerIds);
+		return pendingBaseQuery(status, targetCondition, startDate, endDate)
+				.where(afterCursorAsc(cursorCreatedAt, cursorRequestId))
+				.limit(size)
+				.fetch();
+	}
+
 	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> pendingBaseQuery(
 			LeaveRequestStatus status,
 			BooleanExpression targetCondition,
@@ -309,6 +323,19 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				.fetch();
 	}
 
+	@Override
+	public List<LeaveRequest> searchLeaveRequestsCursor(
+			Long employeeId, LocalDate startDate, LocalDate endDate,
+			LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam,
+			LocalDateTime cursorCreatedAt, Long cursorRequestId,
+			int size) {
+		BooleanBuilder builder = searchCondition(employeeId, status, teams, searchEmployeeParam);
+		return searchBaseQuery(builder, startDate, endDate)
+				.where(beforeCursorDesc(cursorCreatedAt, cursorRequestId))
+				.limit(size)
+				.fetch();
+	}
+
 	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> searchBaseQuery(
 			BooleanBuilder builder,
 			LocalDate startDate,
@@ -321,6 +348,20 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				.orderBy(
 						qLeaveRequest.createdAudit.createdAt.desc(),
 						qLeaveRequest.requestId.desc());
+	}
+
+	private BooleanExpression afterCursorAsc(LocalDateTime cursorCreatedAt, Long cursorRequestId) {
+		if (cursorCreatedAt == null || cursorRequestId == null) return null;
+		return qLeaveRequest.createdAudit.createdAt.gt(cursorCreatedAt)
+				.or(qLeaveRequest.createdAudit.createdAt.eq(cursorCreatedAt)
+						.and(qLeaveRequest.requestId.gt(cursorRequestId)));
+	}
+
+	private BooleanExpression beforeCursorDesc(LocalDateTime cursorCreatedAt, Long cursorRequestId) {
+		if (cursorCreatedAt == null || cursorRequestId == null) return null;
+		return qLeaveRequest.createdAudit.createdAt.lt(cursorCreatedAt)
+				.or(qLeaveRequest.createdAudit.createdAt.eq(cursorCreatedAt)
+						.and(qLeaveRequest.requestId.lt(cursorRequestId)));
 	}
 
 	private BooleanBuilder searchCondition(
