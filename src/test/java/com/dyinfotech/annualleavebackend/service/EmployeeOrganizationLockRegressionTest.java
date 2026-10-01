@@ -29,6 +29,7 @@ import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
+import com.dyinfotech.annualleavebackend.repository.RefreshTokenSessionRepository;
 import com.dyinfotech.annualleavebackend.repository.TeamManagerRepository;
 import com.dyinfotech.annualleavebackend.repository.projection.TeamCacheRow;
 
@@ -48,7 +49,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
@@ -111,8 +112,7 @@ class EmployeeOrganizationLockRegressionTest {
                 departmentService,
                 commonService,
                 employeeLeaveService,
-                employeeRepository,
-                teamManagerRepository,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository,
                 cacheInvalidator,
                 employeeCacheInvalidator,
                 passwordEncoder
@@ -174,7 +174,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
@@ -232,7 +232,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         Employee approver = mock(Employee.class);
@@ -278,7 +278,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         Employee approver = mock(Employee.class);
@@ -328,7 +328,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         Employee approver = mock(Employee.class);
@@ -374,7 +374,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         Employee approver = mock(Employee.class);
@@ -420,7 +420,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         Employee approver = mock(Employee.class);
@@ -483,7 +483,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         EmployeeService service = new EmployeeService(
                 teamService, departmentService, commonService, employeeLeaveService,
-                employeeRepository, teamManagerRepository, cacheInvalidator,
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository, cacheInvalidator,
                 employeeCacheInvalidator, passwordEncoder);
 
         Employee approver = mock(Employee.class);
