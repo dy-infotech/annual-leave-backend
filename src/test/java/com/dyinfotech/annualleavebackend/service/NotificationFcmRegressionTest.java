@@ -32,6 +32,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
 import com.dyinfotech.annualleavebackend.domain.support.UpdatedAudit;
+import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 
@@ -43,6 +44,8 @@ class NotificationFcmRegressionTest {
     private static final Long NEW_EMPLOYEE_ID = 2L;
 
     private FcmTokenRepository tokenRepository;
+    private EmployeeRepository employeeRepository;
+    private TeamService teamService;
     private FcmService fcmService;
     private ScheduledExecutorService retryExecutor;
     private NotificationService notificationService;
@@ -50,6 +53,8 @@ class NotificationFcmRegressionTest {
     @BeforeEach
     void setUp() {
         tokenRepository = mock(FcmTokenRepository.class);
+        employeeRepository = mock(EmployeeRepository.class);
+        teamService = mock(TeamService.class);
         fcmService = mock(FcmService.class);
         retryExecutor = Executors.newSingleThreadScheduledExecutor();
 
@@ -60,8 +65,8 @@ class NotificationFcmRegressionTest {
 
         notificationService = new NotificationService(
                 tokenRepository,
-                mock(EmployeeRepository.class),
-                mock(TeamService.class),
+                employeeRepository,
+                teamService,
                 fcmService,
                 clock,
                 retryExecutor
@@ -72,6 +77,26 @@ class NotificationFcmRegressionTest {
     void tearDown() {
         IpContext.clear();
         retryExecutor.shutdownNow();
+    }
+
+    @Test
+    void leaveNotification_resolvesCurrentApproversFromDatabase() {
+        Employee employee = mock(Employee.class);
+        when(employeeRepository.findById(NEW_EMPLOYEE_ID))
+                .thenReturn(java.util.Optional.of(employee));
+        when(teamService.resolveCurrentApproverIdsFromDatabase(employee))
+                .thenReturn(java.util.Set.of(10L, 11L));
+
+        notificationService.sendLeaveRequestNotification(
+                NEW_EMPLOYEE_ID,
+                "휴가 신청",
+                "2026-10-02");
+
+        verify(teamService).resolveCurrentApproverIdsFromDatabase(employee);
+        verify(fcmService).sendConditionNotification(
+                java.util.Set.of(10L, 11L),
+                "휴가 신청",
+                "2026-10-02");
     }
 
     @Test
