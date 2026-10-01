@@ -269,6 +269,27 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
+    void getLeaveRequestDetail_ownerAlwaysKeepsPrivateDetailWithoutAuthorityLookup() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(EMPLOYEE_ID);
+        when(requester.getTeamName()).thenReturn("일반팀");
+
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequest.getLeaveReason()).thenReturn("내 휴가 사유");
+        when(leaveRequestRepository.findDetailById(104L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+
+        var response = leaveRequestService.getLeaveRequestDetail(104L, EMPLOYEE_ID);
+
+        assertEquals("내 휴가 사유", response.getLeaveReason());
+        verifyNoInteractions(currentAuthorityService);
+        verifyNoInteractions(teamService);
+    }
+
+    @Test
     void getLeaveRequestDetail_nonAdminNonOwner_redactsPrivateDetail() {
         Employee requester = mock(Employee.class);
         when(requester.getEmployeeId()).thenReturn(2L);
