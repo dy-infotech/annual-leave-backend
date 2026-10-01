@@ -92,6 +92,38 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
+    void cancel_locksEmployeeBeforeReadingLeaveRequest() {
+        Employee lockedEmployee = mock(Employee.class);
+        Employee owner = mock(Employee.class);
+        when(owner.getEmployeeId()).thenReturn(EMPLOYEE_ID);
+
+        LeaveRequest request = mock(LeaveRequest.class);
+        when(request.getEmployee()).thenReturn(owner);
+        when(request.getStatus()).thenReturn(LeaveRequestStatus.PENDING);
+
+        when(employeeRepository.findByIdForUpdate(EMPLOYEE_ID))
+                .thenReturn(java.util.Optional.of(lockedEmployee));
+        when(leaveRequestRepository.findById(100L))
+                .thenReturn(java.util.Optional.of(request));
+        when(leaveRequestRepository.cancelLeaveRequest(
+                100L,
+                EMPLOYEE_ID,
+                LocalDate.now(clock)))
+                .thenReturn(1);
+
+        leaveRequestService.cancel(EMPLOYEE_ID, 100L);
+
+        org.mockito.InOrder order =
+                org.mockito.Mockito.inOrder(employeeRepository, leaveRequestRepository);
+        order.verify(employeeRepository).findByIdForUpdate(EMPLOYEE_ID);
+        order.verify(leaveRequestRepository).findById(100L);
+        order.verify(leaveRequestRepository).cancelLeaveRequest(
+                100L,
+                EMPLOYEE_ID,
+                LocalDate.now(clock));
+    }
+
+    @Test
     void getLeaveRequestDetail_missingRequest_returnsNotFound() {
         when(leaveRequestRepository.findDetailById(999L))
                 .thenReturn(java.util.Optional.empty());
