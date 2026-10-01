@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.service;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
 import java.util.EnumSet;
@@ -397,14 +398,31 @@ public class LeaveRequestService {
             Long currentEmployeeId,
             int page,
             int size) {
+        return searchLeaveRequestsPage(condition, currentEmployeeId, page, size, null, null);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsPage(
+            LeaveRequestListDto.LeaveRequestListRequest condition,
+            Long currentEmployeeId,
+            int page,
+            int size,
+            LocalDateTime cursorRequestedAt,
+            Long cursorRequestId) {
         validatePage(page, size);
+        validateCursor(cursorRequestedAt, cursorRequestId);
         boolean isAdmin = currentEmployeeId != null
                 && currentAuthorityService.isAdmin(currentEmployeeId);
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
-        List<LeaveRequest> requests = leaveRequestRepository.searchLeaveRequestsPage(
-                condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
-                condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                page, size);
+        List<LeaveRequest> requests = cursorRequestedAt == null
+                ? leaveRequestRepository.searchLeaveRequestsPage(
+                        condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
+                        condition.getStatus(), null, condition.getSearchEmployeeParam(),
+                        page, size)
+                : leaveRequestRepository.searchLeaveRequestsCursor(
+                        condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
+                        condition.getStatus(), null, condition.getSearchEmployeeParam(),
+                        cursorRequestedAt, cursorRequestId, size);
         return toListResponses(requests, currentEmployeeId, isAdmin);
     }
 
@@ -437,6 +455,14 @@ public class LeaveRequestService {
                             isAdmin || isOwner);
                 })
                 .toList();
+    }
+
+    private void validateCursor(LocalDateTime cursorRequestedAt, Long cursorRequestId) {
+        if ((cursorRequestedAt == null) != (cursorRequestId == null)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "cursorRequestedAt과 cursorRequestId는 함께 지정해야 합니다.");
+        }
     }
 
     private void validatePage(int page, int size) {
