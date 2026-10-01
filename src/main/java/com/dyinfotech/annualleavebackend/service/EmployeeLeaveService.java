@@ -78,10 +78,41 @@ public class EmployeeLeaveService {
             }
 
             List<Long> batchIds = List.copyOf(employeeIds);
-            batchTransaction.executeWithoutResult(
-                    status -> renewActiveEmployeeBatch(batchIds, currentYear, today));
+            try {
+                batchTransaction.executeWithoutResult(
+                        status -> renewActiveEmployeeBatch(batchIds, currentYear, today));
+            } catch (RuntimeException batchError) {
+                log.error(
+                        "연차 롤오버 batch transaction 실패. 개별 transaction으로 재시도합니다. employeeIds={}",
+                        batchIds,
+                        batchError);
+                retryRolloverIndividually(batchIds, currentYear, today);
+            }
 
             afterEmployeeId = employeeIds.get(employeeIds.size() - 1);
+        }
+    }
+
+    private void retryRolloverIndividually(
+            List<Long> employeeIds,
+            String currentYear,
+            LocalDate today) {
+        TransactionTemplate employeeTransaction = new TransactionTemplate(transactionManager);
+        employeeTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        for (Long employeeId : employeeIds) {
+            try {
+                employeeTransaction.executeWithoutResult(
+                        status -> renewActiveEmployeeBatch(
+                                List.of(employeeId),
+                                currentYear,
+                                today));
+            } catch (RuntimeException employeeError) {
+                log.error(
+                        "직원 연차 롤오버 개별 transaction 실패. employeeId={}",
+                        employeeId,
+                        employeeError);
+            }
         }
     }
 
