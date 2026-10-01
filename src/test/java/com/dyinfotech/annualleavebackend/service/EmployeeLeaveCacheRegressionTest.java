@@ -15,6 +15,8 @@ import java.time.ZoneId;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
@@ -31,6 +33,9 @@ class EmployeeLeaveCacheRegressionTest {
         TeamService teamService = mock(TeamService.class);
         EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
         EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        when(transactionManager.getTransaction(any()))
+                .thenReturn(mock(TransactionStatus.class));
         Clock clock = Clock.fixed(
                 Instant.parse("2026-01-01T00:00:00Z"),
                 ZoneId.of("Asia/Seoul")
@@ -42,6 +47,7 @@ class EmployeeLeaveCacheRegressionTest {
                 teamService,
                 employeeRepository,
                 employeeCacheInvalidator,
+                transactionManager,
                 clock
         ));
 
@@ -50,7 +56,10 @@ class EmployeeLeaveCacheRegressionTest {
         when(employee.getEmployeeNumber()).thenReturn("E0001");
         when(employee.getCurrYear()).thenReturn("2025");
         when(employee.getCurrTotalLeaveDays()).thenReturn(15.0f);
-        when(employeeRepository.findAllActiveAt(any(LocalDate.class)))
+        when(employeeRepository.findActiveEmployeeIdsAfter(
+                any(LocalDate.class), any(), any(Integer.class)))
+                .thenReturn(List.of(1L), List.of());
+        when(employeeRepository.findAllByEmployeeIdInOrderByEmployeeIdAsc(List.of(1L)))
                 .thenReturn(List.of(employee));
         doReturn(15.0f).when(service).getCalculatedCurrYearLeaveDays(employee);
 
