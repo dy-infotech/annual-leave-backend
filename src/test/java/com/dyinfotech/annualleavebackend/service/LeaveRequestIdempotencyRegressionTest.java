@@ -52,7 +52,7 @@ class LeaveRequestIdempotencyRegressionTest {
                 leaveRequestRepository,
                 employeeRepository,
                 mock(EmployeeLeaveService.class),
-                mock(NotificationOutboxService.class),
+                mock(NotificationService.class),
                 mock(HolidaySyncService.class),
                 mock(CommonService.class),
                 mock(TeamService.class),
