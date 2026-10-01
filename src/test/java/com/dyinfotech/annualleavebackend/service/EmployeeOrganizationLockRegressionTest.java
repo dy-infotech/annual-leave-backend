@@ -86,6 +86,7 @@ class EmployeeOrganizationLockRegressionTest {
         service.updateEmployeeByAdmin(100L, "E001", request);
 
         InOrder inOrder = inOrder(teamService, employeeRepository);
+        inOrder.verify(teamService).lockHierarchyForUpdate();
         inOrder.verify(teamService).lockTeamsForUpdate(argThat(teamIds ->
                 teamIds.size() == 2
                         && teamIds.contains(10L)
