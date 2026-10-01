@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class RefreshTokenService {
     public record IssuedRefreshToken(String token, Instant expiresAt, String sessionMarker) {}
     public record RefreshResult(SignInDto.SignInResponse access, IssuedRefreshToken refresh) {}
+    public record CurrentSessionIdentity(Long employeeId, String sessionMarker) {}
 
     private final RefreshTokenSessionRepository repository;
     private final AuthTokenProperties properties;
@@ -165,6 +166,11 @@ public class RefreshTokenService {
 
     @Transactional(readOnly = true)
     public String currentSessionMarker(String presentedToken) {
+        return currentSessionIdentity(presentedToken).sessionMarker();
+    }
+
+    @Transactional(readOnly = true)
+    public CurrentSessionIdentity currentSessionIdentity(String presentedToken) {
         RefreshTokenCodec.ParsedToken parsed = codec.parse(presentedToken)
                 .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
         RefreshTokenSession session = repository.findById(parsed.sessionId())
@@ -186,7 +192,9 @@ public class RefreshTokenService {
         if (!current && !previous) {
             throw new RefreshRejectedException("유효하지 않은 refresh token입니다.");
         }
-        return codec.sessionMarker(session.getSessionId());
+        return new CurrentSessionIdentity(
+                session.getEmployeeId(),
+                codec.sessionMarker(session.getSessionId()));
     }
 
     @Transactional
