@@ -26,7 +26,7 @@ public class AuthRateLimitService {
     private static final int PUBLIC_AUTH_IDENTITY_LIMIT = 10;
     private static final int PUBLIC_AUTH_IP_LIMIT = 30;
 
-    private final Cache<String, AtomicInteger> signInIdentity = counterCache(Duration.ofMinutes(1));
+    private final Cache<String, AtomicInteger> signInIdentity = counterCache(Duration.ofMinutes(10));
     private final Cache<String, AtomicInteger> signInIp = counterCache(Duration.ofMinutes(1));
     private final Cache<String, AtomicInteger> recoveryIdentity = counterCache(Duration.ofMinutes(10));
     private final Cache<String, AtomicInteger> recoveryIp = counterCache(Duration.ofMinutes(10));
@@ -46,7 +46,9 @@ public class AuthRateLimitService {
             return;
         }
         String identity = normalize(employeeNumber);
-        acquire(signInIdentity, ip + "|" + identity, SIGN_IN_IDENTITY_LIMIT,
+        // identity 제한은 IP와 분리한다. 여러 IP에서 같은 사번을 두드려도
+        // DB access_count를 빠르게 누적해 장기 계정 잠금을 유발하지 못하게 한다.
+        acquire(signInIdentity, identity, SIGN_IN_IDENTITY_LIMIT,
                 "로그인 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
         acquire(signInIp, ip, SIGN_IN_IP_LIMIT,
                 "로그인 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.");
@@ -55,7 +57,7 @@ public class AuthRateLimitService {
     public void clearSignIn(String employeeNumber) {
         String ip = IpContext.get();
         if (!isInternalContext(ip)) {
-            signInIdentity.invalidate(ip + "|" + normalize(employeeNumber));
+            signInIdentity.invalidate(normalize(employeeNumber));
         }
     }
 
