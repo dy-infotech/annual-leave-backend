@@ -3,6 +3,7 @@ package com.dyinfotech.annualleavebackend.domain;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import org.hibernate.annotations.DynamicUpdate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
@@ -33,6 +34,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
+@DynamicUpdate
 @Table(name = "employee")
 @Getter
 @EntityListeners({AuditingEntityListener.class, IpEntityListener.class})

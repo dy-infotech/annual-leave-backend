@@ -31,9 +31,11 @@ public class HolidayInitializer implements ApplicationRunner {
         CompletableFuture.runAsync(() -> {
             log.info("=== [시스템 초기화] 백그라운드 공휴일 동기화 스레드 시작 ===");
             
-            // 올해와 내년 데이터를 순차적으로 세팅
-            setSpecialDays(currentYear);
-            setSpecialDays(currentYear + 1);
+            // 올해와 내년은 매 기동 시 12개월 전체를 재동기화한다.
+            // 월별 fetch가 성공한 뒤에만 해당 월을 replace하므로 일부 월 실패가
+            // 다음 기동에서 영구적으로 skip되는 상태를 만들지 않는다.
+            syncYear(currentYear);
+            syncYear(currentYear + 1);
             
             log.info("=== [시스템 초기화] 백그라운드 공휴일 동기화 완료 ===");
         }).exceptionally(ex -> {
@@ -41,24 +43,21 @@ public class HolidayInitializer implements ApplicationRunner {
             return null;
         });
 	}
-	private void setSpecialDays(int year) {
-        log.info("=== [시스템 초기화] {}년 공휴일 데이터 존재 여부 검사 ===", year);
-		// DB에 해당 년도 공휴일 데이터가 아예 비어있는지 체크
-        if (!holidaySyncService.existsByYear(year)) {
-            log.info("=== [시스템 초기화] DB가 비어 있습니다. 공휴일 초기 동기화를 시작합니다. ===");
-        	Flux.range(1, 12) 
-    	        .flatMap(m -> holidaySyncService.fetchHolidaysFromApi(year, m) // 여러 달을 병렬로 요청
-    	        								.flatMap(holidays -> holidaySyncService.deleteAndSaveHolidays(year, m, holidays))
-    	        )
-    	        .then()
-    	        .block();
-            log.info("=== [시스템 초기화] {}년 1~12월 공휴일 캐싱 완료 ===", year);
-            
-            // 캐시 저장
-            holidaySyncService.findAllByYear(year);
-        } else {
-            log.info("=== [시스템 초기화] 이미 DB에 데이터가 존재하므로 스킵합니다. ===");
-        }
-	}
+    void syncYear(int year) {
+        log.info("=== [시스템 초기화] {}년 1~12월 공휴일 동기화 시작 ===", year);
+
+        Flux.range(1, 12)
+            .flatMap(
+                month -> holidaySyncService.fetchHolidaysFromApi(year, month)
+                    .flatMap(holidays ->
+                        holidaySyncService.deleteAndSaveHolidays(year, month, holidays)),
+                3
+            )
+            .then()
+            .block();
+
+        holidaySyncService.findAllByYear(year);
+        log.info("=== [시스템 초기화] {}년 1~12월 공휴일 동기화 완료 ===", year);
+    }
 
 }
