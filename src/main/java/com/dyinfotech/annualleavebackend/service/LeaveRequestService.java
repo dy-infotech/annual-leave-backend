@@ -558,7 +558,7 @@ public class LeaveRequestService {
             fetched = leaveRequestRepository.searchLeaveRequestsPage(
                     condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
                     condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                    page, size + 1);
+                    page, size, size + 1);
             hasMore = fetched.size() > size;
         } else {
             fetched = leaveRequestRepository.searchLeaveRequestsCursor(
