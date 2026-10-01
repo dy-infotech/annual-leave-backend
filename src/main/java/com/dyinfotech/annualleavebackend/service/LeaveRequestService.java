@@ -127,10 +127,26 @@ public class LeaveRequestService {
         // 모든 휴가 유형은 신청 기간의 실제 근무일수와 사용일수가 일치해야 한다.
         // 대체/출산/가족돌봄 휴가는 연차 잔여량만 차감/검증 대상에서 제외한다.
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
+
+        // 직원 row lock을 잡은 동안 연간 요청 엔티티를 다시 전부 로드하지 않는다.
+        // 같은 SUM 결과를 잔여 검증과 신청 전/후 snapshot 계산에 함께 사용한다.
+        Year leaveYear = Year.from(today);
+        LocalDate leaveYearStart = leaveYear.atDay(1);
+        LocalDate leaveYearEnd = leaveYear.atMonth(Month.DECEMBER).atEndOfMonth();
+        float usedAnnualLeaveDays = leaveRequestRepository.sumRequestedUseDays(
+                employeeId,
+                List.of(LeaveRequestStatus.APPROVED, LeaveRequestStatus.PENDING),
+                leaveYearStart,
+                leaveYearEnd);
+        float realPrevLeaveDays = commonService.getRemainingDays(
+                employee,
+                employee.getCurrTotalLeaveDays(),
+                usedAnnualLeaveDays);
+
         if (!LeaveType.ALTERNATIVE.equals(leaveType)
                 && !LeaveType.PARENTAL.equals(leaveType)
                 && !LeaveType.FAMILY.equals(leaveType)) {
-            validateRemainingLeave(employee, request.getUseDays());
+            validateRemainingLeave(realPrevLeaveDays, request.getUseDays());
         }
         
         List<LeaveRequestListDto.LeaveRequestListResponse> dataList = 
@@ -162,34 +178,6 @@ public class LeaveRequestService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "이미 신청된 연차 기간과 중복됩니다.");
         }
 
-        // 현재 회계연도 연차 증적 수치 계산
-        Year leaveYear = Year.from(today);
-        LocalDate leaveYearStart = leaveYear.atDay(1);
-        LocalDate leaveYearEnd = leaveYear.atMonth(Month.DECEMBER).atEndOfMonth();
-        List<LeaveRequest> activeRequests = leaveRequestRepository.findActiveLeaveRequests(employeeId, leaveYearStart, leaveYearEnd);
-
-        float approvedSum = 0;
-        float pendingSum = 0;
-
-        if (activeRequests != null) {
-            for (LeaveRequest l : activeRequests) {
-                LeaveType activeLeaveType = LeaveType.fromName(l.getLeaveType());
-                if (LeaveType.ALTERNATIVE.equals(activeLeaveType)
-                        || LeaveType.PARENTAL.equals(activeLeaveType)
-                        || LeaveType.FAMILY.equals(activeLeaveType)) {
-                    continue;
-                }
-
-                if (l.getStatus() == LeaveRequestStatus.APPROVED) {
-                    approvedSum += l.getUseDays(); 
-                } else if (l.getStatus() == LeaveRequestStatus.PENDING) {
-                    pendingSum += l.getUseDays();
-                }
-            }
-        }
-
-        // 현재 신청 직전 잔여 스냅샷
-        float realPrevLeaveDays = commonService.getRemainingDays(employee, employee.getCurrTotalLeaveDays(), approvedSum + pendingSum);
         float requestedAnnualLeaveDays = LeaveType.ALTERNATIVE.equals(leaveType)
                 || LeaveType.PARENTAL.equals(leaveType)
                 || LeaveType.FAMILY.equals(leaveType) ? 0.0f : request.getUseDays();
@@ -417,10 +405,7 @@ public class LeaveRequestService {
     }
 
     // 잔여 휴가 수를 초과하지 않는지 체크
-    private void validateRemainingLeave(Employee employee, Float useDays) {
-        // 남은 휴가 수 = 현재 총 휴가 수 + 조정된 휴가 수 - 현재 연차기간의 사용 휴가 수
-        float remainingDays = commonService.getRemainingDays(employee);
-
+    private void validateRemainingLeave(float remainingDays, Float useDays) {
         if (useDays > remainingDays) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "잔여 연차(" + remainingDays + "일)를 초과했습니다.");
         }
