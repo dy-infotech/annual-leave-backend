@@ -76,6 +76,46 @@ class EmployeeLeaveCacheRegressionTest {
     }
 
     @Test
+    void loginSelfHeal_repairsMissingCurrentYearWithoutInventingPreviousYear() {
+        BasisDataFactory basisDataFactory = mock(BasisDataFactory.class);
+        LeaveAdjustmentRepository leaveAdjustmentRepository = mock(LeaveAdjustmentRepository.class);
+        TeamService teamService = mock(TeamService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-01-02T00:00:00Z"),
+                ZoneId.of("Asia/Seoul")
+        );
+
+        EmployeeLeaveService service = spy(new EmployeeLeaveService(
+                basisDataFactory,
+                leaveAdjustmentRepository,
+                teamService,
+                employeeRepository,
+                employeeCacheInvalidator,
+                transactionManager,
+                clock
+        ));
+
+        Employee employee = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(employee.getCurrYear()).thenReturn(null);
+        when(employee.getCurrTotalLeaveDays()).thenReturn(0.0f);
+        when(employeeRepository.findByIdForUpdate(1L))
+                .thenReturn(java.util.Optional.of(employee));
+        doReturn(15.0f).when(service).getCalculatedCurrYearLeaveDays(employee);
+
+        service.ensureCurrentLeaveYear(1L);
+
+        verify(employee).setCurrYear("2026");
+        verify(employee, atLeastOnce()).setCurrYearLeaveDays(15.0f);
+        verify(employee, never()).setPrevYear(any());
+        verify(employee, never()).setPrevYearLeaveDays(anyFloat());
+        verify(employeeCacheInvalidator).afterEmployeeViewChange(1L);
+    }
+
+    @Test
     void yearlyRenewal_bumpsRenewedEmployeeViewGeneration() {
         BasisDataFactory basisDataFactory = mock(BasisDataFactory.class);
         LeaveAdjustmentRepository leaveAdjustmentRepository = mock(LeaveAdjustmentRepository.class);
