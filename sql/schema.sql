@@ -345,6 +345,10 @@ CREATE INDEX ix_team_department ON team(department_id);
 CREATE INDEX ix_leave_request_employee ON leave_request(employee_id);
 CREATE INDEX ix_leave_request_status_dates
     ON leave_request(status, start_date, end_date);
+CREATE INDEX ix_leave_request_status_created
+    ON leave_request(status, created_at, leave_request_id);
+CREATE INDEX ix_leave_request_employee_created
+    ON leave_request(employee_id, created_at, leave_request_id);
 CREATE INDEX ix_team_manager_parent ON team_manager(parent_team_id);
 CREATE INDEX ix_team_manager_project_manager ON team_manager(project_manager_id);
 CREATE INDEX ix_password_reset_employee ON password_reset_token(employee_id);
