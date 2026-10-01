@@ -57,6 +57,7 @@ public class HolidaySyncService {
     	this.holidayRepository = holidayRepository;
     	this.objectMapper = objectMapper;
     	this.webClient = webClient;
+        this.holidayCacheKey = holidayCacheKey;
     	this.serviceKey = serviceKey;
     }
     
