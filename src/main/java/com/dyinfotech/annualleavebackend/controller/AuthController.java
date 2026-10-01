@@ -40,6 +40,7 @@ import io.swagger.v3.oas.annotations.Operation;
 @RequiredArgsConstructor
 public class AuthController {
     private static final String REFRESH_REQUEST_HEADER = "X-SSO-Refresh";
+    private static final String BACKGROUND_LOGOUT_HEADER = "X-SSO-Background-Logout";
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
@@ -162,6 +163,15 @@ public class AuthController {
                         employeeId,
                         e);
             }
+        }
+
+        if ("1".equals(servletRequest.getHeader(BACKGROUND_LOGOUT_HEADER))) {
+            // 늦게 도착한 이전 세션의 logout 응답이 이후 로그인 세션의
+            // refresh cookie를 삭제하지 않도록 background 요청은 cookie를 건드리지 않는다.
+            return CompletableFuture.completedFuture(
+                    ResponseEntity.noContent()
+                            .cacheControl(CacheControl.noStore())
+                            .build());
         }
 
         return CompletableFuture.completedFuture(

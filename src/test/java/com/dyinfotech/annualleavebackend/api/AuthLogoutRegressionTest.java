@@ -105,4 +105,37 @@ class AuthLogoutRegressionTest {
         assertEquals(204, response.getStatusCode().value());
         verify(refreshTokenService).revoke("refresh-token");
     }
+    @Test
+    void backgroundLogout_doesNotClearRefreshCookie() {
+        AuthService authService = mock(AuthService.class);
+        PasswordResetService passwordResetService = mock(PasswordResetService.class);
+        RefreshTokenService refreshTokenService = mock(RefreshTokenService.class);
+        RefreshTokenCookieService refreshTokenCookieService =
+                mock(RefreshTokenCookieService.class);
+
+        AuthController controller = new AuthController(
+                authService,
+                passwordResetService,
+                refreshTokenService,
+                refreshTokenCookieService);
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("X-SSO-Refresh", "1");
+        request.addHeader("X-SSO-Background-Logout", "1");
+
+        when(refreshTokenCookieService.read(request)).thenReturn("old-refresh-token");
+        when(refreshTokenService.revoke("old-refresh-token")).thenReturn(10L);
+        when(authService.logout(10L, null))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
+        var response = controller.logout(
+                request,
+                new EmployeePrincipal(10L, Role.EMPLOYEE),
+                null).join();
+
+        assertEquals(204, response.getStatusCode().value());
+        assertFalse(response.getHeaders().containsKey(HttpHeaders.SET_COOKIE));
+        verify(refreshTokenService).revoke("old-refresh-token");
+    }
+
 }
