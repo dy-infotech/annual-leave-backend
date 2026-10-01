@@ -260,9 +260,39 @@ public class AuthService {
             plannedParentTeamId = teamService.resolveParentTeamId(request.getTeam())
                     .orElseGet(teamService::resolveDefaultParentTeamId);
             registrationTeamLocks.add(plannedParentTeamId);
-            teamService.lockHierarchyForUpdate();
         }
+
+        // 직원 등록 권한은 PM 계층/직급/부서 상태에 의존한다. 조직 변경과 동일 mutex 아래에서
+        // 최신 관리자 row와 DB hierarchy를 다시 확인해 요청 대기 중 권한 회수 race를 막는다.
+        teamService.lockHierarchyForUpdate();
         teamService.lockTeamsForUpdate(registrationTeamLocks);
+        approver = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 관리자입니다."));
+        if (!approver.isActive(LocalDate.now(clock))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 관리자는 사원을 등록할 수 없습니다.");
+        }
+
+        int currentValidation = approver.getManageTypeByDepartmentAndPosition(department, targetPosition);
+        if (!ManageType.IS_VALID_DEPARTMENT.contains(currentValidation)
+                || !ManageType.IS_VALID_POSITION.contains(currentValidation)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "관리자의 현재 부서/직급 권한으로 사원을 등록할 수 없습니다.");
+        }
+        if (!PositionType.isCEO(PositionType.getType(approver.getPosition()))
+                && !teamService.isManagerForTeamFromDatabase(
+                        approver.getEmployeeId(),
+                        team.getTeamId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "현재 관리 범위에 속하지 않는 팀에는 사원을 등록할 수 없습니다.");
+        }
+        if (Role.isAdmin(request.getRole()) && !approver.hasPersonnelAuthority()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "관리자 계정을 등록할 현재 인사권이 없습니다.");
+        }
+
         LocalDate hireDate = LocalDate.parse(request.getHireDate());
         Employee employee = Employee.builder()
                 .employeeNumber(request.getEmployeeNumber())
