@@ -33,10 +33,29 @@ class CurrentAuthorityServiceTest {
     }
 
     @Test
+    void isAdmin_usesCurrentDbPmAuthority() {
+        Employee employee = activeEmployee("부장");
+        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(true);
+
+        assertTrue(service.isAdmin(EMPLOYEE_ID));
+    }
+
+    @Test
+    void isAdmin_revokedPmIsRejectedEvenIfDisplayCacheCouldBeStale() {
+        Employee employee = activeEmployee("부장");
+        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(false);
+        when(teamService.isTeamManager(EMPLOYEE_ID)).thenReturn(true);
+
+        assertFalse(service.isAdmin(EMPLOYEE_ID));
+    }
+
+    @Test
     void canViewAllLeaveDetails_ceoDoesNotRequirePm() {
         Employee employee = activeEmployee("대표이사");
         when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
-        when(teamService.isTeamManager(EMPLOYEE_ID)).thenReturn(false);
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(false);
 
         assertTrue(service.canViewAllLeaveDetails(EMPLOYEE_ID));
     }
@@ -45,11 +64,11 @@ class CurrentAuthorityServiceTest {
     void canViewAllLeaveDetails_directorRequiresPm() {
         Employee employee = activeEmployee("이사");
         when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
-        when(teamService.isTeamManager(EMPLOYEE_ID)).thenReturn(false);
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(false);
 
         assertFalse(service.canViewAllLeaveDetails(EMPLOYEE_ID));
 
-        when(teamService.isTeamManager(EMPLOYEE_ID)).thenReturn(true);
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(true);
         assertTrue(service.canViewAllLeaveDetails(EMPLOYEE_ID));
     }
 
@@ -57,7 +76,7 @@ class CurrentAuthorityServiceTest {
     void canViewAllLeaveDetails_pmBelowDirectorIsNotGlobal() {
         Employee employee = activeEmployee("부장");
         when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
-        when(teamService.isTeamManager(EMPLOYEE_ID)).thenReturn(true);
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(true);
 
         assertFalse(service.canViewAllLeaveDetails(EMPLOYEE_ID));
     }
