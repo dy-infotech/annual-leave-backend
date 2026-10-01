@@ -240,7 +240,7 @@ class NotificationFcmRegressionTest {
                 .thenReturn(java.util.List.of(staleSnapshot));
         when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(currentToken));
 
-        notificationService.cleanupInactiveTokens(LocalDateTime.now(clock), 3);
+        notificationService.cleanupInactiveTokens(LocalDateTime.of(2026, 10, 1, 0, 0), 3);
 
         verify(fcmService, never()).unsubscribeTopics(TOKEN, OLD_EMPLOYEE_ID);
         verify(tokenRepository, never()).deleteByTokenAndEmployeeId(TOKEN, OLD_EMPLOYEE_ID);
