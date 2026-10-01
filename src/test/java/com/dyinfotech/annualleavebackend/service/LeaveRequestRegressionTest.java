@@ -284,7 +284,7 @@ class LeaveRequestRegressionTest {
         assertNull(response.getRejectReason());
         assertNull(response.getPrevTotalLeaveDays());
         assertNull(response.getCurrTotalLeaveDays());
-        verifyNoInteractions(teamService);
+        verify(teamService).findManagedTeamNamesWithDescendantsFromDatabase(EMPLOYEE_ID);
     }
 
     @Test
