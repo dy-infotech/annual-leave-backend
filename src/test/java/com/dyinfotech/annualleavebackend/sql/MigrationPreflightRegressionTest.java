@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.sql;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -27,8 +28,12 @@ class MigrationPreflightRegressionTest {
         assertTrue(sql.contains("reject_column('employee', 'department_id')"));
         assertTrue(sql.contains("reject_table('department')"));
         assertTrue(sql.contains("reject_table('team_legacy')"));
-        assertTrue(sql.contains(
+        // LEAVE_REQUEST 부분 실행 흔적은 [1.5/9]가 스스로 정리하므로
+        // preflight 단계에서 차단하면 안 된다.
+        assertFalse(sql.contains(
                 "reject_column('leave_request', 'create_request_key')"));
+        assertFalse(sql.contains(
+                "reject_column('leave_request', 'create_request_hash')"));
     }
 
     @Test
