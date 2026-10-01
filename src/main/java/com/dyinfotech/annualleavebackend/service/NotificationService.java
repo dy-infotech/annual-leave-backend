@@ -128,16 +128,30 @@ public class NotificationService {
 	}
 	
 	public CompletableFuture<Void> syncToken(Long employeeId, String fcmToken, String deviceOs) {
+        return syncToken(employeeId, fcmToken, deviceOs, null);
+    }
+
+	public CompletableFuture<Void> syncToken(
+			Long employeeId,
+			String fcmToken,
+			String deviceOs,
+			String authSessionMarker) {
         String clientIp = IpContext.get();
         return serializeTokenOperation(
                 fcmToken,
-                () -> syncTokenNow(employeeId, fcmToken, deviceOs, clientIp));
+                () -> syncTokenNow(
+						employeeId,
+						fcmToken,
+						deviceOs,
+						authSessionMarker,
+						clientIp));
     }
 
     private CompletableFuture<Void> syncTokenNow(
             Long employeeId,
             String fcmToken,
             String deviceOs,
+            String authSessionMarker,
             String clientIp) {
 		LocalDateTime now = LocalDateTime.now(clock);
 		FcmToken existingToken = tokenRepository.findByToken(fcmToken).orElse(null);
@@ -152,8 +166,22 @@ public class NotificationService {
 						}
 
 						final int[] changed = new int[1];
-						runWithIpContext(clientIp, () -> changed[0] = tokenRepository.updateTokenAndTouchIfOwner(
-								existingToken.getEmployeeId(), employeeId, deviceOs, now, fcmToken));
+						runWithIpContext(clientIp, () -> changed[0] =
+								authSessionMarker == null
+										? tokenRepository.updateTokenAndTouchIfOwner(
+												existingToken.getEmployeeId(),
+												employeeId,
+												deviceOs,
+												now,
+												fcmToken)
+										: tokenRepository.updateTokenAndTouchIfBinding(
+												existingToken.getEmployeeId(),
+												existingToken.getAuthSessionMarker(),
+												employeeId,
+												authSessionMarker,
+												deviceOs,
+												now,
+												fcmToken));
 						if (changed[0] == 1) {
 							return CompletableFuture.completedFuture(null);
 						}
@@ -175,7 +203,11 @@ public class NotificationService {
 
 					try {
 						runWithIpContext(clientIp, () -> tokenRepository.saveAndFlush(
-								new FcmToken(employeeId, fcmToken, deviceOs)));
+								new FcmToken(
+										employeeId,
+										fcmToken,
+										deviceOs,
+										authSessionMarker)));
 						return CompletableFuture.completedFuture(null);
 					} catch (RuntimeException e) {
 						return reconcileTopicsToCurrentOwner(fcmToken, employeeId)
@@ -310,12 +342,25 @@ public class NotificationService {
      * TODO: 로그아웃 기능 구현 및 토큰 삭제 적용
      */
     public CompletableFuture<Void> logoutToken(String fcmToken, Long employeeId) {
-        return serializeTokenOperation(
-                fcmToken,
-                () -> logoutTokenNow(fcmToken, employeeId));
+        return logoutToken(fcmToken, employeeId, null);
     }
 
-    private CompletableFuture<Void> logoutTokenNow(String fcmToken, Long employeeId) {
+    public CompletableFuture<Void> logoutToken(
+            String fcmToken,
+            Long employeeId,
+            String expectedAuthSessionMarker) {
+        return serializeTokenOperation(
+                fcmToken,
+                () -> logoutTokenNow(
+						fcmToken,
+						employeeId,
+						expectedAuthSessionMarker));
+    }
+
+    private CompletableFuture<Void> logoutTokenNow(
+			String fcmToken,
+			Long employeeId,
+			String expectedAuthSessionMarker) {
         FcmToken existing = tokenRepository.findByToken(fcmToken).orElse(null);
         if (existing == null) {
             return CompletableFuture.completedFuture(null);
@@ -329,6 +374,14 @@ public class NotificationService {
             return CompletableFuture.completedFuture(null);
         }
 
+		if (expectedAuthSessionMarker != null
+				&& !Objects.equals(
+						expectedAuthSessionMarker,
+						existing.getAuthSessionMarker())) {
+			log.info("FCM stale session logout ignored. employeeId={}", employeeId);
+			return CompletableFuture.completedFuture(null);
+		}
+
         return fcmService.unsubscribeTopics(fcmToken, employeeId)
                 .thenAccept(success -> {
                     if (!success) {
@@ -336,7 +389,14 @@ public class NotificationService {
                         throw new IllegalStateException("FCM topic unsubscribe 실패");
                     }
 
-                    long deleted = tokenRepository.deleteByTokenAndEmployeeId(fcmToken, employeeId);
+                    long deleted = expectedAuthSessionMarker == null
+							? tokenRepository.deleteByTokenAndEmployeeId(
+									fcmToken,
+									employeeId)
+							: tokenRepository.deleteByTokenAndBinding(
+									fcmToken,
+									employeeId,
+									expectedAuthSessionMarker);
                     if (deleted == 0) {
                         log.info("FCM logout delete skipped because owner changed concurrently. requestEmployeeId={}",
                                 employeeId);
@@ -377,6 +437,7 @@ public class NotificationService {
                         () -> cleanupInactiveTokenNow(
                                 token.getToken(),
                                 token.getEmployeeId(),
+                                token.getAuthSessionMarker(),
                                 cutoff)))
                 .toArray(CompletableFuture[]::new);
         CompletableFuture.allOf(operations).join();
@@ -385,6 +446,7 @@ public class NotificationService {
     private CompletableFuture<Void> cleanupInactiveTokenNow(
             String fcmToken,
             Long expectedEmployeeId,
+            String expectedAuthSessionMarker,
             LocalDateTime cutoff) {
         FcmToken current = tokenRepository.findByToken(fcmToken).orElse(null);
         if (current == null) {
@@ -398,6 +460,15 @@ public class NotificationService {
                     current.getEmployeeId());
             return CompletableFuture.completedFuture(null);
         }
+
+        if (!Objects.equals(
+				current.getAuthSessionMarker(),
+				expectedAuthSessionMarker)) {
+			log.info(
+					"FCM inactive cleanup skipped because session binding changed. employeeId={}",
+					expectedEmployeeId);
+			return CompletableFuture.completedFuture(null);
+		}
 
         LocalDateTime updatedAt = current.getUpdatedAudit().getUpdatedAt();
         if (updatedAt == null || !updatedAt.isBefore(cutoff)) {
@@ -415,9 +486,14 @@ public class NotificationService {
                         return;
                     }
 
-                    long deleted = tokenRepository.deleteByTokenAndEmployeeId(
-                            fcmToken,
-                            expectedEmployeeId);
+                    long deleted = expectedAuthSessionMarker == null
+							? tokenRepository.deleteByTokenAndEmployeeId(
+									fcmToken,
+									expectedEmployeeId)
+							: tokenRepository.deleteByTokenAndBinding(
+									fcmToken,
+									expectedEmployeeId,
+									expectedAuthSessionMarker);
                     if (deleted == 0) {
                         log.info(
                                 "FCM inactive cleanup delete skipped because owner changed concurrently. employeeId={}",

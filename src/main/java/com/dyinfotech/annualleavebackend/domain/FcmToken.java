@@ -37,14 +37,30 @@ public class FcmToken implements HasUpdatedAudit {
 
     @Column(name = "device_os")
     private String deviceOs;
+
+    /**
+     * 이 FCM token을 마지막으로 동기화한 Web SSO refresh session 식별자.
+     * native/legacy client는 null을 유지한다.
+     */
+    @Column(name = "auth_session_marker", length = 64)
+    private String authSessionMarker;
     
     @Embedded
     private UpdatedAudit updatedAudit = new UpdatedAudit();
 
     public FcmToken(Long employeeId, String token, String deviceOs) {
+        this(employeeId, token, deviceOs, null);
+    }
+
+    public FcmToken(
+            Long employeeId,
+            String token,
+            String deviceOs,
+            String authSessionMarker) {
         this.employeeId = employeeId;
         this.token = token;
         this.deviceOs = deviceOs;
+        this.authSessionMarker = authSessionMarker;
     }
 
 	public void setEmployeeId(Long employeeId) {

@@ -10,6 +10,18 @@ public interface FcmTokenRepositoryCustom {
 			String deviceOs,
 			LocalDateTime now,
 			String token);
+	int updateTokenAndTouchIfBinding(
+			Long expectedEmployeeId,
+			String expectedAuthSessionMarker,
+			Long employeeId,
+			String authSessionMarker,
+			String deviceOs,
+			LocalDateTime now,
+			String token);
 	long deleteByTokenAndEmployeeId(String token, Long employeeId);
+	long deleteByTokenAndBinding(
+			String token,
+			Long employeeId,
+			String authSessionMarker);
 	void deleteByUpdatedAtBefore(LocalDateTime threshold);
 }
