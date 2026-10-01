@@ -84,6 +84,24 @@ class LeaveApprovalIdempotencyRegressionTest {
     }
 
     @Test
+    void reject_blankReasonReplay_matchesOracleNullStorage() {
+        Employee requester = employee(20L, "신청자");
+        Employee manager = employee(10L, "관리자");
+        // Oracle은 빈 문자열을 NULL로 저장하므로 committed row는 null로 재조회된다.
+        LeaveRequest rejected = request(104L, LeaveRequestStatus.REJECTED, manager, null);
+        when(rejected.getEmployee()).thenReturn(requester);
+        when(leaveRequestRepository.findById(104L)).thenReturn(Optional.of(rejected));
+
+        var response = service.rejectLeaveRequest(104L, 10L, rejectRequest(""));
+
+        assertEquals("REJECTED", response.getStatus());
+        verify(employeeService, never()).getEmployeeListForUpdate(any());
+        verify(teamService, never()).resolveCurrentApproverIdsFromDatabase(any());
+        verify(leaveRequestRepository, never()).updateLeaveRequest(
+                any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void approve_sameCommittedResultWithoutCurrentAuthority_isSuccessfulNoOp() {
         Employee requester = employee(20L, "신청자");
         Employee formerManager = employee(10L, "과거 관리자");
