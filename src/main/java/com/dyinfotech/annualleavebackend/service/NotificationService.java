@@ -14,10 +14,12 @@ import java.util.function.Supplier;
 
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -586,6 +588,36 @@ public class NotificationService {
                     return CompletableFuture.failedFuture(
                             new IllegalStateException("FCM current binding topic 복구 실패"));
                 });
+    }
+
+    /**
+     * 휴가 신청 커밋 이후 현재 DB 조직 기준으로 알림 수신자를 다시 계산한다.
+     * 신청 transaction에서 Caffeine PM snapshot을 캡처하지 않아 PM 회수/교체 직후
+     * 이전 관리자에게 일정 정보가 발송되는 stale-recipient window를 줄인다.
+     */
+    @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
+    public void sendLeaveRequestNotification(
+            Long employeeId,
+            String title,
+            String body) {
+        try {
+            Employee employee = employeeRepository.findById(employeeId)
+                    .orElse(null);
+            if (employee == null) {
+                log.warn("휴가 알림 대상 계산 생략: 직원이 존재하지 않습니다. employeeId={}", employeeId);
+                return;
+            }
+
+            Collection<Long> approverIds =
+                    teamService.resolveCurrentApproverIdsFromDatabase(employee);
+            if (!approverIds.isEmpty()) {
+                sendNotificationToTeams(approverIds, title, body);
+            }
+        } catch (RuntimeException e) {
+            // 비즈니스 transaction은 이미 커밋됐다. 알림 대상 재계산/발송 실패가
+            // 휴가 신청 성공을 실패 응답으로 뒤집지 않게 격리한다.
+            log.error("휴가 신청 후 현재 결재자 알림 발송 실패. employeeId={}", employeeId, e);
+        }
     }
 
     /**
