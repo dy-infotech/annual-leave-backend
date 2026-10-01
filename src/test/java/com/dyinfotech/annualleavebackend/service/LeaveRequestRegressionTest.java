@@ -246,6 +246,28 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
+    void getLeaveRequestDetail_executivePmOutsideManagedHierarchy_keepsPrivateDetail() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(2L);
+        when(requester.getTeamName()).thenReturn("타부서팀");
+
+        LeaveRequest leaveRequest = mock(
+                LeaveRequest.class,
+                org.mockito.Answers.RETURNS_DEEP_STUBS);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequest.getLeaveReason()).thenReturn("임원 PM 전사 열람");
+        when(leaveRequestRepository.findDetailById(103L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+        when(currentAuthorityService.canViewAllLeaveDetails(EMPLOYEE_ID))
+                .thenReturn(true);
+
+        var response = leaveRequestService.getLeaveRequestDetail(103L, EMPLOYEE_ID);
+
+        assertEquals("임원 PM 전사 열람", response.getLeaveReason());
+        verifyNoInteractions(teamService);
+    }
+
+    @Test
     void getLeaveRequestDetail_nonAdminNonOwner_redactsPrivateDetail() {
         Employee requester = mock(Employee.class);
         when(requester.getEmployeeId()).thenReturn(2L);
