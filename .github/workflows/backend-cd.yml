@@ -68,6 +68,28 @@ jobs:
           docker cp sql/schema.sql "$ORACLE_ID:/tmp/schema.sql"
           docker cp sql/data.sql "$ORACLE_ID:/tmp/data.sql"
 
+          # fresh CI DB에는 공통 인증 tablespace가 없으므로 app schema보다 먼저 준비한다.
+          # 운영의 dba_prepare_common_auth_tablespace.sql은 HR_USER 대상이므로,
+          # CI에서는 annual_leave_test에 직접 quota를 부여한다.
+          docker exec "$ORACLE_ID" bash -lc '
+            sqlplus -s "sys/oracle-test-system@//localhost:1521/XEPDB1 as sysdba" <<SQL
+          WHENEVER SQLERROR EXIT SQL.SQLCODE ROLLBACK;
+          CREATE TABLESPACE COMMON_DATA
+              DATAFILE '"'"'/opt/oracle/oradata/XE/XEPDB1/COMMON_DATA01.dbf'"'"' SIZE 32M
+              AUTOEXTEND ON NEXT 16M MAXSIZE UNLIMITED
+              EXTENT MANAGEMENT LOCAL
+              SEGMENT SPACE MANAGEMENT AUTO;
+          CREATE TABLESPACE COMMON_INDEX
+              DATAFILE '"'"'/opt/oracle/oradata/XE/XEPDB1/COMMON_INDEX01.dbf'"'"' SIZE 16M
+              AUTOEXTEND ON NEXT 8M MAXSIZE UNLIMITED
+              EXTENT MANAGEMENT LOCAL
+              SEGMENT SPACE MANAGEMENT AUTO;
+          ALTER USER annual_leave_test QUOTA UNLIMITED ON COMMON_DATA;
+          ALTER USER annual_leave_test QUOTA UNLIMITED ON COMMON_INDEX;
+          EXIT;
+          SQL
+          '
+
           docker exec "$ORACLE_ID" bash -lc \
             "sqlplus -s annual_leave_test/annual_leave_test@//localhost:1521/XEPDB1 @/tmp/schema.sql"
           docker exec "$ORACLE_ID" bash -lc \
