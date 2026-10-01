@@ -565,7 +565,7 @@ public class NotificationService {
         try {
             current = tokenRepository.findByToken(fcmToken).orElse(null);
         } catch (RuntimeException e) {
-            log.error("FCM binding 경합 보상 중 현재 DB binding 조회 실패. token={}", fcmToken, e);
+            log.error("FCM binding 경합 보상 중 현재 DB binding 조회 실패.", e);
             return CompletableFuture.failedFuture(e);
         }
 
