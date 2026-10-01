@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.scheduler;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -54,15 +55,25 @@ public class YearlyScheduler {
         
         log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 시작 ===", currentYearStr);
         
-        // 올해와 내년치 데이터 처리
+        // 올해와 내년치 데이터 처리. 개별 월 실패는 격리하되 최종 운영 로그에는 남긴다.
+        int failedHolidayMonths = 0;
     	for (int year = 0; year <= 1; ++year) {
-			setSpecialDays(currentYear + year);
+			failedHolidayMonths += setSpecialDays(currentYear + year);
         }
-        
-        log.info("=== [연간 스케줄러] {}년 전체 공휴일 캐싱 완료 ===", currentYear);
+
+        if (failedHolidayMonths == 0) {
+            log.info("=== [연간 스케줄러] {}~{}년 전체 공휴일 캐싱 완료 ===", currentYear, currentYear + 1);
+        } else {
+            log.warn(
+                    "=== [연간 스케줄러] {}~{}년 공휴일 캐싱 완료 (실패 월 {}건, 다음 월 처리는 계속됨) ===",
+                    currentYear,
+                    currentYear + 1,
+                    failedHolidayMonths);
+        }
     }
     
-    private void setSpecialDays(int year) {
+    private int setSpecialDays(int year) {
+        AtomicInteger failedMonths = new AtomicInteger();
         Flux.range(1, 12)
                 .flatMap(
                         month -> holidaySyncService.fetchHolidaysFromApi(year, month)
@@ -71,6 +82,7 @@ public class YearlyScheduler {
                                 .onErrorResume(error -> {
                                     // 한 달의 외부 API/DB 동기화 실패가 같은 해의 나머지 월과
                                     // 다음 해 동기화까지 중단시키지 않도록 월 단위로 격리한다.
+                                    failedMonths.incrementAndGet();
                                     log.error(
                                             "=== [연간 스케줄러] {}년 {}월 공휴일 동기화 실패 (다음 월은 계속 진행) ===",
                                             year,
@@ -82,5 +94,6 @@ public class YearlyScheduler {
                 )
                 .then()
                 .block();
+        return failedMonths.get();
     }
 }
