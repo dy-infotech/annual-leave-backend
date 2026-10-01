@@ -38,7 +38,7 @@ class LeaveRequestPageContractRegressionTest {
 
         LeaveRequest row = mock(LeaveRequest.class);
         when(repository.searchLeaveRequestsPage(
-                any(), any(), any(), any(), any(), any(), eq(0), eq(3)))
+                any(), any(), any(), any(), any(), any(), eq(0), eq(2), eq(3)))
                 .thenReturn(List.of(row, row, row));
         when(repository.countLeaveRequests(any(), any(), any(), any(), any(), any()))
                 .thenReturn(137L);
