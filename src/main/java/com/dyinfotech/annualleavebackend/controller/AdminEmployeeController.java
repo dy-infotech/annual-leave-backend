@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequireAdminOrPersonnelAuthority;
 import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.service.EmployeeService;
@@ -32,6 +33,7 @@ public class AdminEmployeeController {
 
     @Operation(summary = "전체 사원 조회", description = "관리자가 신규 사원 등록 시 채번된 사번을 조회한다.")
     @GetMapping("/all")
+    @RequireAdminOrPersonnelAuthority
     public List<EmployeeDto.EmployeeResponse> getAllEmployees(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @RequestParam(name = "searchParam", required = false) String searchParam,
