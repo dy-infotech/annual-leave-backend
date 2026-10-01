@@ -635,22 +635,20 @@ public class LeaveRequestService {
 
         boolean isOwner =
                 leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        if (isOwner) {
-            return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
-                    leaveRequest,
-                    true);
-        }
+        boolean canViewPrivate = isOwner;
 
-        Set<String> accessibleTeams = requireAccessibleManagedTeamNames(currentEmployeeId);
-        if (!accessibleTeams.contains(leaveRequest.getEmployee().getTeamName())) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "조회할 수 없는 휴가 신청입니다.");
+        if (!canViewPrivate && currentEmployeeId != null) {
+            Set<String> accessibleTeams = teamService.findManagedTeams(currentEmployeeId).stream()
+                    .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                    .map(TeamService.ManagedTeam::teamName)
+                    .collect(Collectors.toSet());
+            canViewPrivate = accessibleTeams.contains(
+                    leaveRequest.getEmployee().getTeamName());
         }
 
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
-                true);
+                canViewPrivate);
     }
 
     @Transactional
