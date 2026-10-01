@@ -62,6 +62,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
@@ -120,6 +121,7 @@ class EmployeeOrganizationLockRegressionTest {
                 mock(PasswordEncoder.class), mock(AuthRateLimitService.class));
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
@@ -185,6 +187,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
 
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -246,6 +249,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
@@ -306,6 +310,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -356,6 +361,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(40L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -408,6 +414,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -457,6 +464,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -509,6 +517,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
@@ -575,6 +584,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(approver.getEmployeeId()).thenReturn(100L);
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
