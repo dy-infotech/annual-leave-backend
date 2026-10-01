@@ -56,6 +56,7 @@ class EmployeeLeaveCacheRegressionTest {
         when(employee.getEmployeeNumber()).thenReturn("E0001");
         when(employee.getCurrYear()).thenReturn("2025");
         when(employee.getCurrTotalLeaveDays()).thenReturn(15.0f);
+        when(employee.isActive(any(LocalDate.class))).thenReturn(true);
         when(employeeRepository.findActiveEmployeeIdsAfter(
                 any(LocalDate.class), any(), any(Integer.class)))
                 .thenReturn(List.of(1L), List.of());
