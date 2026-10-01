@@ -197,6 +197,77 @@ public class TeamService {
                 .toList();
     }
 
+    /**
+     * 권한 판정용 DB 최신 조직 snapshot.
+     * Caffeine 조직 캐시는 표시/일반 조회에 사용하지만, PM 권한 회수 직후의 stale window가
+     * private 휴가 열람 권한으로 이어지지 않도록 authorization 경로에서는 DB를 직접 읽는다.
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> findManagedTeamIdsWithDescendantsFromDatabase(Long employeeId) {
+        if (employeeId == null) {
+            return Set.of();
+        }
+
+        LocalDate today = LocalDate.now(clock);
+        List<TeamManagerCacheRow> rows = teamManagerRepository.findAllForCache();
+
+        Set<Long> roots = rows.stream()
+                .filter(row -> employeeId.equals(row.projectManagerId()))
+                .filter(row -> row.isActive(today))
+                .map(TeamManagerCacheRow::teamId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (roots.isEmpty()) {
+            return Set.of();
+        }
+
+        Map<Long, Set<Long>> childrenByParent = new HashMap<>();
+        for (TeamManagerCacheRow row : rows) {
+            childrenByParent
+                    .computeIfAbsent(row.parentTeamId(), ignored -> new LinkedHashSet<>())
+                    .add(row.teamId());
+        }
+
+        Set<Long> visited = new LinkedHashSet<>();
+        java.util.ArrayDeque<Long> queue = new java.util.ArrayDeque<>(roots);
+        while (!queue.isEmpty()) {
+            Long teamId = queue.removeFirst();
+            if (!visited.add(teamId)) {
+                continue;
+            }
+            childrenByParent.getOrDefault(teamId, Set.of()).forEach(queue::addLast);
+        }
+
+        Set<Long> enabledTeamIds = teamRepository.findAllById(visited).stream()
+                .filter(team -> Boolean.TRUE.equals(team.getEnabled()))
+                .map(Team::getTeamId)
+                .collect(Collectors.toSet());
+        visited.retainAll(enabledTeamIds);
+        return Set.copyOf(visited);
+    }
+
+    @Transactional(readOnly = true)
+    public Set<String> findManagedTeamNamesWithDescendantsFromDatabase(Long employeeId) {
+        Set<Long> teamIds = findManagedTeamIdsWithDescendantsFromDatabase(employeeId);
+        if (teamIds.isEmpty()) {
+            return Set.of();
+        }
+        return teamRepository.findAllById(teamIds).stream()
+                .filter(team -> Boolean.TRUE.equals(team.getEnabled()))
+                .map(Team::getTeamName)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isTeamManagerFromDatabase(Long employeeId) {
+        if (employeeId == null) {
+            return false;
+        }
+        LocalDate today = LocalDate.now(clock);
+        return teamManagerRepository.findAllForCache().stream()
+                .anyMatch(row -> employeeId.equals(row.projectManagerId())
+                        && row.isActive(today));
+    }
+
     public Set<Long> findAllProjectManagerIds() {
         return findAll().stream()
                 .map(ManagedTeam::projectManagerId)
