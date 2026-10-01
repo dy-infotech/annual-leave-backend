@@ -31,6 +31,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.security.jwt.JwtProvider;
+import com.dyinfotech.annualleavebackend.common.security.PasswordPolicy;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.common.type.DepartmentType;
 import com.dyinfotech.annualleavebackend.common.type.ManageType;
@@ -313,6 +314,14 @@ public class AuthService {
         	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
             throw new ResponseStatusException(HttpStatus.CONFLICT, errorMsg);
         }
+        // BCrypt는 신규 encode 입력을 UTF-8 72 bytes까지만 허용한다.
+        // @Size(max=72)는 문자 수 기준이므로 멀티바이트 비밀번호를 별도로 검증한다.
+        if (!PasswordPolicy.isBcryptEncodable(request.getPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
+        }
+
         // 동시 가입은 password IS NULL CAS로 최초 1건만 성공시킨다.
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         if (!employeeService.completeSignUpIfUnregistered(
