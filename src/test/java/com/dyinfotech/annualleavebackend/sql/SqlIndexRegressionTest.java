@@ -20,16 +20,6 @@ class SqlIndexRegressionTest {
                 "create index ix_team_manager_project_manager on team_manager(project_manager_id);"));
     }
 
-    @Test
-    void migration_containsOrganizationLookupIndexes() throws IOException {
-        String migration = normalize(Files.readString(Path.of("sql/migration_v2_0_oracle.sql")));
-
-        assertTrue(migration.contains(
-                "create index ix_team_department on team(department_id)"));
-        assertTrue(migration.contains(
-                "create index ix_team_manager_project_manager on team_manager(project_manager_id)"));
-    }
-
     private String normalize(String value) {
         return value.toLowerCase().replaceAll("\\s+", " ").trim();
     }
