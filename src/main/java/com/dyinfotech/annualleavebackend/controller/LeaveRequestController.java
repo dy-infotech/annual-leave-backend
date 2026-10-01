@@ -71,7 +71,7 @@ public class LeaveRequestController {
     @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 page/size 기반으로 조회한다.")
     @GetMapping("/all")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
-    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
+    		@Valid @ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
             @RequestParam(value = "cursorRequestedAt", required = false)
@@ -113,7 +113,7 @@ public class LeaveRequestController {
     @GetMapping("/my")
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
             @AuthenticationPrincipal EmployeePrincipal principal,
-    		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
+    		@Valid @ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
             @RequestParam(value = "cursorRequestedAt", required = false)
