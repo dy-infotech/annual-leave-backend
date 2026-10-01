@@ -111,13 +111,15 @@ public class LeaveRequestService {
     		throw new ResponseStatusException(HttpStatus.FORBIDDEN, "퇴사 처리된 사원은 휴가를 신청할 수 없습니다.");
     	}
         String currentYear = String.valueOf(today.getYear());
-        // 현재 연도를 currYear에 설정
-        if (employee.getCurrYear() != null && !employee.getCurrYear().equals(currentYear)) {
-			// 연도가 바뀌었으므로 이전 연도 데이터로 이동
-        	employee.setPrevYear(employee.getCurrYear());
-        	employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
-        	employee.setCurrYear(currentYear);
-		}
+        // 레거시/부분 마이그레이션 row도 신청 경로에서 현재 연도로 self-heal한다.
+        if (employee.getCurrYear() == null) {
+            employee.setCurrYear(currentYear);
+        } else if (!employee.getCurrYear().equals(currentYear)) {
+            // 연도가 바뀌었으므로 이전 연도 데이터로 이동
+            employee.setPrevYear(employee.getCurrYear());
+            employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
+            employee.setCurrYear(currentYear);
+        }
         
         // 현재 연도 연차일수 계산 및 설정
         float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
