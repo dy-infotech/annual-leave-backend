@@ -33,6 +33,52 @@ import com.dyinfotech.annualleavebackend.repository.LeaveAdjustmentRepository;
 class EmployeeLeaveCacheRegressionTest {
 
     @Test
+    void loginSelfHeal_rollsMissedYearForwardAtomically() {
+        BasisDataFactory basisDataFactory = mock(BasisDataFactory.class);
+        LeaveAdjustmentRepository leaveAdjustmentRepository = mock(LeaveAdjustmentRepository.class);
+        TeamService teamService = mock(TeamService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        EmployeeCacheInvalidator employeeCacheInvalidator = mock(EmployeeCacheInvalidator.class);
+        PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
+        Clock clock = Clock.fixed(
+                Instant.parse("2026-01-02T00:00:00Z"),
+                ZoneId.of("Asia/Seoul")
+        );
+
+        EmployeeLeaveService service = spy(new EmployeeLeaveService(
+                basisDataFactory,
+                leaveAdjustmentRepository,
+                teamService,
+                employeeRepository,
+                employeeCacheInvalidator,
+                transactionManager,
+                clock
+        ));
+
+        Employee employee = mock(Employee.class);
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(employee.getCurrYear()).thenReturn("2025");
+        when(employee.getCurrTotalLeaveDays()).thenReturn(15.0f);
+        when(employee.getPrevYear()).thenReturn("2024");
+        when(employee.getPrevTotalLeaveDays()).thenReturn(15.0f);
+        when(employeeRepository.findByIdForUpdate(1L))
+                .thenReturn(java.util.Optional.of(employee));
+        doReturn(16.0f).when(service).getCalculatedCurrYearLeaveDays(employee);
+
+        EmployeeLeaveService.LeaveYearState state =
+                service.ensureCurrentLeaveYear(1L);
+
+        verify(employee).setPrevYear("2025");
+        verify(employee).setPrevYearLeaveDays(15.0f);
+        verify(employee).setCurrYear("2026");
+        verify(employee).setCurrYearLeaveDays(16.0f);
+        verify(employeeCacheInvalidator).afterEmployeeViewChange(1L);
+        org.junit.jupiter.api.Assertions.assertEquals("2025", state.currYear());
+        // mock getter는 setter를 반영하지 않으므로 반환 snapshot 자체보다
+        // rollover write와 cache invalidation을 회귀 조건으로 고정한다.
+    }
+
+    @Test
     void yearlyRenewal_bumpsRenewedEmployeeViewGeneration() {
         BasisDataFactory basisDataFactory = mock(BasisDataFactory.class);
         LeaveAdjustmentRepository leaveAdjustmentRepository = mock(LeaveAdjustmentRepository.class);
