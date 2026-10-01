@@ -43,9 +43,6 @@ class DashboardPeriodRegressionTest {
         TeamService teamService = mock(TeamService.class);
         CommonService commonService = mock(CommonService.class);
         EmployeeLeaveService employeeLeaveService = mock(EmployeeLeaveService.class);
-        EmployeeLeaveService.EmployeeAuthorityResolver authorityResolver =
-                mock(EmployeeLeaveService.EmployeeAuthorityResolver.class);
-
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(employee));
         when(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee)).thenReturn(15.0f);
         when(leaveRequestRepository.sumRequestedUseDays(
@@ -57,8 +54,8 @@ class DashboardPeriodRegressionTest {
         when(commonService.getRemainingDays(employee, 15.0f, 8.0f)).thenReturn(7.0f);
         when(leaveRequestRepository.countByStatus(employeeId, periodStart, periodEnd))
                 .thenReturn(List.of(new LeaveRequestStatusCount(LeaveRequestStatus.APPROVED, 7L)));
-        when(employeeLeaveService.createAuthorityResolver(employeeId)).thenReturn(authorityResolver);
-        when(authorityResolver.isAdmin(employeeId)).thenReturn(false);
+        when(teamService.findManagedScopeFromDatabase(employeeId))
+                .thenReturn(new TeamService.ManagedScope(List.of(), java.util.Set.of()));
 
         DashboardService service = new DashboardService(
                 employeeRepository,
