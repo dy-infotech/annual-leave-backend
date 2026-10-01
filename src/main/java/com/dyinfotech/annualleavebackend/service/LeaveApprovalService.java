@@ -95,11 +95,16 @@ public class LeaveApprovalService {
         List<LeaveRequest> requests;
         boolean hasMore;
         if (cursorCreatedAt == null) {
+            // totalCount와 row 조회는 Oracle READ COMMITTED에서 서로 다른 statement snapshot일 수 있다.
+            // 다음 페이지 존재 여부는 count가 아니라 같은 row query의 size + 1 결과로 판단한다.
             requests = leaveRequestRepository.findByStatusAndTeamsInRangePage(
                     excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                     DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                    page, size);
-            hasMore = ((long) page + 1L) * size < totalCount;
+                    page, size + 1);
+            hasMore = requests.size() > size;
+            if (hasMore) {
+                requests = requests.subList(0, size);
+            }
         } else {
             requests = leaveRequestRepository.findByStatusAndTeamsInRangeCursor(
                     excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
