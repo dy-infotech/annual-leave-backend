@@ -180,7 +180,14 @@ public class EmployeeService {
                 });
         
 
-        // BCrypt는 의도적으로 비싼 연산이므로 검증 전에 계정별 횟수와 전역 동시 실행 수를 제한한다.
+        // 값싼 형식 검증은 rate-limit budget과 BCrypt worker를 소비하지 않는다.
+        if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
+        }
+
+        // BCrypt는 의도적으로 비싼 연산이므로 실제 검증 전에 계정별 횟수와 전역 동시 실행 수를 제한한다.
         authRateLimitService.checkPasswordChange(employeeId);
         if (!authRateLimitService.tryAcquirePasswordWorker()) {
             throw new ResponseStatusException(
@@ -193,12 +200,6 @@ public class EmployeeService {
                 log.warn("비밀번호 변경 현재 비밀번호 불일치 employeeId: {}", employee.getEmployeeId());
                 throw new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
-            }
-
-            if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
             }
 
             String expectedPassword = employee.getPassword();
