@@ -62,7 +62,7 @@ public class AdminTeamController {
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("teamId") Long teamId,
             @Valid @RequestBody TeamDto.UpdateRequest request) {
-        teamService.updateTeam(teamId, request);
+        teamService.updateTeam(principal.employeeId(), teamId, request);
         return ResponseEntity.ok().build();
     }
 
@@ -71,7 +71,7 @@ public class AdminTeamController {
     public ResponseEntity<Void> deleteTeam(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("teamId") Long teamId) {
-        teamService.deleteTeam(teamId);
+        teamService.deleteTeam(principal.employeeId(), teamId);
         return ResponseEntity.ok().build();
     }
 }
