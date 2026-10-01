@@ -397,11 +397,12 @@ public class AuthService {
             employee.changePassword(encodedPassword);
         }
 
-        float calculatedCurrYearLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
-        if (employee.getCurrTotalLeaveDays() != calculatedCurrYearLeaveDays) {
-            employeeService.updateCurrTotalLeaveDays(employee.getEmployeeId(), calculatedCurrYearLeaveDays);
-            employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
-        }
+        EmployeeLeaveService.LeaveYearState leaveYearState =
+                employeeLeaveService.ensureCurrentLeaveYear(employee.getEmployeeId());
+        employee.setPrevYear(leaveYearState.prevYear());
+        employee.setPrevYearLeaveDays(leaveYearState.prevTotalLeaveDays());
+        employee.setCurrYear(leaveYearState.currYear());
+        employee.setCurrYearLeaveDays(leaveYearState.currTotalLeaveDays());
 
         // 로그인 self-heal은 detached Employee 전체를 merge하지 않고 approver FK만 targeted update한다.
         Long storedApproverId = employee.getApproverId();
