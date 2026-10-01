@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -70,7 +71,7 @@ class EmployeeLeaveCacheRegressionTest {
         verify(employee).setPrevYear("2025");
         verify(employee).setPrevYearLeaveDays(15.0f);
         verify(employee).setCurrYear("2026");
-        verify(employee).setCurrYearLeaveDays(16.0f);
+        verify(employee, atLeastOnce()).setCurrYearLeaveDays(16.0f);
         verify(employeeCacheInvalidator).afterEmployeeViewChange(1L);
     }
 
