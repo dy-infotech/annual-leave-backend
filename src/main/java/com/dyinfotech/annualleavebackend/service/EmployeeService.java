@@ -23,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.cache.OrganizationCacheInvalidator;
+import com.dyinfotech.annualleavebackend.common.security.PasswordPolicy;
 import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Department;
@@ -183,6 +184,12 @@ public class EmployeeService {
         	log.error("비밀번호 에러 employeeId : " + employee.getEmployeeId() + ",failCount : " + employee.getAccessCount());
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "현재 비밀번호가 일치하지 않습니다.");
+        }
+
+        if (!PasswordPolicy.isBcryptEncodable(request.getNewPassword())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "새 비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
         }
 
         String expectedPassword = employee.getPassword();
