@@ -7,9 +7,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.UUID;
-import java.util.concurrent.Executor;
 
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,9 +15,9 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.dyinfotech.annualleavebackend.common.transaction.AfterCommitExecutor;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.PasswordResetToken;
@@ -40,9 +38,7 @@ public class PasswordResetService {
     private final EmployeeService employeeService;
     private final PasswordResetTokenRepository tokenRepository;
     private final EmployeeRepository employeeRepository;
-    private final AfterCommitExecutor afterCommitExecutor;
-    @Qualifier("mailExecutor")
-    private final Executor mailExecutor;
+    private final TransactionTemplate transactionTemplate;
     private final PasswordEncoder passwordEncoder;
     private final AuthRateLimitService authRateLimitService;
     private final JavaMailSender mailSender;
@@ -51,7 +47,6 @@ public class PasswordResetService {
     @Value("${spring.mail.username}")
     private String mailFrom;
 
-    @Transactional
     public void requestReset(FindDataDto.FindPasswordRequest request) {
         authRateLimitService.checkRecovery("forgot-password:" + request.getEmployeeNumber());
 
@@ -68,34 +63,54 @@ public class PasswordResetService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
 
-        Employee lockedEmployee = employeeRepository.findByIdForUpdate(employee.getEmployeeId())
-                .filter(Employee::isRegisted)
-                .filter(current -> current.getEmail() != null
-                        && current.getEmail().equalsIgnoreCase(requestedEmail))
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
-
         LocalDateTime now = LocalDateTime.now(clock);
         String rawToken = UUID.randomUUID().toString();
         String tokenHash = hash(rawToken);
+        Long candidateEmployeeId = employee.getEmployeeId();
 
-        tokenRepository.deleteExpired(now);
-        tokenRepository.deleteUnusedByEmployeeId(employee.getEmployeeId());
-        tokenRepository.saveAndFlush(new PasswordResetToken(
-                lockedEmployee.getEmployeeId(),
-                tokenHash,
-                now.plusMinutes(RESET_TOKEN_MINUTES),
-                now));
+        PreparedReset prepared = transactionTemplate.execute(status -> {
+            Employee lockedEmployee = employeeRepository.findByIdForUpdate(candidateEmployeeId)
+                    .filter(Employee::isRegisted)
+                    .filter(current -> current.getEmail() != null
+                            && current.getEmail().equalsIgnoreCase(requestedEmail))
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
 
-        Long employeeId = lockedEmployee.getEmployeeId();
-        String recipient = lockedEmployee.getEmail();
-        afterCommitExecutor.execute(() -> {
-            try {
-                mailExecutor.execute(() -> sendResetMail(employeeId, recipient, rawToken));
-            } catch (RuntimeException e) {
-                log.error("비밀번호 재설정 메일 작업 제출 실패. employeeId={}", employeeId, e);
-            }
+            tokenRepository.deleteExpired(now);
+            tokenRepository.deleteUnusedByEmployeeId(lockedEmployee.getEmployeeId());
+            PasswordResetToken saved = tokenRepository.saveAndFlush(new PasswordResetToken(
+                    lockedEmployee.getEmployeeId(),
+                    tokenHash,
+                    now.plusMinutes(RESET_TOKEN_MINUTES),
+                    now));
+
+            return new PreparedReset(
+                    saved.getTokenId(),
+                    lockedEmployee.getEmployeeId(),
+                    lockedEmployee.getEmail());
         });
+
+        if (prepared == null || prepared.tokenId() == null) {
+            throw new IllegalStateException("비밀번호 재설정 토큰 저장에 실패했습니다.");
+        }
+
+        try {
+            sendResetMail(prepared.employeeId(), prepared.recipient(), rawToken);
+        } catch (RuntimeException e) {
+            try {
+                transactionTemplate.executeWithoutResult(
+                        status -> tokenRepository.deleteById(prepared.tokenId()));
+            } catch (RuntimeException cleanupError) {
+                log.error(
+                        "메일 발송 실패 후 재설정 토큰 정리에도 실패했습니다. tokenId={}",
+                        prepared.tokenId(),
+                        cleanupError);
+            }
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "이메일 발송 중 오류가 발생했습니다.",
+                    e);
+        }
     }
 
     private void sendResetMail(Long employeeId, String recipient, String rawToken) {
@@ -111,7 +126,11 @@ public class PasswordResetService {
             mailSender.send(message);
         } catch (RuntimeException e) {
             log.error("비밀번호 재설정 메일 발송 실패. employeeId={}", employeeId, e);
+            throw e;
         }
+    }
+
+    private record PreparedReset(Long tokenId, Long employeeId, String recipient) {
     }
 
     @Transactional
