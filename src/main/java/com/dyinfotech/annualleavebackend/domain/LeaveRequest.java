@@ -85,7 +85,7 @@ public class LeaveRequest implements HasCreatedAudit {
     @Column(name = "managed_at")
     private LocalDateTime managedAt;
 
-    @Column(name = "managed_ip", nullable = false, updatable = false, length = 45)
+    @Column(name = "managed_ip", length = 45)
     private String managedIp;
 
     @Column(name = "reject_reason", length = 200)
