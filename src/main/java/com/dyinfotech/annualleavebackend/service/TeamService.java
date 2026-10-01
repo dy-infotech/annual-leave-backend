@@ -262,10 +262,9 @@ public class TeamService {
         if (employeeId == null) {
             return false;
         }
-        LocalDate today = LocalDate.now(clock);
-        return teamManagerRepository.findAllForCache().stream()
-                .anyMatch(row -> employeeId.equals(row.projectManagerId())
-                        && row.isActive(today));
+        return teamManagerRepository.existsActiveManagerByEmployeeId(
+                employeeId,
+                LocalDate.now(clock));
     }
 
     public Set<Long> findAllProjectManagerIds() {
