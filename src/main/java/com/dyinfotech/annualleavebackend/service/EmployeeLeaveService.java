@@ -192,12 +192,14 @@ public class EmployeeLeaveService {
             return 0.0f;
         }
 
-        // 당해년도 입사자는 현재까지 발생한 월차를 계산
-        if (hireDate.getYear() == now.getYear()) {
+        // 입사 1년 미만 근로자는 연도가 바뀌더라도 월차 경로를 유지한다.
+        // 예: 2025-12-01 입사자는 2026-01-01에도 근속 1개월이므로 15일이 아니라
+        // 발생한 월차만 보유해야 한다.
+        if (now.isBefore(hireDate.plusYears(1))) {
             return Math.min(calculateMonthlyLeaveCount(hireDate, now), MAX_FIRST_YEAR_MONTHLY_LEAVE_COUNT);
         }
 
-        // 이전 연도 입사자는 현재 회계연도 말일 기준으로 근속연수를 계산
+        // 입사 1년 이상 근로자는 현재 회계연도 말일 기준으로 근속연수를 계산
         Year currentYear = Year.from(now);
         LocalDate yearEnd = currentYear.atMonth(Month.DECEMBER).atEndOfMonth();
         int yearsOfService = Period.between(hireDate, yearEnd).getYears();
