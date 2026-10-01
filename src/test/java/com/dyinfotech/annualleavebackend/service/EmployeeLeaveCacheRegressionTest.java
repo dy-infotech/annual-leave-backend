@@ -134,7 +134,8 @@ class EmployeeLeaveCacheRegressionTest {
         verify(employee, never()).setPrevYearLeaveDays(anyFloat());
         verify(employee, never()).setCurrYear(any());
         verify(employee, never()).setCurrYearLeaveDays(anyFloat());
-        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(any());
+        verify(employeeCacheInvalidator, never()).afterEmployeeViewChange(
+                org.mockito.ArgumentMatchers.<java.util.Collection<Long>>any());
     }
 
     @Test
