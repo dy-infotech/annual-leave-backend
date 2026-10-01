@@ -86,7 +86,9 @@ public class AuthController {
 
         try {
             RefreshTokenService.RefreshResult result =
-                    refreshTokenService.rotate(token, expectedSessionMarker);
+                    expectedSessionMarker == null || expectedSessionMarker.isBlank()
+                            ? refreshTokenService.rotate(token)
+                            : refreshTokenService.rotate(token, expectedSessionMarker);
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(result.refresh()).toString())
@@ -131,11 +133,9 @@ public class AuthController {
         requireRefreshRequestHeader(request);
         String token = refreshTokenCookieService.read(request);
         if (token == null) {
-            // 자동 로그인 복원을 위한 probe이므로 refresh cookie가 없는 비로그인 상태는
-            // 인증 실패 예외가 아니라 "현재 SSO 세션 없음"으로 응답한다.
-            return ResponseEntity.status(HttpStatus.NO_CONTENT)
-                    .cacheControl(CacheControl.noStore())
-                    .body(null);
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "refresh token이 없습니다.");
         }
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
