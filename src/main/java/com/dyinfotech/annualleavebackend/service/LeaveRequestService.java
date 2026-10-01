@@ -608,8 +608,8 @@ public class LeaveRequestService {
             return new LeaveVisibility(false, Set.of());
         }
 
-        // 현재 인사권은 Employee.hasPersonnelAuthority() == CEO이므로 대표이사는 전사 열람한다.
-        if (currentAuthorityService.hasPersonnelAuthority(currentEmployeeId)) {
+        // 대표이사는 인사권 보유 여부와 별개로 전사 휴가 비공개 필드를 열람할 수 있다.
+        if (currentAuthorityService.isCeo(currentEmployeeId)) {
             return new LeaveVisibility(true, Set.of());
         }
 
