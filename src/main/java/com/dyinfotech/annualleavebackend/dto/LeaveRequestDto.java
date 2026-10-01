@@ -19,6 +19,7 @@ public final class LeaveRequestDto {
     @NoArgsConstructor
     public static class LeaveRequestCreateRequest {
     	@NotNull(message = "휴가유형을 입력해주세요.")
+        @Size(max = 50, message = "휴가유형은 50자 이하여야 합니다.")
     	private String leaveType;
 
         @NotNull(message = "시작일을 입력해주세요.")
