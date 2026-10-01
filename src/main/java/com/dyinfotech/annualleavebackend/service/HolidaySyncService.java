@@ -4,8 +4,9 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantLock;
@@ -18,6 +19,7 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.dyinfotech.annualleavebackend.common.cache.HolidayCacheKey;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
 import com.dyinfotech.annualleavebackend.common.type.BasisDataType;
 import com.dyinfotech.annualleavebackend.domain.Holiday;
@@ -37,6 +39,7 @@ public class HolidaySyncService {
 	private final HolidayRepository holidayRepository;
     private final ObjectMapper objectMapper;
     private final WebClient webClient;
+    private final HolidayCacheKey holidayCacheKey;
     
     private final ReentrantLock lock = new ReentrantLock();
 
@@ -47,6 +50,7 @@ public class HolidaySyncService {
             HolidayRepository holidayRepository,
             ObjectMapper objectMapper,
             WebClient webClient,
+            HolidayCacheKey holidayCacheKey,
             @Value("${openapi.service-key}") String serviceKey
     ) {
     	this.basisDataFactory = basisDataFactory;
@@ -89,7 +93,7 @@ public class HolidaySyncService {
         		.timeout(Duration.ofSeconds(30L))
         		.map(response -> {
         			try {
-        				return parseHolidays(response);
+        				return parseHolidays(response, YearMonth.of(year, month));
         			} catch (Exception e) {
         				throw reactor.core.Exceptions.propagate(e);
         			}
@@ -140,6 +144,8 @@ public class HolidaySyncService {
     		lock.lock();
         	try {
     	        holidayRepository.replaceMonthlyHolidays(year, month, holidays);
+                // repository 트랜잭션이 반환(커밋)된 뒤 세대를 올린다. 늦은 구세대 조회는 이후 hit되지 않는다.
+                holidayCacheKey.advance();
     	        log.info("[공공데이터] {}년 {}월 공휴일 동기화 완료", year, String.format("%02d", month));
         	} finally {
         		lock.unlock();
@@ -165,58 +171,81 @@ public class HolidaySyncService {
     	}
     }
 
-    private List<Holiday> parseHolidays(String jsonResponse) throws Exception {
+    private List<Holiday> parseHolidays(String jsonResponse, YearMonth requestedMonth) throws Exception {
         JsonNode root = objectMapper.readTree(jsonResponse);
         JsonNode responseNode = root.path("response");
         JsonNode headerNode = responseNode.path("header");
         String resultCode = headerNode.path("resultCode").asString(ResultCode.FAIL.getCode());
         if (!ResultCode.SUCCESS.getCode().equals(resultCode)) {
-        	String errorMsg = "[공공데이터] 공휴일 데이터 파싱 오류 resultCode: " + resultCode + ", resultMsg: " + headerNode.path("resultMsg").asString();
-        	log.error(errorMsg);
-        	throw new IllegalStateException(errorMsg);
+            String errorMsg = "[공공데이터] 공휴일 데이터 파싱 오류 resultCode: " + resultCode
+                    + ", resultMsg: " + headerNode.path("resultMsg").asString();
+            log.error(errorMsg);
+            throw new IllegalStateException(errorMsg);
         }
-        
-        JsonNode itemsNode = responseNode.path("body").path("items");
-        if (itemsNode.isMissingNode() || itemsNode.path("item").isMissingNode()) {
-            return Collections.emptyList();
-        }
-        
-        // 2개 이상의 데이터면 isArray: true, 1개의 데이터면 isObject: true
-        JsonNode itemNode = itemsNode.path("item");
-        List<Holiday> holidays = new ArrayList<>();
 
+        JsonNode bodyNode = responseNode.path("body");
+        JsonNode totalNode = bodyNode.path("totalCount");
+        if (!totalNode.isIntegralNumber() || totalNode.asInt() < 0) {
+            throw new IllegalStateException("[공공데이터] 공휴일 응답 totalCount가 잘못되었습니다.");
+        }
+
+        int totalCount = totalNode.asInt();
+        JsonNode itemNode = bodyNode.path("items").path("item");
+        List<JsonNode> rows = new ArrayList<>();
         if (itemNode.isArray()) {
-            for (JsonNode item : itemNode) {
-                Holiday h = convertToEntity(item);
-                if (h != null) holidays.add(h);
-            }
+            itemNode.forEach(rows::add);
         } else if (itemNode.isObject()) {
-            Holiday h = convertToEntity(itemNode);
-            if (h != null) holidays.add(h);
+            rows.add(itemNode);
+        } else if (totalCount != 0) {
+            throw new IllegalStateException("[공공데이터] 공휴일 응답 항목이 누락되었습니다.");
         }
 
+        // numOfRows=100으로 월 전체를 요청한다. 일부 페이지만 받은 snapshot으로 기존 월 데이터를 지우지 않는다.
+        if (rows.size() != totalCount) {
+            throw new IllegalStateException(
+                    "[공공데이터] 공휴일 응답이 불완전합니다. totalCount=" + totalCount + ", rows=" + rows.size());
+        }
+
+        List<Holiday> holidays = new ArrayList<>();
+        for (JsonNode item : rows) {
+            Holiday holiday = convertToEntity(item, requestedMonth);
+            if (holiday != null) {
+                holidays.add(holiday);
+            }
+        }
         return holidays;
     }
 
-    private Holiday convertToEntity(JsonNode item) {
-        String isHoliday = item.path("isHoliday").asString("N");
-        if (!"Y".equals(isHoliday)) {
-            return null; 
+    private Holiday convertToEntity(JsonNode item, YearMonth requestedMonth) {
+        String isHoliday = item.path("isHoliday").asString("");
+        if (!"Y".equals(isHoliday) && !"N".equals(isHoliday)) {
+            throw new IllegalStateException("[공공데이터] 공휴일 여부가 누락되었거나 잘못되었습니다.");
+        }
+        if ("N".equals(isHoliday)) {
+            return null;
         }
 
-        // 공공데이터 날짜 추출 (예: "20150901")
-        String locdateStr = item.path("locdate").asString(); 
-        if (locdateStr.length() != 8) return null;
+        String rawDate = item.path("locdate").asString("");
+        if (!rawDate.matches("\\d{8}")) {
+            throw new IllegalStateException("[공공데이터] 공휴일 날짜가 잘못되었습니다: " + rawDate);
+        }
 
-        // substring으로 분할하여 빌더로 조립
-        String year = locdateStr.substring(0, 4);  // "2015"
-        String month = locdateStr.substring(4, 6); // "09"
-        String day = locdateStr.substring(6, 8);   // "01"
+        final LocalDate holidayDate;
+        try {
+            holidayDate = LocalDate.parse(rawDate, DateTimeFormatter.BASIC_ISO_DATE);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("[공공데이터] 공휴일 날짜를 해석할 수 없습니다: " + rawDate, e);
+        }
+        if (!YearMonth.from(holidayDate).equals(requestedMonth)) {
+            throw new IllegalStateException(
+                    "[공공데이터] 요청 월과 공휴일 날짜가 다릅니다. requested=" + requestedMonth + ", actual=" + holidayDate);
+        }
+
         String dateName = item.path("dateName").asString("공휴일");
-
         return Holiday.builder()
-        		.holidayDate(LocalDate.of(Integer.parseInt(year), Integer.parseInt(month), Integer.parseInt(day)))
+                .holidayDate(holidayDate)
                 .name(dateName)
                 .build();
     }
+
 }
