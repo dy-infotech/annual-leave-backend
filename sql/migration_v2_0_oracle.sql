@@ -552,7 +552,23 @@ BEGIN
         EXECUTE IMMEDIATE
             'ALTER TABLE leave_request ADD (create_request_hash VARCHAR2(64 CHAR))';
     END IF;
+END;
+/
 
+-- develop_v1.0에는 CREATE_REQUEST_KEY/HASH가 존재하지 않는다.
+-- 따라서 이 값들이 남아 있다면 이전의 부분 실행 산물이며 v1 원본 데이터가 아니다.
+-- UNIQUE 제약을 추가하기 전에 둘을 함께 NULL로 정규화해 부분 실패 재시도 시
+-- ORA-02299(중복 키)로 다시 중단되지 않게 한다.
+UPDATE leave_request
+   SET create_request_key = NULL,
+       create_request_hash = NULL
+ WHERE create_request_key IS NOT NULL
+    OR create_request_hash IS NOT NULL;
+
+DECLARE
+    v_count  NUMBER;
+    v_status VARCHAR2(8);
+BEGIN
     SELECT COUNT(*)
       INTO v_count
       FROM user_constraints
@@ -563,6 +579,18 @@ BEGIN
         EXECUTE IMMEDIATE
             'ALTER TABLE leave_request ADD CONSTRAINT uk_leave_request_create_request '
             || 'UNIQUE (employee_id, create_request_key)';
+    ELSE
+        SELECT status
+          INTO v_status
+          FROM user_constraints
+         WHERE table_name = 'LEAVE_REQUEST'
+           AND constraint_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
+
+        IF v_status = 'DISABLED' THEN
+            EXECUTE IMMEDIATE
+                'ALTER TABLE leave_request ENABLE VALIDATE CONSTRAINT '
+                || 'uk_leave_request_create_request';
+        END IF;
     END IF;
 
     SELECT COUNT(*)
@@ -576,6 +604,18 @@ BEGIN
             'ALTER TABLE leave_request ADD CONSTRAINT ck_leave_request_create_pair CHECK '
             || '((create_request_key IS NULL AND create_request_hash IS NULL) '
             || 'OR (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL))';
+    ELSE
+        SELECT status
+          INTO v_status
+          FROM user_constraints
+         WHERE table_name = 'LEAVE_REQUEST'
+           AND constraint_name = 'CK_LEAVE_REQUEST_CREATE_PAIR';
+
+        IF v_status = 'DISABLED' THEN
+            EXECUTE IMMEDIATE
+                'ALTER TABLE leave_request ENABLE VALIDATE CONSTRAINT '
+                || 'ck_leave_request_create_pair';
+        END IF;
     END IF;
 END;
 /
