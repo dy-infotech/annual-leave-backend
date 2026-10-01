@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import java.util.concurrent.CompletableFuture;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,15 +11,19 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
 import com.dyinfotech.annualleavebackend.dto.FcmTokenDto;
 import com.dyinfotech.annualleavebackend.dto.RegisterCommonDto;
 import com.dyinfotech.annualleavebackend.dto.RegisterDto;
 import com.dyinfotech.annualleavebackend.service.AuthService;
+import com.dyinfotech.annualleavebackend.service.RefreshTokenCookieService;
+import com.dyinfotech.annualleavebackend.service.RefreshTokenService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -29,14 +34,41 @@ import lombok.RequiredArgsConstructor;
 public class AdminAuthController {
 
     private final AuthService authService;
+    private final RefreshTokenCookieService refreshTokenCookieService;
+    private final RefreshTokenService refreshTokenService;
     
     @Operation(summary = "FCM 토큰 등록", description = "로그인 시 FCM 토큰 발급에 의한 병목때문에 별도로 처리한다.")
     @PostMapping("/sync-fcm-token")
     public CompletableFuture<ResponseEntity<Void>> syncFcmToken(
+            HttpServletRequest servletRequest,
             @AuthenticationPrincipal EmployeePrincipal principal,
             @RequestHeader(value = "X-SSO-Session-Marker", required = false)
             String authSessionMarker,
             @Valid @RequestBody FcmTokenDto.FcmTokenRequest request) {
+        String refreshToken = refreshTokenCookieService.read(servletRequest);
+        if (refreshToken != null) {
+            if (authSessionMarker == null || authSessionMarker.isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "FCM 등록 세션 식별자가 없습니다.");
+            }
+
+            RefreshTokenService.CurrentSessionIdentity identity =
+                    refreshTokenService.currentSessionIdentity(refreshToken);
+            if (!java.util.Objects.equals(identity.employeeId(), principal.employeeId())
+                    || !java.util.Objects.equals(
+                            identity.sessionMarker(),
+                            authSessionMarker)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "현재 로그인 세션과 FCM 등록 세션이 일치하지 않습니다.");
+            }
+        } else if (authSessionMarker != null && !authSessionMarker.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "FCM 등록 세션을 확인할 refresh cookie가 없습니다.");
+        }
+
     	return authService.syncFcmToken(
                             principal.employeeId(),
                             request,
