@@ -46,7 +46,7 @@ public class AdminDepartmentController {
     public ResponseEntity<DepartmentDto.CreateResponse> createDepartment(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @Valid @RequestBody DepartmentDto.CreateRequest request) {
-        Long departmentId = departmentService.createDepartment(request.getDepartmentName());
+        Long departmentId = departmentService.createDepartment(principal.employeeId(), request.getDepartmentName());
         return ResponseEntity.ok(DepartmentDto.CreateResponse.builder()
                 .departmentId(departmentId)
                 .build());
@@ -58,7 +58,7 @@ public class AdminDepartmentController {
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("departmentId") Long departmentId,
             @Valid @RequestBody DepartmentDto.UpdateRequest request) {
-        departmentService.renameDepartment(departmentId, request.getDepartmentName());
+        departmentService.renameDepartment(principal.employeeId(), departmentId, request.getDepartmentName());
         return ResponseEntity.ok().build();
     }
 
@@ -67,7 +67,7 @@ public class AdminDepartmentController {
     public ResponseEntity<Void> deleteDepartment(
             @AuthenticationPrincipal EmployeePrincipal principal,
             @PathVariable("departmentId") Long departmentId) {
-        departmentService.deleteDepartment(departmentId);
+        departmentService.deleteDepartment(principal.employeeId(), departmentId);
         return ResponseEntity.ok().build();
     }
 }
