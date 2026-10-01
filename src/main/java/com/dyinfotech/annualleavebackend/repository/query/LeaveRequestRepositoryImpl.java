@@ -208,11 +208,11 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 			Long excludeId, LeaveRequestStatus status,
 			Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds,
 			LocalDate startDate, LocalDate endDate,
-			int page, int size) {
+			int page, int pageSize, int fetchLimit) {
 		BooleanExpression targetCondition = pendingTargetCondition(excludeId, directTeams, childTeamProjectManagerIds);
 		return pendingBaseQuery(status, targetCondition, startDate, endDate)
-				.offset((long) page * size)
-				.limit(size)
+				.offset((long) page * pageSize)
+				.limit(fetchLimit)
 				.fetch();
 	}
 
@@ -333,11 +333,11 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	public List<LeaveRequest> searchLeaveRequestsPage(
 			Long employeeId, LocalDate startDate, LocalDate endDate,
 			LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam,
-			int page, int size) {
+			int page, int pageSize, int fetchLimit) {
 		BooleanBuilder builder = searchCondition(employeeId, status, teams, searchEmployeeParam);
 		return searchBaseQuery(builder, startDate, endDate)
-				.offset((long) page * size)
-				.limit(size)
+				.offset((long) page * pageSize)
+				.limit(fetchLimit)
 				.fetch();
 	}
 
