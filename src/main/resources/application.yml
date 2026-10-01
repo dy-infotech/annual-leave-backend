@@ -35,8 +35,8 @@ spring:
          starttls:
            enable: true
            required: true
-           ssl:
-             protocols: TLSv1 TLSv1.1 TLSv1.2 TLSv1.3
+         ssl:
+           protocols: ${MAIL_TLS_PROTOCOLS:TLSv1.2 TLSv1.3}
     
 jwt:
   secret: ${JWT_SECRET}
