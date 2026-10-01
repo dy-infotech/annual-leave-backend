@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -291,14 +292,43 @@ class NotificationFcmRegressionTest {
 
 
     @Test
+    void inactiveCleanup_readsNextBatchByTokenIdCursor() {
+        java.util.List<FcmToken> firstBatch = new java.util.ArrayList<>();
+        for (long id = 1; id <= 20; id++) {
+            FcmToken token = mock(FcmToken.class);
+            when(token.getTokenId()).thenReturn(id);
+            when(token.getToken()).thenReturn("token-" + id);
+            when(token.getEmployeeId()).thenReturn(id);
+            when(tokenRepository.findByToken("token-" + id))
+                    .thenReturn(Optional.empty());
+            firstBatch.add(token);
+        }
+
+        when(tokenRepository.findInactiveTokensBatch(any(LocalDateTime.class), isNull(), eq(20)))
+                .thenReturn(firstBatch);
+        when(tokenRepository.findInactiveTokensBatch(any(LocalDateTime.class), eq(20L), eq(20)))
+                .thenReturn(java.util.List.of());
+
+        notificationService.cleanupInactiveTokens(
+                LocalDateTime.of(2026, 10, 1, 0, 0),
+                3);
+
+        verify(tokenRepository).findInactiveTokensBatch(
+                any(LocalDateTime.class), isNull(), eq(20));
+        verify(tokenRepository).findInactiveTokensBatch(
+                any(LocalDateTime.class), eq(20L), eq(20));
+    }
+
+    @Test
     void inactiveCleanup_skipsDeleteWhenTokenOwnerChangedBeforeSerializedCleanup() {
         FcmToken staleSnapshot = mock(FcmToken.class);
         FcmToken currentToken = mock(FcmToken.class);
+        when(staleSnapshot.getTokenId()).thenReturn(1L);
         when(staleSnapshot.getToken()).thenReturn(TOKEN);
         when(staleSnapshot.getEmployeeId()).thenReturn(OLD_EMPLOYEE_ID);
         when(currentToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
 
-        when(tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(any(LocalDateTime.class)))
+        when(tokenRepository.findInactiveTokensBatch(any(LocalDateTime.class), isNull(), eq(20)))
                 .thenReturn(java.util.List.of(staleSnapshot));
         when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(currentToken));
 
