@@ -18,9 +18,11 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
@@ -57,6 +59,7 @@ class LeaveRequestRegressionTest {
 
     @BeforeEach
     void setUp() {
+        TransactionSynchronizationManager.initSynchronization();
         leaveRequestRepository = mock(LeaveRequestRepository.class);
         employeeRepository = mock(EmployeeRepository.class);
         employeeLeaveService = mock(EmployeeLeaveService.class);
@@ -79,6 +82,13 @@ class LeaveRequestRegressionTest {
                 employeeCacheInvalidator,
                 clock
         );
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
