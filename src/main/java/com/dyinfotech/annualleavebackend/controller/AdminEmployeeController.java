@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.RequirePersonnelAuthority;
 import com.dyinfotech.annualleavebackend.dto.EmployeeDto;
 import com.dyinfotech.annualleavebackend.service.EmployeeService;
 
@@ -47,6 +48,7 @@ public class AdminEmployeeController {
     }
     
     
+    @RequirePersonnelAuthority
     @PutMapping("/{employeeNumber}/managed-teams")
     public ResponseEntity<Void> updateManagedTeams(
             @AuthenticationPrincipal EmployeePrincipal principal,
@@ -57,6 +59,7 @@ public class AdminEmployeeController {
     }
     
     
+    @RequirePersonnelAuthority
     @PutMapping("/{employeeNumber}") 
     public ResponseEntity<Void> updateEmployeeByAdmin(
     		@AuthenticationPrincipal EmployeePrincipal principal,
