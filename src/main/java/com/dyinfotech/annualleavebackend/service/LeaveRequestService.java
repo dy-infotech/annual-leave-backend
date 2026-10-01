@@ -124,6 +124,7 @@ public class LeaveRequestService {
 
         validateDateRange(request.getStartDate(), request.getEndDate(), today, employee.getHireDate(), employee.getFireDate());
         validateUseDaysUnit(leaveType, request.getUseDays());
+        validateLeaveReason(leaveType, request.getLeaveReason());
         // 모든 휴가 유형은 신청 기간의 실제 근무일수와 사용일수가 일치해야 한다.
         // 대체/출산/가족돌봄 휴가는 연차 잔여량만 차감/검증 대상에서 제외한다.
         validateUseDaysWithinWeekdays(request.getStartDate(), request.getEndDate(), request.getUseDays());
@@ -258,6 +259,15 @@ public class LeaveRequestService {
             return HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", e);
+        }
+    }
+
+    private void validateLeaveReason(LeaveType leaveType, String leaveReason) {
+        if (leaveType.requiresReason()
+                && (leaveReason == null || leaveReason.isBlank())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    leaveType.getDesc() + "는 휴가 사유를 입력해야 합니다.");
         }
     }
 
