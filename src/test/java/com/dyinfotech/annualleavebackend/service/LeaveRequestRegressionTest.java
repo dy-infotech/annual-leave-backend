@@ -240,7 +240,7 @@ class LeaveRequestRegressionTest {
 
     private LeaveRequest captureSavedRequest() {
         ArgumentCaptor<LeaveRequest> captor = ArgumentCaptor.forClass(LeaveRequest.class);
-        verify(leaveRequestRepository).save(captor.capture());
+        verify(leaveRequestRepository).saveAndFlush(captor.capture());
         return captor.getValue();
     }
 
