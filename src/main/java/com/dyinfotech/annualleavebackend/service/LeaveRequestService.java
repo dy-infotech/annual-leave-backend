@@ -218,20 +218,10 @@ public class LeaveRequestService {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    try {
-                        notificationService.sendNotificationToTeams(
-                                notificationApproverIds,
-                                notificationTitle,
-                                notificationBody);
-                    } catch (RuntimeException dispatchError) {
-                        // 업무 transaction은 이미 commit됐다. 비동기 executor 포화 등
-                        // 알림 dispatch 실패가 신청 API 자체의 실패로 보이면 재시도를 유발한다.
-                        log.error(
-                                "휴가 신청 알림 dispatch 실패. 신청은 정상 처리되었습니다. employeeId={}, approverIds={}",
-                                employeeId,
-                                notificationApproverIds,
-                                dispatchError);
-                    }
+                    notificationService.sendNotificationToTeams(
+                            notificationApproverIds,
+                            notificationTitle,
+                            notificationBody);
                 }
             });
         }
