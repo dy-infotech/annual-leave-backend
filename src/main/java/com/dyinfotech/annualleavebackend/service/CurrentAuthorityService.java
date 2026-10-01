@@ -49,6 +49,22 @@ public class CurrentAuthorityService {
                 .orElse(false);
     }
 
+    public boolean canViewAllLeaveDetails(Long employeeId) {
+        if (employeeId == null) {
+            return false;
+        }
+
+        return employeeRepository.findById(employeeId)
+                .filter(employee -> employee.isActive(LocalDate.now(clock)))
+                .map(employee -> {
+                    PositionType position = PositionType.getType(employee.getPosition());
+                    return PositionType.isCEO(position)
+                            || (PositionType.isDirectorOrAbove(position)
+                                    && teamService.isTeamManager(employeeId));
+                })
+                .orElse(false);
+    }
+
     public boolean hasPersonnelAuthority(Long employeeId) {
         if (employeeId == null) {
             return false;
