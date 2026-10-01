@@ -610,6 +610,8 @@ class OrganizationPolicyRegressionTest {
                 TODAY.minusYears(1), null);
         when(teamManagerRepository.findAllForCache())
                 .thenReturn(List.of(directManager, childManager));
+        when(teamManagerRepository.existsActiveManagerByEmployeeId(7L, TODAY))
+                .thenReturn(true);
 
         TeamService.ManagedScope scope =
                 teamService.findManagedScopeFromDatabase(7L);
