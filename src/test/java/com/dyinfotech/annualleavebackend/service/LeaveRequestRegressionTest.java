@@ -188,7 +188,7 @@ class LeaveRequestRegressionTest {
 
         assertEquals(403, exception.getStatusCode().value());
         verify(leaveRequestRepository, never()).searchLeaveRequestsPage(
-                any(), any(), any(), any(), any(), any(), any(Integer.class), any(Integer.class));
+                any(), any(), any(), any(), any(), any(), any(Integer.class), any(Integer.class), any(Integer.class));
     }
 
     @Test
@@ -203,6 +203,7 @@ class LeaveRequestRegressionTest {
                 eq(Set.of("관리팀", "하위팀")),
                 org.mockito.ArgumentMatchers.isNull(),
                 eq(0),
+                eq(50),
                 eq(50)))
                 .thenReturn(List.of());
 
@@ -227,6 +228,7 @@ class LeaveRequestRegressionTest {
                 eq(Set.of("관리팀", "하위팀")),
                 org.mockito.ArgumentMatchers.isNull(),
                 eq(0),
+                eq(50),
                 eq(50));
     }
 
