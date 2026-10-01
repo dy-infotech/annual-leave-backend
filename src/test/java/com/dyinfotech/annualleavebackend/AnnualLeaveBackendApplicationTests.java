@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import com.dyinfotech.annualleavebackend.common.cache.EmployeeCacheInvalidator;
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
@@ -43,6 +44,7 @@ class AnnualLeaveBackendApplicationTests {
                 mock(TeamService.class),
                 mock(EmployeeRepository.class),
                 mock(EmployeeCacheInvalidator.class),
+                mock(PlatformTransactionManager.class),
                 Clock.fixed(
                         Instant.parse("2026-09-28T00:00:00Z"),
                         ZoneId.of("Asia/Seoul")
