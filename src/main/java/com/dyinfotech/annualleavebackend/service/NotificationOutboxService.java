@@ -65,15 +65,22 @@ public class NotificationOutboxService {
     @Transactional
     public Optional<ClaimedNotification> claim(Long outboxId) {
         NotificationOutbox outbox = repository.findByIdForUpdate(outboxId).orElse(null);
-        if (outbox == null || !outbox.claim(LocalDateTime.now(clock))) {
+        if (outbox == null) {
             return Optional.empty();
         }
 
-        Set<Long> approverIds = new LinkedHashSet<>();
-        for (String value : outbox.getApproverIds().split(",")) {
-            if (!value.isBlank()) {
-                approverIds.add(Long.parseLong(value));
-            }
+        LocalDateTime now = LocalDateTime.now(clock);
+        Set<Long> approverIds;
+        try {
+            approverIds = parseApproverIds(outbox.getApproverIds());
+        } catch (RuntimeException e) {
+            // 손상된 payload가 매 poll마다 가장 앞에서 worker 전체를 막지 않도록 영구 격리한다.
+            outbox.markDead(now, "invalid approver_ids: " + e.getMessage());
+            return Optional.empty();
+        }
+
+        if (!outbox.claim(now)) {
+            return Optional.empty();
         }
 
         return Optional.of(new ClaimedNotification(
@@ -81,6 +88,28 @@ public class NotificationOutboxService {
                 approverIds,
                 outbox.getTitle(),
                 outbox.getBody()));
+    }
+
+    private Set<Long> parseApproverIds(String encodedIds) {
+        if (encodedIds == null || encodedIds.isBlank()) {
+            throw new IllegalArgumentException("approver_ids is empty");
+        }
+
+        Set<Long> approverIds = new LinkedHashSet<>();
+        for (String value : encodedIds.split(",")) {
+            if (value.isBlank()) {
+                continue;
+            }
+            long employeeId = Long.parseLong(value.trim());
+            if (employeeId <= 0) {
+                throw new IllegalArgumentException("employee id must be positive");
+            }
+            approverIds.add(employeeId);
+        }
+        if (approverIds.isEmpty()) {
+            throw new IllegalArgumentException("approver_ids has no valid employee id");
+        }
+        return approverIds;
     }
 
     @Transactional
