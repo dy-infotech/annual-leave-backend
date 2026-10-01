@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -73,7 +74,8 @@ public class LeaveRequestController {
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
-            @RequestParam(value = "cursorRequestedAt", required = false) LocalDateTime cursorRequestedAt,
+            @RequestParam(value = "cursorRequestedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorRequestedAt,
             @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
             @AuthenticationPrincipal EmployeePrincipal principal
     ) {
@@ -114,7 +116,8 @@ public class LeaveRequestController {
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
-            @RequestParam(value = "cursorRequestedAt", required = false) LocalDateTime cursorRequestedAt,
+            @RequestParam(value = "cursorRequestedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorRequestedAt,
             @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId
     ) {
     	condition.setEmployeeId(principal.employeeId());
