@@ -1,6 +1,7 @@
 package com.dyinfotech.annualleavebackend.controller;
 
 import com.dyinfotech.annualleavebackend.common.security.EmployeePrincipal;
+import com.dyinfotech.annualleavebackend.common.security.ReplayAwareApproval;
 import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
@@ -72,12 +73,14 @@ public class LeaveApprovalController {
     }
 
     @Operation(summary = "휴가 승인", description = "관리자가 휴가 요청을 승인한다.")
+    @ReplayAwareApproval
     @PostMapping("/{requestId}/approve")
     public LeaveApprovalDto.LeaveApprovalResponse approveLeaveRequest(@PathVariable("requestId") Long requestId, @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.approveLeaveRequest(requestId, principal.employeeId());
     }
 
     @Operation(summary = "휴가 반려", description = "관리자가 휴가 요청을 반려한다.")
+    @ReplayAwareApproval
     @PostMapping("/{requestId}/reject")
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(@PathVariable("requestId") Long requestId, @AuthenticationPrincipal EmployeePrincipal principal, @Valid @RequestBody LeaveRejectDto.LeaveRejectRequest request) {
         return leaveApprovalService.rejectLeaveRequest(requestId, principal.employeeId(), request);
