@@ -526,6 +526,60 @@ PROMPT [7/9] Remove legacy EMPLOYEE string columns
 ALTER TABLE employee DROP COLUMN department;
 ALTER TABLE employee DROP COLUMN team;
 
+PROMPT [7.4/9] Add leave request idempotency metadata
+
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND column_name = 'CREATE_REQUEST_KEY';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request ADD (create_request_key VARCHAR2(128 CHAR))';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND column_name = 'CREATE_REQUEST_HASH';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request ADD (create_request_hash VARCHAR2(64 CHAR))';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_constraints
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND constraint_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request ADD CONSTRAINT uk_leave_request_create_request '
+            || 'UNIQUE (employee_id, create_request_key)';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_constraints
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND constraint_name = 'CK_LEAVE_REQUEST_CREATE_PAIR';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request ADD CONSTRAINT ck_leave_request_create_pair CHECK '
+            || '((create_request_key IS NULL AND create_request_hash IS NULL) '
+            || 'OR (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL))';
+    END IF;
+END;
+/
+
 PROMPT [7.5/9] Create v2 query indexes
 
 DECLARE
