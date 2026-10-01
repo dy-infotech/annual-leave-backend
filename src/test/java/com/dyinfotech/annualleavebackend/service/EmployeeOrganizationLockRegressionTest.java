@@ -64,6 +64,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         
 
         when(employee.getEmployeeId()).thenReturn(1L);
@@ -120,6 +122,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(employee.getTeamId()).thenReturn(10L);
         when(employee.getTeam()).thenReturn(team);
@@ -185,6 +189,8 @@ class EmployeeOrganizationLockRegressionTest {
 
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(employee.getName()).thenReturn("직원");
         when(employee.getTeamId()).thenReturn(10L);
@@ -242,6 +248,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
 
         when(employee.getEmployeeId()).thenReturn(1L);
@@ -302,6 +310,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
         when(request.getManagedTeams()).thenReturn(List.of("T1", "T2"));
@@ -349,6 +359,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(40L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
@@ -400,6 +412,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
         when(request.getExpectedManagedTeams()).thenReturn(List.of("T1"));
         when(request.getManagedTeams()).thenReturn(List.of("T1", "T2"));
@@ -446,6 +460,8 @@ class EmployeeOrganizationLockRegressionTest {
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
         when(employee.getEmployeeId()).thenReturn(1L);
 
@@ -495,6 +511,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(initialEmployee.getEmployeeId()).thenReturn(1L);
         when(initialEmployee.getName()).thenReturn("과거이름");
         when(initialEmployee.getTeamId()).thenReturn(10L);
@@ -560,6 +577,7 @@ class EmployeeOrganizationLockRegressionTest {
         when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(initialEmployee.getEmployeeId()).thenReturn(1L);
         when(initialEmployee.getName()).thenReturn("과거이름");
         when(initialEmployee.getTeamId()).thenReturn(10L);
