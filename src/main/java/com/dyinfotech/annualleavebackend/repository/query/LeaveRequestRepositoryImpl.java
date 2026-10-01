@@ -161,6 +161,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 	}
 
 	@Override
+	// 대기 신청과 처리 완료 신청의 조회 범위를 각각 구성한다
 	public List<LeaveRequestStatusCount> countByStatus(Long excludeId, Collection<String> directTeams, Collection<String> accessibleTeams, Collection<Long> childTeamProjectManagerIds, LocalDate startDate, LocalDate endDate) {
 		BooleanExpression directTeamCondition = qLeaveRequest.employee.team.teamName.in(directTeams);
 		if (excludeId != null) {
@@ -248,6 +249,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 		return count != null ? count : 0L;
 	}
 
+	// 대기 신청 조회에 공통으로 사용할 조건과 정렬을 구성한다
 	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> pendingBaseQuery(
 			LeaveRequestStatus status,
 			BooleanExpression targetCondition,
@@ -297,7 +299,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 						                )
 						                .execute();
 
-		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
+		// 변경 쿼리 후 기존 영속성 상태를 비운다
 	    entityManager.clear();
 	    
 	    return result;
@@ -305,6 +307,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 
 	@Override
 	@Transactional
+	// 대기 중이거나 시작 전 승인 신청만 취소 대상으로 제한한다
 	public int cancelLeaveRequest(Long requestId, Long employeeId, LocalDate today) {
 		BooleanExpression cancelableStatus = qLeaveRequest.status.eq(LeaveRequestStatus.PENDING)
 													.or(qLeaveRequest.status.eq(LeaveRequestStatus.APPROVED)
@@ -366,6 +369,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 		return count != null ? count : 0L;
 	}
 
+	// 신청 목록 조회에 공통으로 사용할 조건과 정렬을 구성한다
 	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> searchBaseQuery(
 			BooleanBuilder builder,
 			LocalDate startDate,

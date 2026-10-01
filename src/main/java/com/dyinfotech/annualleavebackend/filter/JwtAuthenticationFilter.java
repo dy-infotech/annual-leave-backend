@@ -41,6 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String token = resolveToken(request);
 
+        // 토큰이 있으면 현재 계정 상태까지 확인해 인증 정보를 구성한다
         if (token != null) {
             final Long employeeId;
             final String roleData;
@@ -64,6 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
+            // 현재 직원 상태와 비밀번호 변경 여부를 다시 확인한다
             var employee = employeeRepository.findById(employeeId).orElse(null);
             if (employee == null || !employee.isActive(LocalDate.now(clock))) {
                 sendUnauthorizedResponse(response, "현재 사용할 수 없는 계정입니다. 다시 로그인해주세요.");
@@ -77,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // JWT role은 로그인 시점 snapshot이며 인가 근거로 사용하지 않는다.
+            // 토큰의 역할은 인증 정보로만 보관하고 실제 권한은 별도로 확인한다
             var authentication = new UsernamePasswordAuthenticationToken(
                     new EmployeePrincipal(employeeId, role, employee.hasPersonnelAuthority()),
                     null,
@@ -86,6 +88,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authentication);
         }
 
+        // 인증 처리가 끝나면 다음 필터로 요청을 넘긴다
         filterChain.doFilter(request, response);
     }
 

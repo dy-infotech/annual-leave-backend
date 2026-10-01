@@ -47,6 +47,7 @@ public class CommonService {
 		return DateUtils.getLeaveYearEndDate(hireDate, targetDate);
 	}
 
+	// 직원별 현재 연도 사용 연차를 한 번에 조회한다
 	private Map<Long, Float> getUsedLeaveDaysByEmployee(List<Employee> employees, LocalDate today) {
 		if (employees.isEmpty()) {
 			return Map.of();
@@ -72,6 +73,7 @@ public class CommonService {
         return getRemainingDays(employee, employeeLeaveService.getCalculatedCurrYearLeaveDays(employee), usedDays);
 	}
 
+	// 발생 연차와 조정 연차에서 사용 연차를 차감한다
 	public float getRemainingDaysByCurrTotalLeaveDays(Employee employee, float currTotalLeaveDays) {
 		LocalDate today = LocalDate.now(clock);
 		Year currentYear = Year.from(today);
@@ -90,6 +92,7 @@ public class CommonService {
 		return getRemainingDaysByCurrTotalLeaveDays(employee, employee.getCurrTotalLeaveDays());
 	}
 	
+	// 여러 직원의 사용량과 조정량을 모아 잔여 연차를 계산한다
 	public Map<Long, Float> getRemainingDays(List<Employee> employees) {
 		if (employees.isEmpty()) {
 			return Map.of();
@@ -115,6 +118,7 @@ public class CommonService {
 	}
 
     private static final DateTimeFormatter YYYY_MM_DD = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+	// 회사 기준일과 조회 가능 기간 안의 날짜인지 확인한다
 	public void isValidDate(LocalDate startDate, LocalDate endDate) throws ResponseStatusException {
 		if (startDate != null && startDate.isBefore(CommonConfig.COMPANY_ANNIVERSARY.toLocalDate())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "회사 창립 기념일보다 이전 날짜를 요청할 수 없습니다. 요청한 시작일: " + startDate.format(YYYY_MM_DD) + ", 창립기념일: " + CommonConfig.COMPANY_ANNIVERSARY.toLocalDate().format(YYYY_MM_DD));

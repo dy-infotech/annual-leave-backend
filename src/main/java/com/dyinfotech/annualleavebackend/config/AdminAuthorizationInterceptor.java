@@ -39,6 +39,7 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
             return true;
         }
 
+        // 인증된 직원 정보를 꺼내 요청별 권한 규칙을 적용한다
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null
                 || !(authentication.getPrincipal() instanceof EmployeePrincipal principal)) {
@@ -52,7 +53,7 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
                 return true;
             }
             if (requiresPersonnelAuthority(handlerMethod)) {
-                // personnelAuthority는 JwtAuthenticationFilter가 매 요청 DB Employee에서 계산한다.
+                // 현재 요청의 인사권 보유 여부를 검증한다
                 currentAuthorityService.requireAuthenticatedPersonnelAuthority(
                         principal.personnelAuthority());
                 return true;

@@ -87,6 +87,7 @@ public class DepartmentService {
     }
 
     @Transactional
+    // 조직 변경을 잠근 뒤 현재 인사권을 확인한다
     public Long createDepartment(Long requesterId, String departmentName) {
         teamService.lockHierarchyForUpdate();
         requireCurrentPersonnelAuthorityForWrite(requesterId);
@@ -112,6 +113,7 @@ public class DepartmentService {
     }
 
     @Transactional
+    // 대상 부서를 잠근 뒤 이름 변경 조건을 확인한다
     public void renameDepartment(Long requesterId, Long departmentId, String departmentName) {
         Department department = departmentRepository.findByIdForUpdate(departmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
@@ -140,11 +142,12 @@ public class DepartmentService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
         }
 
-        // Employee 응답에는 부서명이 포함되므로 해당 파생 캐시는 함께 만료한다.
+        // 부서명 변경 후 관련 직원 응답 캐시도 갱신한다
         cacheInvalidator.afterDepartmentChange(Set.of(oldName, name), true);
     }
 
     @Transactional
+    // 소속 팀이 없는 부서만 비활성화한다
     public void deleteDepartment(Long requesterId, Long departmentId) {
         Department department = departmentRepository.findByIdForUpdate(departmentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "부서 정보를 찾을 수 없습니다."));
