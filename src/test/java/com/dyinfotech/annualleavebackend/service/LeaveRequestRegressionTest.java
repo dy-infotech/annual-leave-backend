@@ -129,8 +129,6 @@ class LeaveRequestRegressionTest {
 
     @Test
     void searchManagedLeaveRequests_withoutManagedTeam_isForbidden() {
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of());
-
         LeaveRequestListDto.LeaveRequestListRequest condition =
                 new LeaveRequestListDto.LeaveRequestListRequest(
                         null, null, REQUEST_DATE, REQUEST_DATE, null, null);
@@ -153,11 +151,8 @@ class LeaveRequestRegressionTest {
 
     @Test
     void searchManagedLeaveRequests_limitsQueryToManagedHierarchy() {
-        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
-        TeamService.ManagedTeam child = managedTeam(11L, "하위팀", 10L, "관리팀");
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
-        when(teamService.getSelfAndDescendants("관리팀"))
-                .thenReturn(Set.of(root, child));
+        when(teamService.findManagedTeamNamesWithDescendantsFromDatabase(EMPLOYEE_ID))
+                .thenReturn(Set.of("관리팀", "하위팀"));
         when(leaveRequestRepository.searchLeaveRequestsPage(
                 org.mockito.ArgumentMatchers.isNull(),
                 eq(REQUEST_DATE),
@@ -209,12 +204,8 @@ class LeaveRequestRegressionTest {
         when(leaveRequestRepository.findDetailById(100L))
                 .thenReturn(java.util.Optional.of(leaveRequest));
 
-        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
-        TeamService.ManagedTeam child = managedTeam(11L, "하위팀", 10L, "관리팀");
-        when(currentAuthorityService.isAdmin(EMPLOYEE_ID)).thenReturn(true);
-        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
-        when(teamService.getSelfAndDescendants("관리팀"))
-                .thenReturn(Set.of(root, child));
+        when(teamService.findManagedTeamNamesWithDescendantsFromDatabase(EMPLOYEE_ID))
+                .thenReturn(Set.of("관리팀", "하위팀"));
 
         var response = leaveRequestService.getLeaveRequestDetail(100L, EMPLOYEE_ID);
 
@@ -284,8 +275,6 @@ class LeaveRequestRegressionTest {
         when(leaveRequest.getCurrTotalLeaveDays()).thenReturn(9.0f);
         when(leaveRequestRepository.findDetailById(101L))
                 .thenReturn(java.util.Optional.of(leaveRequest));
-        when(currentAuthorityService.isAdmin(EMPLOYEE_ID)).thenReturn(false);
-
         var response = leaveRequestService.getLeaveRequestDetail(
                 101L,
                 EMPLOYEE_ID);
