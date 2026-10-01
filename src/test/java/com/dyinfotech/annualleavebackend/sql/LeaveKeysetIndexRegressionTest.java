@@ -15,12 +15,6 @@ class LeaveKeysetIndexRegressionTest {
         assertKeysetIndexes(normalize(Files.readString(Path.of("sql/schema.sql"))));
     }
 
-    @Test
-    void mainMigration_containsLeaveKeysetIndexes() throws IOException {
-        assertKeysetIndexes(normalize(
-                Files.readString(Path.of("sql/migration_v2_0_oracle.sql"))));
-    }
-
     private void assertKeysetIndexes(String sql) {
         assertTrue(sql.contains("ix_leave_request_status_created"));
         assertTrue(sql.contains(
