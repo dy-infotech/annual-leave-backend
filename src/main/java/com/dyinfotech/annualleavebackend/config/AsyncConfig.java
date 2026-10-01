@@ -26,19 +26,6 @@ public class AsyncConfig {
 	}
 	
 	// FcmService에서 명시한 "fcmExecutor" 빈을 정의합니다.
-    @Bean(name = "mailExecutor")
-    Executor mailExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(4);
-        executor.setQueueCapacity(100);
-        executor.setThreadNamePrefix("mail-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(30);
-        executor.initialize();
-        return executor;
-    }
-
     @Bean(name = "fcmExecutor")
     Executor fcmExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
