@@ -47,7 +47,7 @@ class LeaveRequestRegressionTest {
     private LeaveRequestRepository leaveRequestRepository;
     private EmployeeRepository employeeRepository;
     private EmployeeLeaveService employeeLeaveService;
-    private NotificationOutboxService notificationOutboxService;
+    private NotificationService notificationService;
     private HolidaySyncService holidaySyncService;
     private CommonService commonService;
     private TeamService teamService;
@@ -60,7 +60,7 @@ class LeaveRequestRegressionTest {
         leaveRequestRepository = mock(LeaveRequestRepository.class);
         employeeRepository = mock(EmployeeRepository.class);
         employeeLeaveService = mock(EmployeeLeaveService.class);
-        notificationOutboxService = mock(NotificationOutboxService.class);
+        notificationService = mock(NotificationService.class);
         holidaySyncService = mock(HolidaySyncService.class);
         commonService = mock(CommonService.class);
         teamService = mock(TeamService.class);
@@ -71,7 +71,7 @@ class LeaveRequestRegressionTest {
                 leaveRequestRepository,
                 employeeRepository,
                 employeeLeaveService,
-                notificationOutboxService,
+                notificationService,
                 holidaySyncService,
                 commonService,
                 teamService,
