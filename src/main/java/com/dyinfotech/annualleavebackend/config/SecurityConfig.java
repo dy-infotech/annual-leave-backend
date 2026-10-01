@@ -51,6 +51,8 @@ public class SecurityConfig {
                         // signin/refresh/logout 등 인증 lifecycle은 HttpOnly refresh cookie와
                         // X-SSO-Refresh 헤더로 보호하므로 access JWT가 없어도 접근할 수 있다.
                         .requestMatchers("/api/auth/**").permitAll()
+                        // 배포 직후 loopback HTTP readiness 검사용. 민감정보나 DB 내용을 반환하지 않는다.
+                        .requestMatchers("/api/health").permitAll()
 
                         // JWT role은 로그인 시점 snapshot이므로 최종 권한 근거로 사용하지 않는다.
                         // /api/admin/**의 현재 권한은 AdminAuthorizationInterceptor가 중앙 검증한다.
