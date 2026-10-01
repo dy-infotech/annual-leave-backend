@@ -291,15 +291,59 @@ class NotificationFcmRegressionTest {
 
 
     @Test
+    void inactiveCleanup_advancesCursorInBoundedBatches() {
+        FcmToken first = mock(FcmToken.class);
+        FcmToken second = mock(FcmToken.class);
+        FcmToken firstCurrent = mock(FcmToken.class);
+        FcmToken secondCurrent = mock(FcmToken.class);
+
+        when(first.getTokenId()).thenReturn(10L);
+        when(first.getToken()).thenReturn("token-10");
+        when(first.getEmployeeId()).thenReturn(OLD_EMPLOYEE_ID);
+        when(second.getTokenId()).thenReturn(20L);
+        when(second.getToken()).thenReturn("token-20");
+        when(second.getEmployeeId()).thenReturn(OLD_EMPLOYEE_ID);
+        when(firstCurrent.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(secondCurrent.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+
+        when(tokenRepository.findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(0L)))
+                .thenReturn(java.util.List.of(first));
+        when(tokenRepository.findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(10L)))
+                .thenReturn(java.util.List.of(second));
+        when(tokenRepository.findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(20L)))
+                .thenReturn(java.util.List.of());
+        when(tokenRepository.findByToken("token-10")).thenReturn(Optional.of(firstCurrent));
+        when(tokenRepository.findByToken("token-20")).thenReturn(Optional.of(secondCurrent));
+
+        notificationService.cleanupInactiveTokens(LocalDateTime.of(2026, 10, 1, 0, 0), 3);
+
+        verify(tokenRepository).findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(0L));
+        verify(tokenRepository).findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(10L));
+        verify(tokenRepository).findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(20L));
+        verify(fcmService, never()).unsubscribeTopics(any(), any());
+    }
+
+    @Test
     void inactiveCleanup_skipsDeleteWhenTokenOwnerChangedBeforeSerializedCleanup() {
         FcmToken staleSnapshot = mock(FcmToken.class);
         FcmToken currentToken = mock(FcmToken.class);
+        when(staleSnapshot.getTokenId()).thenReturn(1L);
         when(staleSnapshot.getToken()).thenReturn(TOKEN);
         when(staleSnapshot.getEmployeeId()).thenReturn(OLD_EMPLOYEE_ID);
         when(currentToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
 
-        when(tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(any(LocalDateTime.class)))
+        when(tokenRepository.findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(0L)))
                 .thenReturn(java.util.List.of(staleSnapshot));
+        when(tokenRepository.findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                any(LocalDateTime.class), eq(1L)))
+                .thenReturn(java.util.List.of());
         when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(currentToken));
 
         notificationService.cleanupInactiveTokens(LocalDateTime.of(2026, 10, 1, 0, 0), 3);
