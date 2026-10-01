@@ -79,7 +79,7 @@ public class LeaveRequestController {
             @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
             @AuthenticationPrincipal EmployeePrincipal principal
     ) {
-        return leaveRequestService.searchLeaveRequestsPage(
+        return leaveRequestService.searchManagedLeaveRequestsPage(
                 condition, principal.employeeId(), page, size,
                 cursorRequestedAt, cursorRequestId);
     }

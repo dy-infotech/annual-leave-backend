@@ -128,6 +128,98 @@ class LeaveRequestRegressionTest {
     }
 
     @Test
+    void searchManagedLeaveRequests_withoutManagedTeam_isForbidden() {
+        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of());
+
+        LeaveRequestListDto.LeaveRequestListRequest condition =
+                new LeaveRequestListDto.LeaveRequestListRequest(
+                        null, null, REQUEST_DATE, REQUEST_DATE, null, null);
+
+        ResponseStatusException exception =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        ResponseStatusException.class,
+                        () -> leaveRequestService.searchManagedLeaveRequestsPage(
+                                condition,
+                                EMPLOYEE_ID,
+                                0,
+                                50,
+                                null,
+                                null));
+
+        assertEquals(403, exception.getStatusCode().value());
+        verify(leaveRequestRepository, never()).searchLeaveRequestsPage(
+                any(), any(), any(), any(), any(), any(), any(Integer.class), any(Integer.class));
+    }
+
+    @Test
+    void searchManagedLeaveRequests_limitsQueryToManagedHierarchy() {
+        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
+        TeamService.ManagedTeam child = managedTeam(11L, "하위팀", 10L, "관리팀");
+        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
+        when(teamService.getSelfAndDescendants("관리팀"))
+                .thenReturn(Set.of(root, child));
+        when(leaveRequestRepository.searchLeaveRequestsPage(
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(REQUEST_DATE),
+                eq(REQUEST_DATE),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(Set.of("관리팀", "하위팀")),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(0),
+                eq(50)))
+                .thenReturn(List.of());
+
+        LeaveRequestListDto.LeaveRequestListRequest condition =
+                new LeaveRequestListDto.LeaveRequestListRequest(
+                        null, null, REQUEST_DATE, REQUEST_DATE, null, null);
+
+        var result = leaveRequestService.searchManagedLeaveRequestsPage(
+                condition,
+                EMPLOYEE_ID,
+                0,
+                50,
+                null,
+                null);
+
+        assertEquals(0, result.size());
+        verify(leaveRequestRepository).searchLeaveRequestsPage(
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(REQUEST_DATE),
+                eq(REQUEST_DATE),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(Set.of("관리팀", "하위팀")),
+                org.mockito.ArgumentMatchers.isNull(),
+                eq(0),
+                eq(50));
+    }
+
+    @Test
+    void getLeaveRequestDetail_managerOutsideTargetHierarchy_isForbidden() {
+        Employee requester = mock(Employee.class);
+        when(requester.getEmployeeId()).thenReturn(2L);
+        when(requester.getTeamName()).thenReturn("타부서팀");
+
+        LeaveRequest leaveRequest = mock(LeaveRequest.class);
+        when(leaveRequest.getEmployee()).thenReturn(requester);
+        when(leaveRequestRepository.findDetailById(100L))
+                .thenReturn(java.util.Optional.of(leaveRequest));
+
+        TeamService.ManagedTeam root = managedTeam(10L, "관리팀", 10L, "관리팀");
+        when(teamService.findManagedTeams(EMPLOYEE_ID)).thenReturn(List.of(root));
+        when(teamService.getSelfAndDescendants("관리팀"))
+                .thenReturn(Set.of(root));
+
+        ResponseStatusException exception =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        ResponseStatusException.class,
+                        () -> leaveRequestService.getLeaveRequestDetail(
+                                100L,
+                                EMPLOYEE_ID));
+
+        assertEquals(403, exception.getStatusCode().value());
+    }
+
+    @Test
     void remainingDays_usesFiscalYearPeriod() {
         Employee employee = mockEmployee();
         CommonService service = new CommonService(leaveRequestRepository, employeeLeaveService, clock);
@@ -215,6 +307,23 @@ class LeaveRequestRegressionTest {
                 )
         );
         verify(leaveRequestRepository, never()).save(any(LeaveRequest.class));
+    }
+
+    private TeamService.ManagedTeam managedTeam(
+            Long teamId,
+            String teamName,
+            Long parentTeamId,
+            String parentTeamName) {
+        return new TeamService.ManagedTeam(
+                teamId,
+                teamName,
+                parentTeamId,
+                parentTeamName,
+                EMPLOYEE_ID,
+                "E0001",
+                "관리자",
+                "팀장",
+                null);
     }
 
     private Employee mockEmployee() {
