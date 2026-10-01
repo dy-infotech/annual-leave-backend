@@ -2,6 +2,8 @@ package com.dyinfotech.annualleavebackend.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -63,7 +65,7 @@ class AuthLogoutRegressionTest {
 
         var response = responseFuture.join();
         assertEquals(204, response.getStatusCode().value());
-        assertTrue(response.getHeaders().containsKey(HttpHeaders.SET_COOKIE));
+        assertNotNull(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
 
         verify(refreshTokenService).revoke("refresh-token");
         verify(authService).logout(10L, null);
@@ -134,7 +136,7 @@ class AuthLogoutRegressionTest {
                 null).join();
 
         assertEquals(204, response.getStatusCode().value());
-        assertFalse(response.getHeaders().containsKey(HttpHeaders.SET_COOKIE));
+        assertNull(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
         verify(refreshTokenService).revoke("old-refresh-token");
     }
 
