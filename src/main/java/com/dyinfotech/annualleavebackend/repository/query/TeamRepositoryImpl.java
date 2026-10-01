@@ -8,6 +8,7 @@ import com.dyinfotech.annualleavebackend.domain.Team;
 import com.dyinfotech.annualleavebackend.repository.projection.TeamCacheRow;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
@@ -15,14 +16,19 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class TeamRepositoryImpl implements TeamRepositoryCustom {
     private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
     private static final QTeam qTeam = QTeam.team;
 
     @Override
     public Optional<Team> findByIdForUpdate(Long teamId) {
-        return Optional.ofNullable(queryFactory.selectFrom(qTeam)
+        Team team = queryFactory.selectFrom(qTeam)
                 .where(qTeam.teamId.eq(teamId))
                 .setLockMode(LockModeType.PESSIMISTIC_WRITE)
-                .fetchOne());
+                .fetchOne();
+        if (team != null) {
+            entityManager.refresh(team, LockModeType.PESSIMISTIC_WRITE);
+        }
+        return Optional.ofNullable(team);
     }
 
     @Override
