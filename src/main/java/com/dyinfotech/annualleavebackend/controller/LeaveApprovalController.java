@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,7 +30,8 @@ public class LeaveApprovalController {
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
-            @RequestParam(value = "cursorCreatedAt", required = false) LocalDateTime cursorCreatedAt,
+            @RequestParam(value = "cursorCreatedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
             @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.getPendingRequests(
@@ -43,7 +45,8 @@ public class LeaveApprovalController {
             @RequestParam(value = "employeeParam", required = false) String employeeParam,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
-            @RequestParam(value = "cursorCreatedAt", required = false) LocalDateTime cursorCreatedAt,
+            @RequestParam(value = "cursorCreatedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
             @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.getApprovedRequests(
@@ -58,7 +61,8 @@ public class LeaveApprovalController {
             @RequestParam(value = "employeeParam", required = false) String employeeParam,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
-            @RequestParam(value = "cursorCreatedAt", required = false) LocalDateTime cursorCreatedAt,
+            @RequestParam(value = "cursorCreatedAt", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime cursorCreatedAt,
             @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
             @AuthenticationPrincipal EmployeePrincipal principal) {
         return leaveApprovalService.getRejectedRequests(
