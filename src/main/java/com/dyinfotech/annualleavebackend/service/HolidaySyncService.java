@@ -172,7 +172,7 @@ public class HolidaySyncService {
     	}
     }
 
-    private List<Holiday> parseHolidays(String jsonResponse, YearMonth requestedMonth) throws Exception {
+    List<Holiday> parseHolidays(String jsonResponse, YearMonth requestedMonth) throws Exception {
         JsonNode root = objectMapper.readTree(jsonResponse);
         JsonNode responseNode = root.path("response");
         JsonNode headerNode = responseNode.path("header");
