@@ -17,6 +17,8 @@ import com.dyinfotech.annualleavebackend.common.security.jwt.JwtProvider;
 import com.dyinfotech.annualleavebackend.common.type.Role;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -40,16 +42,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveToken(request);
 
         if (token != null) {
-            if (!jwtProvider.validateToken(token)) {
+            final Long employeeId;
+            final String roleData;
+            final Role role;
+            final String tokenCredentialVersion;
+            try {
+                Claims claims = jwtProvider.parseVerifiedClaims(token);
+                employeeId = Long.valueOf(claims.getSubject());
+                roleData = claims.get("role", String.class);
+                role = Role.getRole(roleData);
+                tokenCredentialVersion = claims.get("credentialVersion", String.class);
+            } catch (JwtException | IllegalArgumentException e) {
+                log.warn("[인증 실패] 유효하지 않거나 만료된 JWT: {}", e.getMessage());
                 sendUnauthorizedResponse(response, "유효하지 않거나 만료된 인증 정보입니다. 다시 로그인해주세요.");
                 return;
             }
 
-            Long employeeId = jwtProvider.getEmployeeId(token);
-            String roleData = jwtProvider.getRole(token);
-            Role role = Role.getRole(roleData);
-            if (role == null) {
-                log.warn("[인증 실패] 유효하지 않은 Role입니다. employeeId: {}, role: {}", employeeId, roleData);
+            if (role == null || tokenCredentialVersion == null) {
+                log.warn("[인증 실패] JWT claim이 유효하지 않습니다. employeeId: {}, role: {}", employeeId, roleData);
                 sendUnauthorizedResponse(response, "유효하지 않은 토큰 권한 정보입니다.");
                 return;
             }
@@ -60,7 +70,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String tokenCredentialVersion = jwtProvider.getCredentialVersion(token);
             String currentCredentialVersion = jwtProvider.createCredentialVersion(employee.getPassword());
             if (tokenCredentialVersion == null
                     || !Objects.equals(tokenCredentialVersion, currentCredentialVersion)) {
