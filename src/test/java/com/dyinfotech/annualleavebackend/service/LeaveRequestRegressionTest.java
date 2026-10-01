@@ -203,11 +203,15 @@ class LeaveRequestRegressionTest {
         when(employeeLeaveService.getCalculatedCurrYearLeaveDays(employee)).thenReturn(15.0f);
         when(holidaySyncService.findByYearRange(2026, 2026)).thenReturn(List.of());
 
+        LeaveRequestDto.LeaveRequestCreateRequest request =
+                createRequest(LeaveType.FAMILY.getName(), REQUEST_DATE, 2.0f);
+        setField(request, "leaveReason", "가족 돌봄");
+
         org.junit.jupiter.api.Assertions.assertThrows(
                 ResponseStatusException.class,
                 () -> leaveRequestService.createLeaveRequest(
                         EMPLOYEE_ID,
-                        createRequest(LeaveType.FAMILY.getName(), REQUEST_DATE, 2.0f)
+                        request
                 )
         );
         verify(leaveRequestRepository, never()).save(any(LeaveRequest.class));
