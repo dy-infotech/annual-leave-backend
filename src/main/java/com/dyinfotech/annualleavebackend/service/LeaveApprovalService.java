@@ -370,13 +370,14 @@ public class LeaveApprovalService {
 
     @Transactional
     public LeaveRejectDto.LeaveRejectResponse rejectLeaveRequest(Long requestId, Long approverId, LeaveRejectDto.LeaveRejectRequest request) {
+        String rejectReason = normalizeRejectReason(request.getRejectReason());
         // 조직 변경 write path와 동일한 mutex를 먼저 잡아 권한 검증부터 상태 전이까지 고정한다.
         teamService.lockHierarchyForUpdate();
         LeaveRequest current = leaveRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 휴가 신청 정보입니다."));
 
         // 동일 반려 결과의 재전송은 상태 변경이 아니므로 현재 결재권보다 먼저 판정한다.
-        if (isSameRejectionResult(current, approverId, request.getRejectReason())) {
+        if (isSameRejectionResult(current, approverId, rejectReason)) {
             return LeaveRejectDto.LeaveRejectResponse.from(current);
         }
 
@@ -387,7 +388,7 @@ public class LeaveApprovalService {
         long updatedCount = leaveRequestRepository.updateLeaveRequest(
                 requestId,
                 response.getValue(),		// approver
-                request.getRejectReason(),
+                rejectReason,
                 LeaveRequestStatus.PENDING,
                 LeaveRequestStatus.REJECTED,
                 now
@@ -397,7 +398,7 @@ public class LeaveApprovalService {
         if (updatedCount == 0) {
             LeaveRequest replayed = leaveRequestRepository.findById(requestId)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "해당 휴가 신청을 찾을 수 없습니다."));
-            if (isSameRejectionResult(replayed, approverId, request.getRejectReason())) {
+            if (isSameRejectionResult(replayed, approverId, rejectReason)) {
                 return LeaveRejectDto.LeaveRejectResponse.from(replayed);
             }
             log.error("이미 처리된 요청사항입니다. requestId: {}, status: {}", requestId, replayed.getStatus());
@@ -423,6 +424,14 @@ public class LeaveApprovalService {
         return leaveRequest.getStatus() == LeaveRequestStatus.REJECTED
                 && leaveRequest.getManager() != null
                 && Objects.equals(leaveRequest.getManager().getEmployeeId(), approverId)
-                && Objects.equals(leaveRequest.getRejectReason(), rejectReason);
+                && Objects.equals(
+                        normalizeRejectReason(leaveRequest.getRejectReason()),
+                        normalizeRejectReason(rejectReason));
+    }
+
+    private String normalizeRejectReason(String rejectReason) {
+        return rejectReason == null || rejectReason.isBlank()
+                ? null
+                : rejectReason;
     }
 }
