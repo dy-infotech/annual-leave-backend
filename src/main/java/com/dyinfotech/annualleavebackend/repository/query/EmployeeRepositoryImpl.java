@@ -144,6 +144,18 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
     }
     
     @Override
+    public List<Employee> findAllByIdsForUpdate(java.util.Collection<Long> employeeIds) {
+        if (employeeIds == null || employeeIds.isEmpty()) {
+            return List.of();
+        }
+        return queryFactory.selectFrom(qEmployee)
+                .where(qEmployee.employeeId.in(employeeIds))
+                .orderBy(qEmployee.employeeId.asc())
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetch();
+    }
+
+    @Override
     public Optional<Employee> findByIdForUpdate(Long employeeId) {
         Employee employee = queryFactory.selectFrom(qEmployee)
                 .where(qEmployee.employeeId.eq(employeeId))
