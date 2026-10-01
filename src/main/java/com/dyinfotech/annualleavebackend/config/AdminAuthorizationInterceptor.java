@@ -45,9 +45,10 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
 
         if (handler instanceof HandlerMethod handlerMethod
                 && requiresPersonnelAuthority(handlerMethod)) {
-            currentAuthorityService.requirePersonnelAuthority(principal.employeeId());
+            currentAuthorityService.requireAuthenticatedPersonnelAuthority(
+                    principal.personnelAuthority());
         } else {
-            currentAuthorityService.requireAdmin(principal.employeeId());
+            currentAuthorityService.requireAuthenticatedAdmin(principal.employeeId());
         }
 
         return true;

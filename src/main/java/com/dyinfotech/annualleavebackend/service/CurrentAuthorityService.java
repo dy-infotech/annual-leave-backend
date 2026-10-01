@@ -47,6 +47,20 @@ public class CurrentAuthorityService {
                 .orElse(false);
     }
 
+    public void requireAuthenticatedAdmin(Long employeeId) {
+        if (employeeId == null || !teamService.isTeamManager(employeeId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "인가되지 않은 사용자입니다. 다시 로그인해주세요.");
+        }
+    }
+
+    public void requireAuthenticatedPersonnelAuthority(boolean personnelAuthority) {
+        if (!personnelAuthority) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "인사권을 가진 관리자가 아닙니다.");
+        }
+    }
+
     public void requireAdmin(Long employeeId) {
         Employee employee = requireEmployee(employeeId);
         if (!employee.isActive(LocalDate.now(clock)) || !teamService.isTeamManager(employeeId)) {

@@ -1,5 +1,6 @@
 package com.dyinfotech.annualleavebackend.controller;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import org.springframework.http.CacheControl;
@@ -64,7 +65,7 @@ public class AuthController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(refresh).toString())
-                .body(access);
+                .body(withSessionMarker(access, refresh.sessionMarker()));
     }
 
     @Operation(summary = "Access Token 갱신", description = "공통 Refresh Token Rotation으로 annual-leave Access JWT를 재발급한다.")
@@ -85,7 +86,7 @@ public class AuthController {
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(result.refresh()).toString())
-                    .body(result.access());
+                    .body(withSessionMarker(result.access(), result.refresh().sessionMarker()));
         } catch (ResponseStatusException e) {
             if (e.getStatusCode().value() != HttpStatus.CONFLICT.value()) {
                 response.addHeader(HttpHeaders.SET_COOKIE, refreshTokenCookieService.clear().toString());
@@ -118,6 +119,19 @@ public class AuthController {
     public ResponseEntity<Void> resetPassword(@Valid @RequestBody FindDataDto.ResetPasswordRequest request) {
         passwordResetService.confirmReset(request);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "현재 SSO 세션 식별", description = "명시 로그아웃한 세션과 이후 다른 시스템에서 생성된 새 SSO 세션을 구분한다.")
+    @PostMapping("/session-marker")
+    public ResponseEntity<Map<String, String>> sessionMarker(HttpServletRequest request) {
+        requireRefreshRequestHeader(request);
+        String token = refreshTokenCookieService.read(request);
+        if (token == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh token이 없습니다.");
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(Map.of("sessionMarker", refreshTokenService.currentSessionMarker(token)));
     }
 
     @Operation(summary = "아이디 찾기", description = "성함, 이메일을 입력하면 등록된 이메일로 아이디가 발송된다.")
@@ -181,6 +195,19 @@ public class AuthController {
                                 HttpHeaders.SET_COOKIE,
                                 refreshTokenCookieService.clear().toString())
                         .build());
+    }
+
+    private SignInDto.SignInResponse withSessionMarker(
+            SignInDto.SignInResponse access,
+            String sessionMarker) {
+        return SignInDto.SignInResponse.builder()
+                .token(access.getToken())
+                .employeeId(access.getEmployeeId())
+                .name(access.getName())
+                .role(access.getRole())
+                .email(access.getEmail())
+                .ssoSessionMarker(sessionMarker)
+                .build();
     }
 
     private void requireRefreshRequestHeader(HttpServletRequest request) {

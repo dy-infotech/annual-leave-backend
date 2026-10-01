@@ -70,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             // JWT role은 로그인 시점 snapshot이며 인가 근거로 사용하지 않는다.
             var authentication = new UsernamePasswordAuthenticationToken(
-                    new EmployeePrincipal(employeeId, role),
+                    new EmployeePrincipal(employeeId, role, employee.hasPersonnelAuthority()),
                     null,
                     List.of()
             );

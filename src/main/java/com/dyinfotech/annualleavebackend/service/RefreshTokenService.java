@@ -22,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
-    public record IssuedRefreshToken(String token, Instant expiresAt) {}
+    public record IssuedRefreshToken(String token, Instant expiresAt, String sessionMarker) {}
     public record RefreshResult(SignInDto.SignInResponse access, IssuedRefreshToken refresh) {}
 
     private final RefreshTokenSessionRepository repository;
@@ -49,7 +49,7 @@ public class RefreshTokenService {
                 idle,
                 absolute));
 
-        return new IssuedRefreshToken(token, toInstant(idle));
+        return new IssuedRefreshToken(token, toInstant(idle), codec.sessionMarker(sessionId));
     }
 
     @Transactional(noRollbackFor = {RefreshRejectedException.class, RefreshAlreadyRotatedException.class})
@@ -112,7 +112,36 @@ public class RefreshTokenService {
 
         return new RefreshResult(
                 access,
-                new IssuedRefreshToken(nextToken, toInstant(nextIdle)));
+                new IssuedRefreshToken(
+                        nextToken,
+                        toInstant(nextIdle),
+                        codec.sessionMarker(session.getSessionId())));
+    }
+
+    @Transactional(readOnly = true)
+    public String currentSessionMarker(String presentedToken) {
+        RefreshTokenCodec.ParsedToken parsed = codec.parse(presentedToken)
+                .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
+        RefreshTokenSession session = repository.findById(parsed.sessionId())
+                .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
+
+        LocalDateTime now = nowUtc();
+        if (session.isRevoked() || session.isExpired(now)) {
+            throw new RefreshRejectedException("현재 사용할 수 없는 refresh session입니다.");
+        }
+
+        int currentGeneration = session.getRotationCount();
+        boolean current = parsed.generation() == currentGeneration
+                && constantEquals(session.getTokenHash(), parsed.tokenHash());
+        boolean previous = parsed.generation() == currentGeneration - 1
+                && constantEquals(session.getPreviousTokenHash(), parsed.tokenHash())
+                && session.getPreviousValidUntil() != null
+                && now.isBefore(session.getPreviousValidUntil());
+
+        if (!current && !previous) {
+            throw new RefreshRejectedException("유효하지 않은 refresh token입니다.");
+        }
+        return codec.sessionMarker(session.getSessionId());
     }
 
     @Transactional

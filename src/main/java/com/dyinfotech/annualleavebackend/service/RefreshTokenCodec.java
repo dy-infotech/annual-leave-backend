@@ -66,6 +66,13 @@ public class RefreshTokenCodec {
         }
     }
 
+    public String sessionMarker(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new IllegalArgumentException("refresh session id가 필요합니다.");
+        }
+        return hmac("session." + sessionId);
+    }
+
     public String hash(String token) {
         try {
             byte[] digest = MessageDigest.getInstance(HASH_ALGORITHM)

@@ -20,9 +20,13 @@ public final class ClientIpResolver {
 
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (isUsable(forwardedFor)) {
-            String firstHop = forwardedFor.split(",")[0].trim();
-            if (!firstHop.isBlank()) {
-                return firstHop;
+            String[] hops = forwardedFor.split(",");
+            for (int i = hops.length - 1; i >= 0; i--) {
+                String trustedProxyObservedClient = hops[i].trim();
+                if (!trustedProxyObservedClient.isBlank()
+                        && !"unknown".equalsIgnoreCase(trustedProxyObservedClient)) {
+                    return trustedProxyObservedClient;
+                }
             }
         }
 
