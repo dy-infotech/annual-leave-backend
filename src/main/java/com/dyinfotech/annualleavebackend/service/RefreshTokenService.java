@@ -146,8 +146,32 @@ public class RefreshTokenService {
 
     @Transactional
     public Long revoke(String presentedToken) {
+        return revokeInternal(presentedToken, null, false);
+    }
+
+    @Transactional
+    public Long revokeIfSessionMarker(
+            String presentedToken,
+            String expectedSessionMarker) {
+        if (expectedSessionMarker == null || expectedSessionMarker.isBlank()) {
+            return null;
+        }
+        return revokeInternal(presentedToken, expectedSessionMarker, true);
+    }
+
+    private Long revokeInternal(
+            String presentedToken,
+            String expectedSessionMarker,
+            boolean requireSessionMarker) {
         RefreshTokenCodec.ParsedToken parsed = codec.parse(presentedToken).orElse(null);
         if (parsed == null) return null;
+
+        if (requireSessionMarker
+                && !constantEquals(
+                        codec.sessionMarker(parsed.sessionId()),
+                        expectedSessionMarker)) {
+            return null;
+        }
 
         RefreshTokenSession session = repository.findByIdForUpdate(parsed.sessionId()).orElse(null);
         if (session == null) return null;
