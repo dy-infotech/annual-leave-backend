@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.type.PositionType;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
@@ -33,6 +34,18 @@ public class CurrentAuthorityService {
         return employeeRepository.findById(employeeId)
                 .filter(employee -> employee.isActive(LocalDate.now(clock)))
                 .map(employee -> teamService.isTeamManager(employeeId))
+                .orElse(false);
+    }
+
+    public boolean isCeo(Long employeeId) {
+        if (employeeId == null) {
+            return false;
+        }
+
+        return employeeRepository.findById(employeeId)
+                .filter(employee -> employee.isActive(LocalDate.now(clock)))
+                .map(employee -> PositionType.isCEO(
+                        PositionType.getType(employee.getPosition())))
                 .orElse(false);
     }
 
