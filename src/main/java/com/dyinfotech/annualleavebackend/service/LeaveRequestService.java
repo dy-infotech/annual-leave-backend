@@ -459,7 +459,7 @@ public class LeaveRequestService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
             LeaveRequestListDto.LeaveRequestListRequest condition) {
         // 내부 정합성 검사는 전체 결과를 사용한다. 외부 목록 API만 paging 한다.
-        return searchLeaveRequests(condition, null, false);
+        return searchLeaveRequests(condition, null, new LeaveVisibility(false, Set.of()));
     }
 
     @Transactional(readOnly = true)
@@ -505,7 +505,7 @@ public class LeaveRequestService {
                         size);
 
         // 이 메서드는 관리자 관리범위로 query 자체가 제한되므로 반환 row의 private 필드 조회를 허용한다.
-        return toListResponses(requests, currentEmployeeId, true);
+        return toListResponses(requests, currentEmployeeId, new LeaveVisibility(true, Set.of()));
     }
 
     private Set<String> requireAccessibleManagedTeamNames(Long managerEmployeeId) {
