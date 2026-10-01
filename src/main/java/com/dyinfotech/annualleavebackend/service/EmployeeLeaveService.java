@@ -140,17 +140,7 @@ public class EmployeeLeaveService {
                 continue;
             }
 
-            String prevYear = employee.getCurrYear();
-            if (prevYear != null && !prevYear.equals(currentYear)) {
-                // 계산 단계에서 오류가 나면 entity를 수정하기 전에 transaction 전체를
-                // rollback하여 부분 롤오버가 flush되지 않게 한다.
-                float nextLeaveDays = getCalculatedCurrYearLeaveDays(employee);
-                float previousTotalLeaveDays = employee.getCurrTotalLeaveDays();
-
-                employee.setPrevYear(prevYear);
-                employee.setPrevYearLeaveDays(previousTotalLeaveDays);
-                employee.setCurrYear(currentYear);
-                employee.setCurrYearLeaveDays(nextLeaveDays);
+            if (rolloverIfNeeded(employee, currentYear)) {
                 renewedEmployeeIds.add(employee.getEmployeeId());
                 log.info("직원 번호 [{}] 연차 갱신 완료", employee.getEmployeeNumber());
             } else {
@@ -163,6 +153,64 @@ public class EmployeeLeaveService {
         }
     }
     
+    public record LeaveYearState(
+            String currYear,
+            Float currTotalLeaveDays,
+            String prevYear,
+            Float prevTotalLeaveDays) {
+    }
+
+    /**
+     * 로그인 시에도 연간 scheduler와 같은 row lock/rollover 규칙을 사용해
+     * scheduler 미실행 또는 실패 이후의 연차 연도 상태를 멱등하게 복구한다.
+     *
+     * 같은 연도에서는 당해년도 월차 발생량 등 계산값만 최신화한다.
+     */
+    @Transactional
+    public LeaveYearState ensureCurrentLeaveYear(Long employeeId) {
+        LocalDate today = LocalDate.now(clock);
+        String currentYear = String.valueOf(today.getYear());
+
+        Employee employee = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 직원입니다. employeeId=" + employeeId));
+
+        boolean changed = rolloverIfNeeded(employee, currentYear);
+
+        float calculatedCurrYearLeaveDays = getCalculatedCurrYearLeaveDays(employee);
+        if (Float.compare(employee.getCurrTotalLeaveDays(), calculatedCurrYearLeaveDays) != 0) {
+            employee.setCurrYearLeaveDays(calculatedCurrYearLeaveDays);
+            changed = true;
+        }
+
+        if (changed) {
+            employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
+        }
+
+        return new LeaveYearState(
+                employee.getCurrYear(),
+                employee.getCurrTotalLeaveDays(),
+                employee.getPrevYear(),
+                employee.getPrevTotalLeaveDays());
+    }
+
+    private boolean rolloverIfNeeded(Employee employee, String currentYear) {
+        String previousCurrentYear = employee.getCurrYear();
+        if (previousCurrentYear == null || previousCurrentYear.equals(currentYear)) {
+            return false;
+        }
+
+        // 계산 실패 시 rollover 필드를 변경하기 전에 예외가 발생하도록 먼저 계산한다.
+        float nextLeaveDays = getCalculatedCurrYearLeaveDays(employee);
+        float previousTotalLeaveDays = employee.getCurrTotalLeaveDays();
+
+        employee.setPrevYear(previousCurrentYear);
+        employee.setPrevYearLeaveDays(previousTotalLeaveDays);
+        employee.setCurrYear(currentYear);
+        employee.setCurrYearLeaveDays(nextLeaveDays);
+        return true;
+    }
+
     /**
      * 직원의 현재 연도 연차일수를 계산해 반환한다
      * 
