@@ -41,7 +41,8 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
-                		// swagger 인증 없이 접근 가능 -> 회사 내 공인 IP만 허용
+                		// Swagger/OpenAPI는 application.yml에서 기본 비활성화한다.
+                		// 명시적으로 활성화한 개발/사내망 환경에서만 이 경로를 공개한다.
                 		.requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
