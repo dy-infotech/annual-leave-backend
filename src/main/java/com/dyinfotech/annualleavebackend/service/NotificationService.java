@@ -411,10 +411,11 @@ public class NotificationService {
 		}
 
         return fcmService.unsubscribeTopics(fcmToken, employeeId)
-                .thenAccept(success -> {
+                .thenCompose(success -> {
                     if (!success) {
                         log.warn("FCM topic unsubscribe 실패. employeeId={}", employeeId);
-                        throw new IllegalStateException("FCM topic unsubscribe 실패");
+                        return CompletableFuture.failedFuture(
+                                new IllegalStateException("FCM topic unsubscribe 실패"));
                     }
 
                     long deleted = expectedAuthSessionMarker == null
@@ -426,9 +427,14 @@ public class NotificationService {
 									employeeId,
 									expectedAuthSessionMarker);
                     if (deleted == 0) {
-                        log.info("FCM logout delete skipped because owner changed concurrently. requestEmployeeId={}",
+                        log.info(
+                                "FCM logout delete skipped because binding changed concurrently. requestEmployeeId={}",
                                 employeeId);
+                        // 다른 인스턴스가 새 owner/session binding을 확정한 뒤 기존 요청이
+                        // topic을 해제했을 수 있으므로 DB 정본의 현재 owner topic을 복구한다.
+                        return restoreCurrentTopicBinding(fcmToken);
                     }
+                    return CompletableFuture.completedFuture(null);
                 });
     }
 
@@ -528,10 +534,10 @@ public class NotificationService {
         }
 
         return fcmService.unsubscribeTopics(fcmToken, expectedEmployeeId)
-                .thenAccept(success -> {
+                .thenCompose(success -> {
                     if (!success) {
                         log.warn("비활성 FCM token topic 해제 실패. employeeId={}", expectedEmployeeId);
-                        return;
+                        return CompletableFuture.completedFuture(null);
                     }
 
                     long deleted = expectedAuthSessionMarker == null
@@ -544,9 +550,41 @@ public class NotificationService {
 									expectedAuthSessionMarker);
                     if (deleted == 0) {
                         log.info(
-                                "FCM inactive cleanup delete skipped because owner changed concurrently. employeeId={}",
+                                "FCM inactive cleanup delete skipped because binding changed concurrently. employeeId={}",
                                 expectedEmployeeId);
+                        // cleanup snapshot 이후 다른 인스턴스가 token을 새 세션에 재바인딩했을 수 있다.
+                        // 이미 실행된 unsubscribe의 외부 side effect를 현재 DB binding에 맞춰 보상한다.
+                        return restoreCurrentTopicBinding(fcmToken);
                     }
+                    return CompletableFuture.completedFuture(null);
+                });
+    }
+
+    private CompletableFuture<Void> restoreCurrentTopicBinding(String fcmToken) {
+        final FcmToken current;
+        try {
+            current = tokenRepository.findByToken(fcmToken).orElse(null);
+        } catch (RuntimeException e) {
+            log.error("FCM binding 경합 보상 중 현재 DB binding 조회 실패.", e);
+            return CompletableFuture.failedFuture(e);
+        }
+
+        if (current == null || current.getEmployeeId() == null) {
+            // 다른 요청이 token row 자체를 삭제했다면 unsubscribe 상태가 정답이다.
+            return CompletableFuture.completedFuture(null);
+        }
+
+        Long currentOwnerId = current.getEmployeeId();
+        return fcmService.subscribeTopics(fcmToken, currentOwnerId)
+                .thenCompose(success -> {
+                    if (success) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    log.error(
+                            "FCM binding 경합 보상 중 현재 owner topic 복구 실패. employeeId={}",
+                            currentOwnerId);
+                    return CompletableFuture.failedFuture(
+                            new IllegalStateException("FCM current binding topic 복구 실패"));
                 });
     }
 

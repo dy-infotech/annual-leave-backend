@@ -31,6 +31,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.dyinfotech.annualleavebackend.common.IpContext;
 import com.dyinfotech.annualleavebackend.domain.FcmToken;
+import com.dyinfotech.annualleavebackend.domain.support.UpdatedAudit;
 import com.dyinfotech.annualleavebackend.repository.FcmTokenRepository;
 
 class NotificationFcmRegressionTest {
@@ -289,6 +290,37 @@ class NotificationFcmRegressionTest {
     }
 
     @Test
+    void logout_deleteRace_restoresCurrentSessionTopicBinding() {
+        FcmToken initial = mock(FcmToken.class);
+        FcmToken rebound = mock(FcmToken.class);
+        when(initial.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(initial.getAuthSessionMarker()).thenReturn("session-old");
+        when(rebound.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(rebound.getAuthSessionMarker()).thenReturn("session-new");
+        when(tokenRepository.findByToken(TOKEN))
+                .thenReturn(Optional.of(initial), Optional.of(rebound));
+        when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        when(tokenRepository.deleteByTokenAndBinding(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old")).thenReturn(0L);
+        when(fcmService.subscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+
+        notificationService.logoutToken(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old").join();
+
+        verify(tokenRepository).deleteByTokenAndBinding(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old");
+        verify(fcmService).subscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
+    }
+
+    @Test
     void logout_deletesTokenOnlyAfterTopicUnsubscribeSucceeds() {
         CompletableFuture<Boolean> unsubscribeFuture = new CompletableFuture<>();
         FcmToken existingToken = mock(FcmToken.class);
@@ -391,6 +423,51 @@ class NotificationFcmRegressionTest {
 
         verify(fcmService, never()).unsubscribeTopics(TOKEN, OLD_EMPLOYEE_ID);
         verify(tokenRepository, never()).deleteByTokenAndEmployeeId(TOKEN, OLD_EMPLOYEE_ID);
+    }
+
+    @Test
+    void inactiveCleanup_deleteRace_restoresCurrentSessionTopicBinding() {
+        FcmToken staleSnapshot = mock(FcmToken.class);
+        FcmToken cleanupCandidate = mock(FcmToken.class);
+        FcmToken rebound = mock(FcmToken.class);
+        UpdatedAudit updatedAudit = mock(UpdatedAudit.class);
+
+        when(staleSnapshot.getTokenId()).thenReturn(1L);
+        when(staleSnapshot.getToken()).thenReturn(TOKEN);
+        when(staleSnapshot.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(staleSnapshot.getAuthSessionMarker()).thenReturn("session-old");
+
+        when(cleanupCandidate.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(cleanupCandidate.getAuthSessionMarker()).thenReturn("session-old");
+        when(cleanupCandidate.getUpdatedAudit()).thenReturn(updatedAudit);
+        when(updatedAudit.getUpdatedAt())
+                .thenReturn(LocalDateTime.of(2026, 1, 1, 0, 0));
+
+        when(rebound.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(rebound.getAuthSessionMarker()).thenReturn("session-new");
+
+        when(tokenRepository.findInactiveTokensBatch(any(LocalDateTime.class), isNull(), eq(20)))
+                .thenReturn(java.util.List.of(staleSnapshot));
+        when(tokenRepository.findByToken(TOKEN))
+                .thenReturn(Optional.of(cleanupCandidate), Optional.of(rebound));
+        when(fcmService.unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+        when(tokenRepository.deleteByTokenAndBinding(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old")).thenReturn(0L);
+        when(fcmService.subscribeTopics(TOKEN, NEW_EMPLOYEE_ID))
+                .thenReturn(CompletableFuture.completedFuture(true));
+
+        notificationService.cleanupInactiveTokens(
+                LocalDateTime.of(2026, 10, 1, 0, 0),
+                3);
+
+        verify(tokenRepository).deleteByTokenAndBinding(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old");
+        verify(fcmService).subscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
     }
 
 }
