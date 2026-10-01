@@ -60,10 +60,10 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
-        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findAllByIdsForUpdate(any())).thenReturn(List.of(employee, approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
-        when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
+        
 
         when(employee.getEmployeeId()).thenReturn(1L);
         when(employee.getName()).thenReturn("직원");
@@ -88,14 +88,65 @@ class EmployeeOrganizationLockRegressionTest {
 
         InOrder inOrder = inOrder(teamService, employeeRepository);
         inOrder.verify(teamService).lockHierarchyForUpdate();
-        inOrder.verify(employeeRepository).findByIdForUpdate(100L);
         inOrder.verify(teamService).lockTeamsForUpdate(argThat(teamIds ->
                 teamIds.size() == 2
                         && teamIds.contains(10L)
                         && teamIds.contains(20L)));
-        inOrder.verify(employeeRepository).findByIdForUpdate(1L);
+        inOrder.verify(employeeRepository).findAllByIdsForUpdate(argThat(employeeIds ->
+                employeeIds.size() == 2
+                        && employeeIds.contains(1L)
+                        && employeeIds.contains(100L)));
         verify(teamService, never()).removeManager(any(), any());
         verify(teamService, never()).addManager(any(), any(), any());
+    }
+
+    @Test
+    void employeeAdminUpdate_locksTeamsBeforeSortedEmployeeSet_toAvoidRolloverCycle() {
+        TeamService teamService = mock(TeamService.class);
+        DepartmentService departmentService = mock(DepartmentService.class);
+        EmployeeRepository employeeRepository = mock(EmployeeRepository.class);
+        TeamManagerRepository teamManagerRepository = mock(TeamManagerRepository.class);
+        Employee approver = mock(Employee.class);
+        Employee employee = mock(Employee.class);
+        Team team = mock(Team.class);
+        Department department = mock(Department.class);
+        EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
+
+        EmployeeService service = new EmployeeService(
+                teamService, departmentService, mock(CommonService.class), mock(EmployeeLeaveService.class),
+                employeeRepository, mock(RefreshTokenSessionRepository.class), teamManagerRepository,
+                mock(OrganizationCacheInvalidator.class), mock(EmployeeCacheInvalidator.class),
+                mock(PasswordEncoder.class), mock(AuthRateLimitService.class));
+
+        when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(approver.hasPersonnelAuthority()).thenReturn(true);
+        when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
+        when(employee.getEmployeeId()).thenReturn(1L);
+        when(employee.getTeamId()).thenReturn(10L);
+        when(employee.getTeam()).thenReturn(team);
+        when(employee.getName()).thenReturn("직원");
+        when(employee.getPosition()).thenReturn("사원");
+        when(employee.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
+        when(team.getTeamId()).thenReturn(10L);
+        when(team.getDepartment()).thenReturn(department);
+        when(department.getDepartmentId()).thenReturn(1L);
+        when(department.getDepartmentName()).thenReturn("개발부");
+        when(request.getDepartment()).thenReturn("개발부");
+        when(request.getPosition()).thenReturn("사원");
+        when(request.getHireDate()).thenReturn(LocalDate.of(2024, 1, 1));
+        when(departmentService.findByDepartmentName("개발부")).thenReturn(Optional.of(department));
+        when(teamManagerRepository.findTeamIdsByProjectManagerId(1L)).thenReturn(List.of(10L));
+        when(employeeRepository.findAllByIdsForUpdate(any())).thenReturn(List.of(employee, approver));
+
+        service.updateEmployeeByAdmin(100L, "E001", request);
+
+        InOrder order = inOrder(teamService, employeeRepository);
+        order.verify(teamService).lockHierarchyForUpdate();
+        order.verify(teamService).lockTeamsForUpdate(any());
+        order.verify(employeeRepository).findAllByIdsForUpdate(argThat(ids ->
+                ids.contains(1L) && ids.contains(100L) && ids.size() == 2));
+        verify(employeeRepository, never()).findByIdForUpdate(100L);
+        verify(employeeRepository, never()).findByIdForUpdate(1L);
     }
 
     @Test
