@@ -196,12 +196,20 @@ public class EmployeeLeaveService {
 
     private boolean rolloverIfNeeded(Employee employee, String currentYear) {
         String previousCurrentYear = employee.getCurrYear();
-        if (previousCurrentYear == null || previousCurrentYear.equals(currentYear)) {
+        if (previousCurrentYear != null && previousCurrentYear.equals(currentYear)) {
             return false;
         }
 
-        // 계산 실패 시 rollover 필드를 변경하기 전에 예외가 발생하도록 먼저 계산한다.
+        // 계산 실패 시 연도 필드를 변경하기 전에 예외가 발생하도록 먼저 계산한다.
         float nextLeaveDays = getCalculatedCurrYearLeaveDays(employee);
+
+        // 레거시/부분 마이그레이션 row의 currYear가 null이면 이전 연도 snapshot을
+        // 꾸며내지 않고 현재 연도 상태만 복구한다.
+        if (previousCurrentYear == null) {
+            employee.setCurrYear(currentYear);
+            employee.setCurrYearLeaveDays(nextLeaveDays);
+            return true;
+        }
         float previousTotalLeaveDays = employee.getCurrTotalLeaveDays();
 
         employee.setPrevYear(previousCurrentYear);
