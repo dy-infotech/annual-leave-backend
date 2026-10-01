@@ -24,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 public class RefreshTokenService {
     public record IssuedRefreshToken(String token, Instant expiresAt, String sessionMarker) {}
     public record RefreshResult(SignInDto.SignInResponse access, IssuedRefreshToken refresh) {}
+    public record InitialSignInResult(SignInDto.SignInResponse access, IssuedRefreshToken refresh) {}
     public record CurrentSessionIdentity(Long employeeId, String sessionMarker) {}
 
     private final RefreshTokenSessionRepository repository;
@@ -34,6 +35,24 @@ public class RefreshTokenService {
 
     @Transactional
     public IssuedRefreshToken issue(Long employeeId) {
+        return issueInternal(employeeId);
+    }
+
+    /**
+     * 최초 로그인에서 비밀번호 검증 결과와 refresh session 발급을 하나의 직렬화 지점으로 묶는다.
+     * revalidateSignInAccess가 employee row를 잠그며 같은 transaction이 끝날 때까지 유지된다.
+     */
+    @Transactional
+    public InitialSignInResult issueAfterSignIn(SignInDto.SignInResponse validatedAccess) {
+        SignInDto.SignInResponse currentAccess =
+                authService.revalidateSignInAccess(
+                        validatedAccess.getEmployeeId(),
+                        validatedAccess.getToken());
+        IssuedRefreshToken refresh = issueInternal(currentAccess.getEmployeeId());
+        return new InitialSignInResult(currentAccess, refresh);
+    }
+
+    private IssuedRefreshToken issueInternal(Long employeeId) {
         properties.validate();
 
         LocalDateTime now = nowUtc();
