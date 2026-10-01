@@ -365,21 +365,36 @@ public class NotificationService {
 
     public void cleanupInactiveTokens(LocalDateTime now, int monthCount) {
         LocalDateTime cutoff = now.minusMonths(monthCount);
-        Collection<FcmToken> inactiveTokens =
-                tokenRepository.findAllByUpdatedAuditUpdatedAtBefore(cutoff);
-        if (inactiveTokens.isEmpty()) {
-            return;
-        }
+        Long afterTokenId = 0L;
 
-        CompletableFuture<?>[] operations = inactiveTokens.stream()
-                .map(token -> serializeTokenOperation(
-                        token.getToken(),
-                        () -> cleanupInactiveTokenNow(
-                                token.getToken(),
-                                token.getEmployeeId(),
-                                cutoff)))
-                .toArray(CompletableFuture[]::new);
-        CompletableFuture.allOf(operations).join();
+        while (true) {
+            List<FcmToken> inactiveTokens =
+                    tokenRepository.findTop100ByUpdatedAuditUpdatedAtBeforeAndTokenIdGreaterThanOrderByTokenIdAsc(
+                            cutoff,
+                            afterTokenId);
+            if (inactiveTokens.isEmpty()) {
+                return;
+            }
+
+            // 한 번에 최대 100개만 Future를 만들어 executor queue와 heap 사용량을 제한한다.
+            CompletableFuture<?>[] operations = inactiveTokens.stream()
+                    .map(token -> serializeTokenOperation(
+                            token.getToken(),
+                            () -> cleanupInactiveTokenNow(
+                                    token.getToken(),
+                                    token.getEmployeeId(),
+                                    cutoff)))
+                    .toArray(CompletableFuture[]::new);
+            CompletableFuture.allOf(operations).join();
+
+            Long lastTokenId = inactiveTokens.get(inactiveTokens.size() - 1).getTokenId();
+            if (lastTokenId == null || lastTokenId <= afterTokenId) {
+                log.error("FCM inactive cleanup cursor가 전진하지 않아 작업을 중단합니다. afterTokenId={}",
+                        afterTokenId);
+                return;
+            }
+            afterTokenId = lastTokenId;
+        }
     }
 
     private CompletableFuture<Void> cleanupInactiveTokenNow(
