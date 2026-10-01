@@ -83,6 +83,9 @@ public class HolidaySyncService {
         		.queryParam("serviceKey", serviceKey)
         		.queryParam("solYear", yearStr)
         		.queryParam("solMonth", monthStr)
+                // 월 snapshot을 한 응답에 모두 받아 totalCount와 실제 rows를 원자적으로 검증한다.
+                // 이 값이 없으면 공공데이터 기본 page size를 넘어서는 정상 월도 "불완전 응답"으로 오인한다.
+                .queryParam("numOfRows", 100)
         		.queryParam("_type", "json")
         		.build(true)
         		.toUri();
