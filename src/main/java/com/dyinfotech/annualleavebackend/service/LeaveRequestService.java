@@ -466,6 +466,58 @@ public class LeaveRequestService {
     }
 
     @Transactional(readOnly = true)
+    public List<LeaveRequestListDto.LeaveRequestListResponse> searchManagedLeaveRequestsPage(
+            LeaveRequestListDto.LeaveRequestListRequest condition,
+            Long currentEmployeeId,
+            int page,
+            int size,
+            LocalDateTime cursorRequestedAt,
+            Long cursorRequestId) {
+        validatePage(page, size);
+        validateCursor(cursorRequestedAt, cursorRequestId);
+        commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
+
+        Set<String> accessibleTeams = requireAccessibleManagedTeamNames(currentEmployeeId);
+        List<LeaveRequest> requests = cursorRequestedAt == null
+                ? leaveRequestRepository.searchLeaveRequestsPage(
+                        condition.getEmployeeId(),
+                        condition.getStartDate(),
+                        condition.getEndDate(),
+                        condition.getStatus(),
+                        accessibleTeams,
+                        condition.getSearchEmployeeParam(),
+                        page,
+                        size)
+                : leaveRequestRepository.searchLeaveRequestsCursor(
+                        condition.getEmployeeId(),
+                        condition.getStartDate(),
+                        condition.getEndDate(),
+                        condition.getStatus(),
+                        accessibleTeams,
+                        condition.getSearchEmployeeParam(),
+                        cursorRequestedAt,
+                        cursorRequestId,
+                        size);
+
+        // 이 메서드는 관리자 관리범위로 query 자체가 제한되므로 반환 row의 private 필드 조회를 허용한다.
+        return toListResponses(requests, currentEmployeeId, true);
+    }
+
+    private Set<String> requireAccessibleManagedTeamNames(Long managerEmployeeId) {
+        Set<String> accessibleTeams = teamService.findManagedTeams(managerEmployeeId).stream()
+                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
+                .map(TeamService.ManagedTeam::teamName)
+                .collect(Collectors.toSet());
+
+        if (accessibleTeams.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "관리 가능한 휴가 신청 범위가 없습니다.");
+        }
+        return accessibleTeams;
+    }
+
+    @Transactional(readOnly = true)
     public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsPage(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
@@ -563,11 +615,24 @@ public class LeaveRequestService {
                         HttpStatus.NOT_FOUND,
                         "휴가 신청을 찾을 수 없습니다."));
 
-        boolean isOwner = leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        boolean isAdmin = !isOwner && currentAuthorityService.isAdmin(currentEmployeeId);
+        boolean isOwner =
+                leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
+        if (isOwner) {
+            return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
+                    leaveRequest,
+                    true);
+        }
+
+        Set<String> accessibleTeams = requireAccessibleManagedTeamNames(currentEmployeeId);
+        if (!accessibleTeams.contains(leaveRequest.getEmployee().getTeamName())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "조회할 수 없는 휴가 신청입니다.");
+        }
+
         return LeaveRequestDetailDto.LeaveRequestDetailResponse.from(
                 leaveRequest,
-                isOwner || isAdmin);
+                true);
     }
 
     @Transactional
