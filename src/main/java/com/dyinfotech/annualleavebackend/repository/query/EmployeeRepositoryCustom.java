@@ -11,6 +11,12 @@ import com.dyinfotech.annualleavebackend.repository.projection.EmployeeNumberEma
 public interface EmployeeRepositoryCustom {
     // 사용자 정보 조건 조회
 	List<Employee> findAllEmployees(String searchParam, String team);
+    List<Employee> findEmployeesPage(
+            String searchParam,
+            String team,
+            Boolean registered,
+            int page,
+            int size);
 	default List<Employee> findAllEmployees(String searchParam) {
 		return findAllEmployees(searchParam, null);
 	}
