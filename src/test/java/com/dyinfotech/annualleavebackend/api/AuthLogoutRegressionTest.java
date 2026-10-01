@@ -124,9 +124,11 @@ class AuthLogoutRegressionTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader("X-SSO-Refresh", "1");
         request.addHeader("X-SSO-Background-Logout", "1");
+        request.addHeader("X-SSO-Session-Marker", "old-session");
 
         when(refreshTokenCookieService.read(request)).thenReturn("old-refresh-token");
-        when(refreshTokenService.revoke("old-refresh-token")).thenReturn(10L);
+        when(refreshTokenService.revokeIfSessionMarker(
+                "old-refresh-token", "old-session")).thenReturn(10L);
         when(authService.logout(10L, null))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
@@ -137,7 +139,8 @@ class AuthLogoutRegressionTest {
 
         assertEquals(204, response.getStatusCode().value());
         assertNull(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
-        verify(refreshTokenService).revoke("old-refresh-token");
+        verify(refreshTokenService).revokeIfSessionMarker(
+                "old-refresh-token", "old-session");
     }
 
 }
