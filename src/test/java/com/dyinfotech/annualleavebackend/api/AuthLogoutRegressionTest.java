@@ -53,7 +53,7 @@ class AuthLogoutRegressionTest {
                         .build());
 
         CompletableFuture<Void> pendingFcmCleanup = new CompletableFuture<>();
-        when(authService.logout(10L, null)).thenReturn(pendingFcmCleanup);
+        when(authService.logout(10L, null, null)).thenReturn(pendingFcmCleanup);
 
         var responseFuture = controller.logout(
                 request,
@@ -68,7 +68,7 @@ class AuthLogoutRegressionTest {
         assertNotNull(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
 
         verify(refreshTokenService).revoke("refresh-token");
-        verify(authService).logout(10L, null);
+        verify(authService).logout(10L, null, null);
     }
 
     @Test
@@ -96,7 +96,7 @@ class AuthLogoutRegressionTest {
                         .path("/")
                         .maxAge(0)
                         .build());
-        when(authService.logout(10L, null))
+        when(authService.logout(10L, null, null))
                 .thenThrow(new IllegalStateException("cleanup unavailable"));
 
         var response = controller.logout(
@@ -129,7 +129,7 @@ class AuthLogoutRegressionTest {
         when(refreshTokenCookieService.read(request)).thenReturn("old-refresh-token");
         when(refreshTokenService.revokeIfSessionMarker(
                 "old-refresh-token", "old-session")).thenReturn(10L);
-        when(authService.logout(10L, null))
+        when(authService.logout(10L, null, "old-session"))
                 .thenReturn(CompletableFuture.completedFuture(null));
 
         var response = controller.logout(
@@ -141,6 +141,7 @@ class AuthLogoutRegressionTest {
         assertNull(response.getHeaders().getFirst(HttpHeaders.SET_COOKIE));
         verify(refreshTokenService).revokeIfSessionMarker(
                 "old-refresh-token", "old-session");
+        verify(authService).logout(10L, null, "old-session");
     }
 
 }
