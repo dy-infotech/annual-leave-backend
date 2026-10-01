@@ -63,14 +63,24 @@ public class YearlyScheduler {
     }
     
     private void setSpecialDays(int year) {
-    	Flux.range(1, 12)
-	        .flatMap(
-	        		m -> holidaySyncService.fetchHolidaysFromApi(year, m)
-	        				.flatMap(holidays ->
-	        						holidaySyncService.deleteAndSaveHolidays(year, m, holidays)),
-	        		3
-	        )
-	        .then()
-	        .block();
+        Flux.range(1, 12)
+                .flatMap(
+                        month -> holidaySyncService.fetchHolidaysFromApi(year, month)
+                                .flatMap(holidays ->
+                                        holidaySyncService.deleteAndSaveHolidays(year, month, holidays))
+                                .onErrorResume(error -> {
+                                    // 한 달의 외부 API/DB 동기화 실패가 같은 해의 나머지 월과
+                                    // 다음 해 동기화까지 중단시키지 않도록 월 단위로 격리한다.
+                                    log.error(
+                                            "=== [연간 스케줄러] {}년 {}월 공휴일 동기화 실패 (다음 월은 계속 진행) ===",
+                                            year,
+                                            month,
+                                            error);
+                                    return reactor.core.publisher.Mono.empty();
+                                }),
+                        3
+                )
+                .then()
+                .block();
     }
 }
