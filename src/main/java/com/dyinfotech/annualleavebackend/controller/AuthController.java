@@ -150,7 +150,7 @@ public class AuthController {
     public CompletableFuture<ResponseEntity<Void>> logout(
             HttpServletRequest servletRequest,
             @AuthenticationPrincipal EmployeePrincipal principal,
-            @RequestBody(required = false) LogoutDto.LogoutRequest request) {
+            @Valid @RequestBody(required = false) LogoutDto.LogoutRequest request) {
         requireRefreshRequestHeader(servletRequest);
 
         boolean backgroundLogout =
