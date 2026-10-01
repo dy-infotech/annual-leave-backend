@@ -82,6 +82,16 @@ class CurrentAuthorityServiceTest {
     }
 
     @Test
+    void canViewAllLeaveDetails_missingPositionIsSafelyNonGlobal() {
+        Employee employee = activeEmployee(null);
+        when(employeeRepository.findById(EMPLOYEE_ID)).thenReturn(Optional.of(employee));
+        when(teamService.isTeamManagerFromDatabase(EMPLOYEE_ID)).thenReturn(true);
+
+        assertFalse(service.canViewAllLeaveDetails(EMPLOYEE_ID));
+        assertFalse(service.isCeo(EMPLOYEE_ID));
+    }
+
+    @Test
     void canViewAllLeaveDetails_inactiveExecutiveIsNotGlobal() {
         Employee employee = mock(Employee.class);
         when(employee.isActive(LocalDate.now(CLOCK))).thenReturn(false);
