@@ -12,44 +12,53 @@ import org.junit.jupiter.api.Test;
 class MigrationIdempotencyRegressionTest {
 
     @Test
-    void migration_recreatesStaleEmployeeOrganizationBackupFromV1Source()
-            throws IOException {
+    void leaveIdempotencyRunsBeforeOrganizationDdl() throws IOException {
         String migration = normalize(
                 Files.readString(Path.of("sql/migration_v2_0_oracle.sql")));
 
-        assertTrue(migration.contains(
-                "drop table employee_org_legacy purge"));
-        assertTrue(migration.contains(
-                "create table employee_org_legacy as select employee_id, "
-                        + "department as department_name, team as team_name from employee"));
-        assertTrue(migration.indexOf("drop table employee_org_legacy purge")
-                < migration.indexOf("create table employee_org_legacy as"));
+        int leave = migration.indexOf(
+                "prompt [1.5/9] add leave request idempotency metadata before organization ddl");
+        int preserveOrg = migration.indexOf(
+                "prompt [2/9] preserve legacy organization data");
+        int createDepartment = migration.indexOf(
+                "prompt [3/9] create department");
+
+        assertTrue(leave >= 0);
+        assertTrue(preserveOrg > leave);
+        assertTrue(createDepartment > leave);
     }
 
     @Test
-    void migration_rebuildsLeaveIdempotencyConstraintInsteadOfEnablingStaleOne()
+    void migrationUsesConditionalUniqueIndexForLeaveIdempotency()
             throws IOException {
         String migration = normalize(
                 Files.readString(Path.of("sql/migration_v2_0_oracle.sql")));
 
-        int dropConstraint = migration.indexOf(
-                "alter table leave_request drop constraint "
-                        + "uk_leave_request_create_request");
-        int reset = migration.indexOf(
-                "update leave_request set create_request_key = null, "
-                        + "create_request_hash = null");
-        int addConstraint = migration.indexOf(
-                "alter table leave_request add constraint "
-                        + "uk_leave_request_create_request unique "
-                        + "(employee_id, create_request_key)");
+        assertTrue(migration.contains(
+                "create unique index uk_leave_request_create_request "
+                        + "on leave_request ( case when create_request_key is not null "
+                        + "then employee_id end, case when create_request_key is not null "
+                        + "then create_request_key end )"));
 
-        assertTrue(dropConstraint >= 0);
-        assertTrue(reset > dropConstraint);
-        assertTrue(addConstraint > reset);
+        assertFalse(migration.contains(
+                "unique (employee_id, create_request_key)"));
         assertFalse(migration.contains(
                 "enable validate constraint uk_leave_request_create_request"));
-        assertFalse(migration.contains(
-                "enable validate constraint ck_leave_request_create_pair"));
+    }
+
+    @Test
+    void freshSchemaUsesSameConditionalUniqueIndex() throws IOException {
+        String schema = normalize(
+                Files.readString(Path.of("sql/schema.sql")));
+
+        assertTrue(schema.contains(
+                "create unique index uk_leave_request_create_request "
+                        + "on leave_request ( case when create_request_key is not null "
+                        + "then employee_id end, case when create_request_key is not null "
+                        + "then create_request_key end )"));
+        assertFalse(schema.contains(
+                "constraint uk_leave_request_create_request "
+                        + "unique (employee_id, create_request_key)"));
     }
 
     private String normalize(String value) {

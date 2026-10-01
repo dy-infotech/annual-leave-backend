@@ -107,8 +107,8 @@ BEGIN
     reject_table('EMPLOYEE_ORG_LEGACY');
     reject_table('PASSWORD_RESET_TOKEN');
 
-    reject_column('LEAVE_REQUEST', 'CREATE_REQUEST_KEY');
-    reject_column('LEAVE_REQUEST', 'CREATE_REQUEST_HASH');
+    -- LEAVE_REQUEST idempotency 컬럼/인덱스는 바로 다음 [1.5/9] 단계가
+    -- 부분 실행 흔적까지 스스로 정리하므로 여기서는 차단하지 않는다.
     reject_column('FCM_TOKEN', 'AUTH_SESSION_MARKER');
 END;
 /
@@ -293,6 +293,99 @@ BEGIN
     END IF;
 END;
 /
+
+PROMPT [1.5/9] Add leave request idempotency metadata before organization DDL
+
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND column_name = 'CREATE_REQUEST_KEY';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request ADD (create_request_key VARCHAR2(128 CHAR))';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_tab_columns
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND column_name = 'CREATE_REQUEST_HASH';
+
+    IF v_count = 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request ADD (create_request_hash VARCHAR2(64 CHAR))';
+    END IF;
+END;
+/
+
+-- develop_v1.0에는 이 두 컬럼/제약이 존재하지 않는다.
+-- 따라서 동명 제약이나 값이 남아 있다면 이전 실패의 부분 실행 산물이다.
+-- 재시도 시 ENABLE 하지 않고 제거한 뒤 새로 구성한다.
+DECLARE
+    v_count NUMBER;
+BEGIN
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_constraints
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND constraint_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
+
+    IF v_count > 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request DROP CONSTRAINT uk_leave_request_create_request';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_constraints
+     WHERE table_name = 'LEAVE_REQUEST'
+       AND constraint_name = 'CK_LEAVE_REQUEST_CREATE_PAIR';
+
+    IF v_count > 0 THEN
+        EXECUTE IMMEDIATE
+            'ALTER TABLE leave_request DROP CONSTRAINT ck_leave_request_create_pair';
+    END IF;
+
+    SELECT COUNT(*)
+      INTO v_count
+      FROM user_indexes
+     WHERE index_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
+
+    IF v_count > 0 THEN
+        EXECUTE IMMEDIATE
+            'DROP INDEX uk_leave_request_create_request';
+    END IF;
+END;
+/
+
+UPDATE leave_request
+   SET create_request_key = NULL,
+       create_request_hash = NULL
+ WHERE create_request_key IS NOT NULL
+    OR create_request_hash IS NOT NULL;
+
+CREATE UNIQUE INDEX uk_leave_request_create_request
+    ON leave_request (
+        CASE
+            WHEN create_request_key IS NOT NULL THEN employee_id
+        END,
+        CASE
+            WHEN create_request_key IS NOT NULL THEN create_request_key
+        END
+    );
+
+ALTER TABLE leave_request
+    ADD CONSTRAINT ck_leave_request_create_pair
+    CHECK (
+        (create_request_key IS NULL AND create_request_hash IS NULL)
+        OR
+        (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL)
+    );
 
 PROMPT [2/9] Preserve legacy organization data
 
@@ -646,93 +739,6 @@ PROMPT [7/9] Remove legacy EMPLOYEE string columns
 
 ALTER TABLE employee DROP COLUMN department;
 ALTER TABLE employee DROP COLUMN team;
-
-PROMPT [7.4/9] Add leave request idempotency metadata
-
-DECLARE
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(*)
-      INTO v_count
-      FROM user_tab_columns
-     WHERE table_name = 'LEAVE_REQUEST'
-       AND column_name = 'CREATE_REQUEST_KEY';
-
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE
-            'ALTER TABLE leave_request ADD (create_request_key VARCHAR2(128 CHAR))';
-    END IF;
-
-    SELECT COUNT(*)
-      INTO v_count
-      FROM user_tab_columns
-     WHERE table_name = 'LEAVE_REQUEST'
-       AND column_name = 'CREATE_REQUEST_HASH';
-
-    IF v_count = 0 THEN
-        EXECUTE IMMEDIATE
-            'ALTER TABLE leave_request ADD (create_request_hash VARCHAR2(64 CHAR))';
-    END IF;
-END;
-/
-
--- develop_v1.0에는 이 두 컬럼/제약이 존재하지 않는다.
--- 따라서 동명 제약이나 값이 남아 있다면 이전 실패의 부분 실행 산물이다.
--- 재시도 시 ENABLE 하지 않고 제거한 뒤 새로 구성한다.
-DECLARE
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(*)
-      INTO v_count
-      FROM user_constraints
-     WHERE table_name = 'LEAVE_REQUEST'
-       AND constraint_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
-
-    IF v_count > 0 THEN
-        EXECUTE IMMEDIATE
-            'ALTER TABLE leave_request DROP CONSTRAINT uk_leave_request_create_request';
-    END IF;
-
-    SELECT COUNT(*)
-      INTO v_count
-      FROM user_constraints
-     WHERE table_name = 'LEAVE_REQUEST'
-       AND constraint_name = 'CK_LEAVE_REQUEST_CREATE_PAIR';
-
-    IF v_count > 0 THEN
-        EXECUTE IMMEDIATE
-            'ALTER TABLE leave_request DROP CONSTRAINT ck_leave_request_create_pair';
-    END IF;
-
-    SELECT COUNT(*)
-      INTO v_count
-      FROM user_indexes
-     WHERE index_name = 'UK_LEAVE_REQUEST_CREATE_REQUEST';
-
-    IF v_count > 0 THEN
-        EXECUTE IMMEDIATE
-            'DROP INDEX uk_leave_request_create_request';
-    END IF;
-END;
-/
-
-UPDATE leave_request
-   SET create_request_key = NULL,
-       create_request_hash = NULL
- WHERE create_request_key IS NOT NULL
-    OR create_request_hash IS NOT NULL;
-
-ALTER TABLE leave_request
-    ADD CONSTRAINT uk_leave_request_create_request
-    UNIQUE (employee_id, create_request_key);
-
-ALTER TABLE leave_request
-    ADD CONSTRAINT ck_leave_request_create_pair
-    CHECK (
-        (create_request_key IS NULL AND create_request_hash IS NULL)
-        OR
-        (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL)
-    );
 
 PROMPT [7.5/9] Create v2 query indexes
 

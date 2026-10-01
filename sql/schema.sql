@@ -313,8 +313,6 @@ CREATE TABLE leave_request (
         FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
     CONSTRAINT fk_leave_request_manager
         FOREIGN KEY (manager_id) REFERENCES employee(employee_id),
-    CONSTRAINT uk_leave_request_create_request
-        UNIQUE (employee_id, create_request_key),
     CONSTRAINT ck_leave_request_create_pair CHECK (
         (create_request_key IS NULL AND create_request_hash IS NULL)
         OR
@@ -345,6 +343,19 @@ COMMENT ON COLUMN leave_request.managed_ip IS '승인 또는 반려 처리 요�
 COMMENT ON COLUMN leave_request.reject_reason IS '반려 사유';
 COMMENT ON COLUMN leave_request.created_at IS '생성 시각';
 COMMENT ON COLUMN leave_request.created_ip IS '생성 요청 IP 주소';
+
+-- Oracle은 복합 UNIQUE(employee_id, nullable_key)에서 nullable_key가 NULL이어도
+-- employee_id가 같으면 중복으로 판단할 수 있다.
+-- Idempotency-Key가 실제로 있는 행만 인덱싱하여 기존 NULL 행은 제약 대상에서 제외한다.
+CREATE UNIQUE INDEX uk_leave_request_create_request
+    ON leave_request (
+        CASE
+            WHEN create_request_key IS NOT NULL THEN employee_id
+        END,
+        CASE
+            WHEN create_request_key IS NOT NULL THEN create_request_key
+        END
+    );
 
 CREATE TABLE basis_data (
     year   VARCHAR2(4 CHAR) NOT NULL,
