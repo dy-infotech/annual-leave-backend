@@ -509,10 +509,8 @@ public class LeaveRequestService {
     }
 
     private Set<String> requireAccessibleManagedTeamNames(Long managerEmployeeId) {
-        Set<String> accessibleTeams = teamService.findManagedTeams(managerEmployeeId).stream()
-                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                .map(TeamService.ManagedTeam::teamName)
-                .collect(Collectors.toSet());
+        Set<String> accessibleTeams =
+                teamService.findManagedTeamNamesWithDescendantsFromDatabase(managerEmployeeId);
 
         if (accessibleTeams.isEmpty()) {
             throw new ResponseStatusException(
@@ -613,14 +611,8 @@ public class LeaveRequestService {
             return new LeaveVisibility(true, Set.of());
         }
 
-        if (!currentAuthorityService.isAdmin(currentEmployeeId)) {
-            return new LeaveVisibility(false, Set.of());
-        }
-
-        Set<String> accessibleTeams = teamService.findManagedTeams(currentEmployeeId).stream()
-                .flatMap(team -> teamService.getSelfAndDescendants(team.teamName()).stream())
-                .map(TeamService.ManagedTeam::teamName)
-                .collect(Collectors.toSet());
+        Set<String> accessibleTeams =
+                teamService.findManagedTeamNamesWithDescendantsFromDatabase(currentEmployeeId);
         return new LeaveVisibility(false, accessibleTeams);
     }
 
