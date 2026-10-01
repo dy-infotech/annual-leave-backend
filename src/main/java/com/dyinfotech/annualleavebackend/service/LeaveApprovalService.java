@@ -150,6 +150,7 @@ public class LeaveApprovalService {
             int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         validatePage(page, size);
         validateCursor(cursorCreatedAt, cursorRequestId);
+        validateProcessedSearch(team, employeeParam);
         List<Employee> employeeList = employeeService.getEmployeeList(List.of(employeeId));
         if (employeeList.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
@@ -172,6 +173,19 @@ public class LeaveApprovalService {
         return requests.stream()
                 .map(LeaveRequestListDto.LeaveRequestListResponse::from)
                 .toList();
+    }
+
+    private void validateProcessedSearch(String team, String employeeParam) {
+        if (team != null && team.length() > 30) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "팀명은 30자 이하여야 합니다.");
+        }
+        if (employeeParam != null && employeeParam.length() > 100) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "사원 검색어는 100자 이하여야 합니다.");
+        }
     }
 
     private void validateCursor(LocalDateTime cursorCreatedAt, Long cursorRequestId) {
