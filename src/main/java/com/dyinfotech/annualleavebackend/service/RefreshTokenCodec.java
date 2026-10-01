@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,7 +26,6 @@ public class RefreshTokenCodec {
     private static final String HASH_ALGORITHM = "SHA-256";
 
     private final AuthTokenProperties properties;
-    private final SecureRandom secureRandom = new SecureRandom();
 
     public String issue(String sessionId, int generation) {
         if (generation < 0) {
@@ -35,9 +33,7 @@ public class RefreshTokenCodec {
         }
         properties.validate();
 
-        byte[] secretBytes = new byte[properties.getRefreshTokenBytes()];
-        secureRandom.nextBytes(secretBytes);
-        String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(secretBytes);
+        String secret = deterministicSecret(sessionId, generation);
         String payload = sessionId + "." + generation + "." + secret;
         return payload + "." + hmac(payload);
     }
@@ -83,14 +79,35 @@ public class RefreshTokenCodec {
         }
     }
 
+    private String deterministicSecret(String sessionId, int generation) {
+        int requiredBytes = properties.getRefreshTokenBytes();
+        byte[] result = new byte[requiredBytes];
+        int offset = 0;
+        int block = 0;
+
+        while (offset < requiredBytes) {
+            byte[] derived = hmacBytes(
+                    "refresh-secret." + sessionId + "." + generation + "." + block++);
+            int length = Math.min(derived.length, requiredBytes - offset);
+            System.arraycopy(derived, 0, result, offset, length);
+            offset += length;
+        }
+
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(result);
+    }
+
     private String hmac(String payload) {
+        return Base64.getUrlEncoder().withoutPadding()
+                .encodeToString(hmacBytes(payload));
+    }
+
+    private byte[] hmacBytes(String payload) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             mac.init(new SecretKeySpec(
                     properties.getRefreshSigningSecret().getBytes(StandardCharsets.UTF_8),
                     HMAC_ALGORITHM));
-            return Base64.getUrlEncoder().withoutPadding()
-                    .encodeToString(mac.doFinal(payload.getBytes(StandardCharsets.UTF_8)));
+            return mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Refresh token HMAC을 사용할 수 없습니다.", e);
         }

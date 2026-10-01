@@ -32,10 +32,10 @@ class RefreshTokenServiceTest {
         RefreshTokenService.IssuedRefreshToken first = fixture.service.issue(10L);
         RefreshTokenService.RefreshResult second = fixture.service.rotate(first.token());
 
-        ResponseStatusException duplicate = assertThrows(
-                ResponseStatusException.class,
-                () -> fixture.service.rotate(first.token()));
-        assertEquals(HttpStatus.CONFLICT, duplicate.getStatusCode());
+        RefreshTokenService.RefreshResult duplicate =
+                fixture.service.rotate(first.token());
+        assertEquals(second.refresh().token(), duplicate.refresh().token());
+        assertEquals(1, fixture.stored.get().getRotationCount());
         assertTrue(!fixture.stored.get().isRevoked());
 
         RefreshTokenService.RefreshResult third = fixture.service.rotate(second.refresh().token());
@@ -48,6 +48,20 @@ class RefreshTokenServiceTest {
         assertEquals(HttpStatus.UNAUTHORIZED, replay.getStatusCode());
         assertTrue(fixture.stored.get().isRevoked());
         assertEquals("REUSE_DETECTED", fixture.stored.get().getRevokedReason());
+    }
+
+    @Test
+    void markerMismatchDoesNotRotateOrRevokeSession() {
+        Fixture fixture = new Fixture();
+        RefreshTokenService.IssuedRefreshToken issued = fixture.service.issue(10L);
+
+        ResponseStatusException rejected = assertThrows(
+                ResponseStatusException.class,
+                () -> fixture.service.rotate(issued.token(), "wrong-session-marker"));
+
+        assertEquals(HttpStatus.CONFLICT, rejected.getStatusCode());
+        assertEquals(0, fixture.stored.get().getRotationCount());
+        assertTrue(!fixture.stored.get().isRevoked());
     }
 
     @Test

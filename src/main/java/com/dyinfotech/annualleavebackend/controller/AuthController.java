@@ -82,8 +82,11 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "refresh token이 없습니다.");
         }
 
+        String expectedSessionMarker = request.getHeader(SESSION_MARKER_HEADER);
+
         try {
-            RefreshTokenService.RefreshResult result = refreshTokenService.rotate(token);
+            RefreshTokenService.RefreshResult result =
+                    refreshTokenService.rotate(token, expectedSessionMarker);
             return ResponseEntity.ok()
                     .cacheControl(CacheControl.noStore())
                     .header(HttpHeaders.SET_COOKIE, refreshTokenCookieService.issue(result.refresh()).toString())

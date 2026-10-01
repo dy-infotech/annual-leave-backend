@@ -54,8 +54,32 @@ public class RefreshTokenService {
 
     @Transactional(noRollbackFor = {RefreshRejectedException.class, RefreshAlreadyRotatedException.class})
     public RefreshResult rotate(String presentedToken) {
+        return rotateInternal(presentedToken, null, false);
+    }
+
+    @Transactional(noRollbackFor = {RefreshRejectedException.class, RefreshAlreadyRotatedException.class})
+    public RefreshResult rotate(
+            String presentedToken,
+            String expectedSessionMarker) {
+        if (expectedSessionMarker == null || expectedSessionMarker.isBlank()) {
+            throw new RefreshSessionMismatchException();
+        }
+        return rotateInternal(presentedToken, expectedSessionMarker, true);
+    }
+
+    private RefreshResult rotateInternal(
+            String presentedToken,
+            String expectedSessionMarker,
+            boolean requireSessionMarker) {
         RefreshTokenCodec.ParsedToken parsed = codec.parse(presentedToken)
                 .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
+
+        if (requireSessionMarker
+                && !constantEquals(
+                        codec.sessionMarker(parsed.sessionId()),
+                        expectedSessionMarker)) {
+            throw new RefreshSessionMismatchException();
+        }
 
         RefreshTokenSession session = repository.findByIdForUpdate(parsed.sessionId())
                 .orElseThrow(() -> new RefreshRejectedException("유효하지 않은 refresh token입니다."));
@@ -79,7 +103,28 @@ public class RefreshTokenService {
                     && constantEquals(session.getPreviousTokenHash(), parsed.tokenHash())
                     && session.getPreviousValidUntil() != null
                     && now.isBefore(session.getPreviousValidUntil())) {
-                throw new RefreshAlreadyRotatedException();
+                String currentToken = codec.issue(session.getSessionId(), currentGeneration);
+                if (!constantEquals(session.getTokenHash(), codec.hash(currentToken))) {
+                    // 배포 전 random-secret 방식으로 회전된 세션은 현재 raw token을
+                    // 재구성할 수 없으므로 기존 409 계약으로 안전하게 fallback한다.
+                    throw new RefreshAlreadyRotatedException();
+                }
+
+                SignInDto.SignInResponse replayAccess;
+                try {
+                    replayAccess = authService.issueCurrentAccessToken(session.getEmployeeId());
+                } catch (ResponseStatusException e) {
+                    session.revoke(now, "SUBJECT_INVALID");
+                    throw new RefreshRejectedException(
+                            "현재 사용자 상태로 인증을 갱신할 수 없습니다.");
+                }
+
+                return new RefreshResult(
+                        replayAccess,
+                        new IssuedRefreshToken(
+                                currentToken,
+                                toInstant(session.getIdleExpiresAt()),
+                                codec.sessionMarker(session.getSessionId())));
             }
 
             session.revoke(now, "REUSE_DETECTED");
@@ -211,6 +256,13 @@ public class RefreshTokenService {
     private static class RefreshRejectedException extends ResponseStatusException {
         private RefreshRejectedException(String reason) {
             super(HttpStatus.UNAUTHORIZED, reason);
+        }
+    }
+
+    private static final class RefreshSessionMismatchException extends ResponseStatusException {
+        private RefreshSessionMismatchException() {
+            super(HttpStatus.CONFLICT,
+                    "현재 access session과 refresh session이 일치하지 않습니다.");
         }
     }
 
