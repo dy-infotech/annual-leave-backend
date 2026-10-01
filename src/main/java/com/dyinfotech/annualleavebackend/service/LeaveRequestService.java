@@ -1,5 +1,8 @@
 package com.dyinfotech.annualleavebackend.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -7,6 +10,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.Year;
 import java.util.EnumSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -56,7 +60,17 @@ public class LeaveRequestService {
     private final Clock clock;
 
     @Transactional
-    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(Long employeeId, LeaveRequestDto.LeaveRequestCreateRequest request) {
+    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(
+            Long employeeId,
+            LeaveRequestDto.LeaveRequestCreateRequest request) {
+        return createLeaveRequest(employeeId, request, null);
+    }
+
+    @Transactional
+    public LeaveRequestDto.LeaveRequestCreateResponse createLeaveRequest(
+            Long employeeId,
+            LeaveRequestDto.LeaveRequestCreateRequest request,
+            String idempotencyKey) {
         LeaveType leaveType = LeaveType.fromName(request.getLeaveType());
         // XXX: 클라에서 받은 정보의 LeaveType을 검증한다.
         if (leaveType == null) {
@@ -65,7 +79,29 @@ public class LeaveRequestService {
         	throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "휴가유형 파라미터가 잘못되었습니다.");
         }
     	
+        String normalizedRequestKey = normalizeCreateRequestKey(idempotencyKey);
+        String requestHash = normalizedRequestKey == null
+                ? null
+                : createLeaveRequestHash(employeeId, leaveType, request);
+
     	Employee employee = employeeRepository.findByIdForUpdate(employeeId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
+
+        if (normalizedRequestKey != null) {
+            var replay = leaveRequestRepository
+                    .findByEmployee_EmployeeIdAndCreateRequestKey(
+                            employeeId,
+                            normalizedRequestKey);
+            if (replay.isPresent()) {
+                if (!java.util.Objects.equals(
+                        replay.get().getCreateRequestHash(),
+                        requestHash)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "동일한 Idempotency-Key가 다른 휴가 신청에 사용되었습니다.");
+                }
+                return LeaveRequestDto.LeaveRequestCreateResponse.from(replay.get());
+            }
+        }
     	
     	LocalDate today = LocalDate.now(clock);
     	if (!employee.isActive(today)) {
@@ -173,7 +209,10 @@ public class LeaveRequestService {
                 .leaveReason(request.getLeaveReason())
                 .build();
 
-        leaveRequestRepository.save(leaveRequest);
+        if (normalizedRequestKey != null) {
+            leaveRequest.markCreateRequest(normalizedRequestKey, requestHash);
+        }
+        leaveRequestRepository.saveAndFlush(leaveRequest);
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
  
         // 팀 프로젝트 매니저에게 FCM 푸시 알림 전송
@@ -193,6 +232,45 @@ public class LeaveRequestService {
         }
 
         return LeaveRequestDto.LeaveRequestCreateResponse.from(leaveRequest);
+    }
+
+    private String normalizeCreateRequestKey(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return null;
+        }
+
+        String normalized = idempotencyKey.trim();
+        if (normalized.length() < 16
+                || normalized.length() > 128
+                || !normalized.matches("[A-Za-z0-9._:-]+")) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Idempotency-Key 형식이 올바르지 않습니다.");
+        }
+        return normalized;
+    }
+
+    private String createLeaveRequestHash(
+            Long employeeId,
+            LeaveType leaveType,
+            LeaveRequestDto.LeaveRequestCreateRequest request) {
+        String reason = request.getLeaveReason() == null
+                ? ""
+                : request.getLeaveReason().trim();
+        String canonical = employeeId
+                + "|" + leaveType.name()
+                + "|" + request.getStartDate()
+                + "|" + request.getEndDate()
+                + "|" + DateUtils.toMinutes(request.getUseDays())
+                + "|" + reason.length() + ":" + reason;
+
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256을 사용할 수 없습니다.", e);
+        }
     }
 
     private void validateDateRange(
