@@ -2,6 +2,7 @@ package com.dyinfotech.annualleavebackend.controller;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -65,10 +66,13 @@ public class LeaveRequestController {
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
+            @RequestParam(value = "cursorRequestedAt", required = false) LocalDateTime cursorRequestedAt,
+            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId,
             @AuthenticationPrincipal EmployeePrincipal principal
     ) {
         return leaveRequestService.searchLeaveRequestsPage(
-                condition, principal.employeeId(), page, size);
+                condition, principal.employeeId(), page, size,
+                cursorRequestedAt, cursorRequestId);
     }
 
 //    @Operation(summary = "휴가 신청 상세 조회", description = "특정 휴가 신청의 상세 정보를 조회한다. 사유는 본인 또는 관리자만 조회 가능하다.")
@@ -102,11 +106,14 @@ public class LeaveRequestController {
             @AuthenticationPrincipal EmployeePrincipal principal,
     		@ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "50") int size
+            @RequestParam(value = "size", defaultValue = "50") int size,
+            @RequestParam(value = "cursorRequestedAt", required = false) LocalDateTime cursorRequestedAt,
+            @RequestParam(value = "cursorRequestId", required = false) Long cursorRequestId
     ) {
     	condition.setEmployeeId(principal.employeeId());
         return leaveRequestService.searchLeaveRequestsPage(
-                condition, principal.employeeId(), page, size);
+                condition, principal.employeeId(), page, size,
+                cursorRequestedAt, cursorRequestId);
     }
 
     @Operation(summary = "휴가 신청 취소", description = "내가 신청한 휴가를 취소한다.")
