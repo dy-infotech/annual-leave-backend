@@ -60,6 +60,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
@@ -87,6 +88,7 @@ class EmployeeOrganizationLockRegressionTest {
 
         InOrder inOrder = inOrder(teamService, employeeRepository);
         inOrder.verify(teamService).lockHierarchyForUpdate();
+        inOrder.verify(employeeRepository).findByIdForUpdate(100L);
         inOrder.verify(teamService).lockTeamsForUpdate(argThat(teamIds ->
                 teamIds.size() == 2
                         && teamIds.contains(10L)
@@ -129,6 +131,7 @@ class EmployeeOrganizationLockRegressionTest {
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
 
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -187,6 +190,7 @@ class EmployeeOrganizationLockRegressionTest {
         EmployeeDto.EmployeeAdminUpdateRequest request = mock(EmployeeDto.EmployeeAdminUpdateRequest.class);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
         when(employeeRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(employee));
@@ -244,6 +248,7 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -291,6 +296,7 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t3 = new TeamCacheRow(30L, "T3", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(40L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -340,6 +346,7 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -386,6 +393,7 @@ class EmployeeOrganizationLockRegressionTest {
         TeamCacheRow t2 = new TeamCacheRow(20L, "T2", 1L, true);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(approver.getTeamId()).thenReturn(30L);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(employee));
@@ -435,6 +443,7 @@ class EmployeeOrganizationLockRegressionTest {
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
         when(initialEmployee.getEmployeeId()).thenReturn(1L);
@@ -498,6 +507,7 @@ class EmployeeOrganizationLockRegressionTest {
         LocalDate hireDate = LocalDate.of(2024, 1, 1);
 
         when(employeeRepository.findById(100L)).thenReturn(Optional.of(approver));
+        when(employeeRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(approver));
         when(approver.hasPersonnelAuthority()).thenReturn(true);
         when(employeeRepository.findByEmployeeNumber("E001")).thenReturn(Optional.of(initialEmployee));
         when(initialEmployee.getEmployeeId()).thenReturn(1L);
