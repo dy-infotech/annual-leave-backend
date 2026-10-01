@@ -41,6 +41,26 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
 			                .orderBy(qEmployee.employeeNumber.desc())
 			                .fetch();
 	}
+
+    @Override
+    public List<Employee> findEmployeesPage(
+            String searchParam,
+            String team,
+            Boolean registered,
+            int page,
+            int size) {
+        return queryFactory.selectFrom(qEmployee)
+                .join(qEmployee.department).fetchJoin()
+                .join(qEmployee.team).fetchJoin()
+                .where(
+                        searchCondition(searchParam),
+                        teamCondition(team),
+                        registeredCondition(registered))
+                .orderBy(qEmployee.employeeNumber.desc())
+                .offset((long) page * size)
+                .limit(size)
+                .fetch();
+    }
 	
 	private BooleanExpression searchCondition(String searchParam) {
         if (searchParam == null || searchParam.isBlank()) {
@@ -56,6 +76,13 @@ public class EmployeeRepositoryImpl implements EmployeeRepositoryCustom {
         return team != null && !team.isBlank()
                 ? qEmployee.team.teamName.eq(team)
                 : null;
+    }
+
+    private BooleanExpression registeredCondition(Boolean registered) {
+        if (registered == null) {
+            return null;
+        }
+        return registered ? qEmployee.password.isNotNull() : qEmployee.password.isNull();
     }
 
     private BooleanExpression activeAt(LocalDate date) {
