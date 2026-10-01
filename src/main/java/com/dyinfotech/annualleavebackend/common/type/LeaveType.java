@@ -54,6 +54,13 @@ public enum LeaveType {
 	public boolean isHalfLeave() {
 		return this.leaveUnitType.equals(LeaveUnitType.HALF);
 	}
+
+	/**
+	 * 연차/반차 외 휴가는 신청 사유가 필수다.
+	 */
+	public boolean requiresReason() {
+		return this != FULL && this != AM_HALF && this != PM_HALF;
+	}
 	
 	public boolean isValidMinutes(int useMinutes) {
 		return this.leaveUnitType.isValidMinutes(useMinutes);
