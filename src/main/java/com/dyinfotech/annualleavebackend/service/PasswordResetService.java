@@ -7,7 +7,9 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,10 +19,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.dyinfotech.annualleavebackend.common.transaction.AfterCommitExecutor;
 import com.dyinfotech.annualleavebackend.config.CacheConfig;
 import com.dyinfotech.annualleavebackend.domain.Employee;
 import com.dyinfotech.annualleavebackend.domain.PasswordResetToken;
 import com.dyinfotech.annualleavebackend.dto.FindDataDto;
+import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.PasswordResetTokenRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -35,6 +39,10 @@ public class PasswordResetService {
 
     private final EmployeeService employeeService;
     private final PasswordResetTokenRepository tokenRepository;
+    private final EmployeeRepository employeeRepository;
+    private final AfterCommitExecutor afterCommitExecutor;
+    @Qualifier("mailExecutor")
+    private final Executor mailExecutor;
     private final PasswordEncoder passwordEncoder;
     private final AuthRateLimitService authRateLimitService;
     private final JavaMailSender mailSender;
@@ -60,6 +68,13 @@ public class PasswordResetService {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
 
+        Employee lockedEmployee = employeeRepository.findByIdForUpdate(employee.getEmployeeId())
+                .filter(Employee::isRegisted)
+                .filter(current -> current.getEmail() != null
+                        && current.getEmail().equalsIgnoreCase(requestedEmail))
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "해당되는 유저를 찾을 수 없습니다."));
+
         LocalDateTime now = LocalDateTime.now(clock);
         String rawToken = UUID.randomUUID().toString();
         String tokenHash = hash(rawToken);
@@ -67,14 +82,26 @@ public class PasswordResetService {
         tokenRepository.deleteExpired(now);
         tokenRepository.deleteUnusedByEmployeeId(employee.getEmployeeId());
         tokenRepository.saveAndFlush(new PasswordResetToken(
-                employee.getEmployeeId(),
+                lockedEmployee.getEmployeeId(),
                 tokenHash,
                 now.plusMinutes(RESET_TOKEN_MINUTES),
                 now));
 
+        Long employeeId = lockedEmployee.getEmployeeId();
+        String recipient = lockedEmployee.getEmail();
+        afterCommitExecutor.execute(() -> {
+            try {
+                mailExecutor.execute(() -> sendResetMail(employeeId, recipient, rawToken));
+            } catch (RuntimeException e) {
+                log.error("비밀번호 재설정 메일 작업 제출 실패. employeeId={}", employeeId, e);
+            }
+        });
+    }
+
+    private void sendResetMail(Long employeeId, String recipient, String rawToken) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(mailFrom);
-        message.setTo(employee.getEmail());
+        message.setTo(recipient);
         message.setSubject("[(주)디와이정보기술] 휴가관리 시스템 비밀번호 재설정");
         message.setText("안녕하세요. (주)디와이정보기술 휴가관리 시스템입니다.\n\n"
                 + "아래 재설정 토큰을 " + RESET_TOKEN_MINUTES + "분 이내에 입력해 새 비밀번호를 설정해 주세요.\n"
@@ -83,11 +110,7 @@ public class PasswordResetService {
         try {
             mailSender.send(message);
         } catch (RuntimeException e) {
-            log.error("비밀번호 재설정 메일 발송 실패. employeeId={}", employee.getEmployeeId(), e);
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "이메일 발송 중 오류가 발생했습니다.",
-                    e);
+            log.error("비밀번호 재설정 메일 발송 실패. employeeId={}", employeeId, e);
         }
     }
 
