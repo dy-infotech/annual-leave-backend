@@ -441,6 +441,41 @@ public class AuthService {
         return issueAccessToken(employee);
     }
 
+    /**
+     * 비밀번호 검증 직후부터 refresh session 발급 사이에 계정 상태가 바뀌는 race를 닫는다.
+     * RefreshTokenService의 transaction에 참여해 employee row를 잠근 채,
+     * 최초 로그인 검증 때 발급한 access token의 credentialVersion과 현재 password 상태를 대조한다.
+     */
+    @Transactional
+    public SignInDto.SignInResponse revalidateSignInAccess(
+            Long employeeId,
+            String validatedAccessToken) {
+        String expectedCredentialVersion =
+                jwtProvider.getCredentialVersion(validatedAccessToken);
+
+        Employee employee = employeeRepository.findByIdForUpdate(employeeId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "현재 직원 정보를 확인할 수 없습니다."));
+
+        if (!employee.isActive(LocalDate.now(clock)) || employee.getPassword() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "로그인 처리 중 계정 상태가 변경되었습니다. 다시 로그인해주세요.");
+        }
+
+        String currentCredentialVersion =
+                jwtProvider.createCredentialVersion(employee.getPassword());
+        if (expectedCredentialVersion == null
+                || !Objects.equals(expectedCredentialVersion, currentCredentialVersion)) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "로그인 처리 중 인증 정보가 변경되었습니다. 다시 로그인해주세요.");
+        }
+
+        return issueAccessToken(employee);
+    }
+
     @Transactional(readOnly = true)
     public SignInDto.SignInResponse issueCurrentAccessToken(Long employeeId) {
         Employee employee = employeeRepository.findById(employeeId)
