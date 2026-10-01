@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
@@ -310,7 +311,7 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 등록된 사번입니다.");
         }
 
-        LocalDate hireDate = LocalDate.parse(request.getHireDate());
+        LocalDate hireDate = parseHireDate(request.getHireDate());
         Employee employee = Employee.builder()
                 .employeeNumber(request.getEmployeeNumber())
                 .name(request.getName())
@@ -341,6 +342,16 @@ public class AuthService {
                 .employeeId(employee.getEmployeeId())
                 .employeeNumber(employee.getEmployeeNumber())
                 .build();
+    }
+
+    LocalDate parseHireDate(String rawHireDate) {
+        try {
+            return LocalDate.parse(rawHireDate);
+        } catch (DateTimeParseException | NullPointerException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "입사일 형식이 올바르지 않습니다.");
+        }
     }
 
     @Transactional
