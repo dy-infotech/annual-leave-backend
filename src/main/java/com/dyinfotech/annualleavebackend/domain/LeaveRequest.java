@@ -68,6 +68,12 @@ public class LeaveRequest implements HasCreatedAudit {
     @Column(name = "leave_reason", length = 200)
     private String leaveReason;
 
+    @Column(name = "create_request_key", length = 128)
+    private String createRequestKey;
+
+    @Column(name = "create_request_hash", length = 64)
+    private String createRequestHash;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 10)
     private LeaveRequestStatus status;
@@ -99,6 +105,11 @@ public class LeaveRequest implements HasCreatedAudit {
         this.currTotalLeaveDays = currTotalLeaveDays; 
         this.leaveReason = leaveReason;
         this.status = LeaveRequestStatus.PENDING;
+    }
+
+    public void markCreateRequest(String requestKey, String requestHash) {
+        this.createRequestKey = requestKey;
+        this.createRequestHash = requestHash;
     }
 
     public void cancel(Clock clock) {
