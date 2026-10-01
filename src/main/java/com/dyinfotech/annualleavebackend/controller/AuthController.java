@@ -177,7 +177,8 @@ public class AuthController {
             try {
                 authService.logout(
                                 employeeId,
-                                request == null ? null : request.getFcmToken())
+                                request == null ? null : request.getFcmToken(),
+                                expectedSessionMarker)
                         .whenComplete((ignored, error) -> {
                             if (error != null) {
                                 log.warn(
