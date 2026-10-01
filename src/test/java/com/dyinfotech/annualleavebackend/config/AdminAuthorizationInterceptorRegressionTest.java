@@ -33,7 +33,8 @@ class AdminAuthorizationInterceptorRegressionTest {
         currentAuthorityService = mock(CurrentAuthorityService.class);
         interceptor = new AdminAuthorizationInterceptor(currentAuthorityService);
 
-        EmployeePrincipal principal = new EmployeePrincipal(EMPLOYEE_ID, Role.EMPLOYEE);
+        EmployeePrincipal principal =
+                new EmployeePrincipal(EMPLOYEE_ID, Role.EMPLOYEE, true);
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(principal, null, List.of()));
     }
@@ -52,8 +53,9 @@ class AdminAuthorizationInterceptorRegressionTest {
                 new MockHttpServletResponse(),
                 handler);
 
-        verify(currentAuthorityService).requireAdmin(EMPLOYEE_ID);
-        verify(currentAuthorityService, never()).requirePersonnelAuthority(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAuthenticatedAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService, never())
+                .requireAuthenticatedPersonnelAuthority(true);
     }
 
     @Test
@@ -65,8 +67,8 @@ class AdminAuthorizationInterceptorRegressionTest {
                 new MockHttpServletResponse(),
                 handler);
 
-        verify(currentAuthorityService).requirePersonnelAuthority(EMPLOYEE_ID);
-        verify(currentAuthorityService, never()).requireAdmin(EMPLOYEE_ID);
+        verify(currentAuthorityService).requireAuthenticatedPersonnelAuthority(true);
+        verify(currentAuthorityService, never()).requireAuthenticatedAdmin(EMPLOYEE_ID);
     }
 
     private HandlerMethod handler(Object controller, String methodName) throws Exception {
