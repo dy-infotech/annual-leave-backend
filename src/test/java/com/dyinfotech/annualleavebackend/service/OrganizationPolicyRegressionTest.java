@@ -650,7 +650,7 @@ class OrganizationPolicyRegressionTest {
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> teamService.createTeam(100L, request, "request-key-no-manager"));
+                () -> teamService.createTeam(REQUESTER_ID, request, "request-key-no-manager"));
 
         assertEquals(400, exception.getStatusCode().value());
         assertTrue(exception.getReason().contains("담당자"));
@@ -691,8 +691,8 @@ class OrganizationPolicyRegressionTest {
         when(teamRepository.findByIdForUpdate(99L))
                 .thenAnswer(invocation -> Optional.ofNullable(created.get()));
 
-        Long first = teamService.createTeam(100L, request, "request-key-0001");
-        Long replay = teamService.createTeam(100L, request, "request-key-0001");
+        Long first = teamService.createTeam(REQUESTER_ID, request, "request-key-0001");
+        Long replay = teamService.createTeam(REQUESTER_ID, request, "request-key-0001");
 
         assertEquals(99L, first);
         assertEquals(99L, replay);
@@ -738,11 +738,11 @@ class OrganizationPolicyRegressionTest {
         when(teamRepository.findByIdForUpdate(100L))
                 .thenAnswer(invocation -> Optional.ofNullable(created.get()));
 
-        teamService.createTeam(100L, firstRequest, "request-key-0002");
+        teamService.createTeam(REQUESTER_ID, firstRequest, "request-key-0002");
 
         ResponseStatusException exception = assertThrows(
                 ResponseStatusException.class,
-                () -> teamService.createTeam(100L, secondRequest, "request-key-0002"));
+                () -> teamService.createTeam(REQUESTER_ID, secondRequest, "request-key-0002"));
 
         assertEquals(409, exception.getStatusCode().value());
         verify(teamRepository).saveAndFlush(any(Team.class));
