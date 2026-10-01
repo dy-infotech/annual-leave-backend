@@ -238,6 +238,8 @@ CREATE TABLE leave_request (
     prev_total_leave_days BINARY_FLOAT NOT NULL,
     curr_total_leave_days BINARY_FLOAT NOT NULL,
     leave_reason          VARCHAR2(200 CHAR),
+    create_request_key    VARCHAR2(128 CHAR),
+    create_request_hash   VARCHAR2(64 CHAR),
     status                VARCHAR2(10 CHAR) DEFAULT 'PENDING' NOT NULL,
     manager_id            NUMBER(19),
     managed_at            TIMESTAMP(6),
@@ -250,6 +252,13 @@ CREATE TABLE leave_request (
         FOREIGN KEY (employee_id) REFERENCES employee(employee_id),
     CONSTRAINT fk_leave_request_manager
         FOREIGN KEY (manager_id) REFERENCES employee(employee_id),
+    CONSTRAINT uk_leave_request_create_request
+        UNIQUE (employee_id, create_request_key),
+    CONSTRAINT ck_leave_request_create_pair CHECK (
+        (create_request_key IS NULL AND create_request_hash IS NULL)
+        OR
+        (create_request_key IS NOT NULL AND create_request_hash IS NOT NULL)
+    ),
     CONSTRAINT ck_leave_request_status CHECK (
         status IN ('PENDING', 'APPROVED', 'REJECTED', 'CANCELLED')
     )
