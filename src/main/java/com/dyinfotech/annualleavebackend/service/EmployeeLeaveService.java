@@ -64,6 +64,7 @@ public class EmployeeLeaveService {
     public void renewAllActiveEmployeesLeave(String currentYear) {
         LocalDate today = LocalDate.now(clock);
         Long afterEmployeeId = null;
+        List<Long> failedEmployeeIds = new ArrayList<>();
 
         TransactionTemplate batchTransaction = new TransactionTemplate(transactionManager);
         batchTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -74,7 +75,7 @@ public class EmployeeLeaveService {
                     afterEmployeeId,
                     ROLLOVER_BATCH_SIZE);
             if (employeeIds.isEmpty()) {
-                return;
+                break;
             }
 
             List<Long> batchIds = List.copyOf(employeeIds);
@@ -86,19 +87,27 @@ public class EmployeeLeaveService {
                         "연차 롤오버 batch transaction 실패. 개별 transaction으로 재시도합니다. employeeIds={}",
                         batchIds,
                         batchError);
-                retryRolloverIndividually(batchIds, currentYear, today);
+                failedEmployeeIds.addAll(
+                        retryRolloverIndividually(batchIds, currentYear, today));
             }
 
             afterEmployeeId = employeeIds.get(employeeIds.size() - 1);
         }
+
+        if (!failedEmployeeIds.isEmpty()) {
+            throw new IllegalStateException(
+                    "일부 직원의 연차 롤오버에 실패했습니다. employeeIds="
+                            + failedEmployeeIds);
+        }
     }
 
-    private void retryRolloverIndividually(
+    private List<Long> retryRolloverIndividually(
             List<Long> employeeIds,
             String currentYear,
             LocalDate today) {
         TransactionTemplate employeeTransaction = new TransactionTemplate(transactionManager);
         employeeTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        List<Long> failedEmployeeIds = new ArrayList<>();
 
         for (Long employeeId : employeeIds) {
             try {
@@ -108,12 +117,14 @@ public class EmployeeLeaveService {
                                 currentYear,
                                 today));
             } catch (RuntimeException employeeError) {
+                failedEmployeeIds.add(employeeId);
                 log.error(
                         "직원 연차 롤오버 개별 transaction 실패. employeeId={}",
                         employeeId,
                         employeeError);
             }
         }
+        return failedEmployeeIds;
     }
 
     private void renewActiveEmployeeBatch(
@@ -125,28 +136,25 @@ public class EmployeeLeaveService {
         List<Long> renewedEmployeeIds = new ArrayList<>();
 
         for (Employee employee : activeEmployees) {
-            try {
-                if (!employee.isActive(today)) {
-                    continue;
-                }
+            if (!employee.isActive(today)) {
+                continue;
+            }
 
-                String prevYear = employee.getCurrYear();
-                if (prevYear != null && !prevYear.equals(currentYear)) {
-                    employee.setPrevYear(prevYear);
-                    employee.setPrevYearLeaveDays(employee.getCurrTotalLeaveDays());
-                    employee.setCurrYear(currentYear);
-                    employee.setCurrYearLeaveDays(getCalculatedCurrYearLeaveDays(employee));
-                    renewedEmployeeIds.add(employee.getEmployeeId());
-                    log.info("직원 번호 [{}] 연차 갱신 완료", employee.getEmployeeNumber());
-                } else {
-                    log.info("직원 번호 [{}] 연차 갱신 불필요", employee.getEmployeeNumber());
-                }
-            } catch (Exception e) {
-                log.error(
-                        "직원 번호 [{}] 연차 갱신 중 에러 발생: {}",
-                        employee.getEmployeeNumber(),
-                        e.getMessage(),
-                        e);
+            String prevYear = employee.getCurrYear();
+            if (prevYear != null && !prevYear.equals(currentYear)) {
+                // 계산 단계에서 오류가 나면 entity를 수정하기 전에 transaction 전체를
+                // rollback하여 부분 롤오버가 flush되지 않게 한다.
+                float nextLeaveDays = getCalculatedCurrYearLeaveDays(employee);
+                float previousTotalLeaveDays = employee.getCurrTotalLeaveDays();
+
+                employee.setPrevYear(prevYear);
+                employee.setPrevYearLeaveDays(previousTotalLeaveDays);
+                employee.setCurrYear(currentYear);
+                employee.setCurrYearLeaveDays(nextLeaveDays);
+                renewedEmployeeIds.add(employee.getEmployeeId());
+                log.info("직원 번호 [{}] 연차 갱신 완료", employee.getEmployeeNumber());
+            } else {
+                log.info("직원 번호 [{}] 연차 갱신 불필요", employee.getEmployeeNumber());
             }
         }
 
