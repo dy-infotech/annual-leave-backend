@@ -234,6 +234,61 @@ class NotificationFcmRegressionTest {
         assertEquals("127.0.0.1", IpContext.get());
     }
     @Test
+    void sameOwnerNewSession_updatesFcmSessionBinding() {
+        FcmToken existingToken = mock(FcmToken.class);
+        when(existingToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(existingToken.getAuthSessionMarker()).thenReturn("session-old");
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(existingToken));
+        when(tokenRepository.updateTokenAndTouchIfBinding(
+                eq(NEW_EMPLOYEE_ID),
+                eq("session-old"),
+                eq(NEW_EMPLOYEE_ID),
+                eq("session-new"),
+                eq(DEVICE_OS),
+                any(LocalDateTime.class),
+                eq(TOKEN)
+        )).thenReturn(1);
+
+        notificationService.syncToken(
+                NEW_EMPLOYEE_ID,
+                TOKEN,
+                DEVICE_OS,
+                "session-new").join();
+
+        verify(tokenRepository).updateTokenAndTouchIfBinding(
+                eq(NEW_EMPLOYEE_ID),
+                eq("session-old"),
+                eq(NEW_EMPLOYEE_ID),
+                eq("session-new"),
+                eq(DEVICE_OS),
+                any(LocalDateTime.class),
+                eq(TOKEN));
+        verify(fcmService, never()).unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
+    }
+
+    @Test
+    void staleSessionLogout_doesNotDeleteNewSessionFcmBinding() {
+        FcmToken existingToken = mock(FcmToken.class);
+        when(existingToken.getEmployeeId()).thenReturn(NEW_EMPLOYEE_ID);
+        when(existingToken.getAuthSessionMarker()).thenReturn("session-new");
+        when(tokenRepository.findByToken(TOKEN)).thenReturn(Optional.of(existingToken));
+
+        notificationService.logoutToken(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old").join();
+
+        verify(fcmService, never()).unsubscribeTopics(TOKEN, NEW_EMPLOYEE_ID);
+        verify(tokenRepository, never()).deleteByTokenAndBinding(
+                TOKEN,
+                NEW_EMPLOYEE_ID,
+                "session-old");
+        verify(tokenRepository, never()).deleteByTokenAndEmployeeId(
+                TOKEN,
+                NEW_EMPLOYEE_ID);
+    }
+
+    @Test
     void logout_deletesTokenOnlyAfterTopicUnsubscribeSucceeds() {
         CompletableFuture<Boolean> unsubscribeFuture = new CompletableFuture<>();
         FcmToken existingToken = mock(FcmToken.class);
