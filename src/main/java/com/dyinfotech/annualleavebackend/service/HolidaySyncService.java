@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.dyinfotech.annualleavebackend.common.factory.BasisDataFactory;
@@ -55,7 +56,7 @@ public class HolidaySyncService {
     	this.objectMapper = objectMapper;
     	this.webClient = webClient;
     	this.serviceKey = serviceKey;
-    	this.apiUrl = this.basisDataFactory.getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL).orElse("http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService") + "/" + 
+    	this.apiUrl = this.basisDataFactory.getAsString(BasisDataType.KASI_SPECIAL_DAY_API_SERVICE_URL).orElse("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService") + "/" + 
     					this.basisDataFactory.getAsString(BasisDataType.KASI_HOLIDAY_REQUEST_ADDRESS).orElse("getRestDeInfo");
     }
     
@@ -101,15 +102,23 @@ public class HolidaySyncService {
         						.filter(this::isRetryable))
         		.doOnError(e ->
 	                log.error(
-	                    "[공공데이터] {}년 {}월 공휴일 조회 실패",
+	                    "[공공데이터] {}년 {}월 공휴일 조회 실패. errorType={}",
 	                    yearStr,
 	                    monthStr,
-	                    e
+	                    e.getClass().getSimpleName()
 	                )
 	            )
-        		.onErrorMap(e -> new IllegalStateException("공휴일 API 호출 실패", e));
+        		// WebClient 예외에는 요청 URI가 포함될 수 있다. URI query의 serviceKey가
+        		// 상위 scheduler stack trace로 노출되지 않도록 credential-safe 예외로 경계를 닫는다.
+        		.onErrorMap(e -> new IllegalStateException(
+        		        "공휴일 API 호출 실패 (" + e.getClass().getSimpleName() + ")"));
     }
+
     private boolean isRetryable(Throwable e) {
+        if (e instanceof WebClientResponseException responseException) {
+            int status = responseException.getStatusCode().value();
+            return responseException.getStatusCode().is5xxServerError() || status == 429;
+        }
         return e instanceof TimeoutException
             || e instanceof WebClientRequestException
             || e instanceof IOException;
