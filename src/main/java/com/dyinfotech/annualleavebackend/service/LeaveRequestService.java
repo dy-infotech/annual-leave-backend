@@ -630,10 +630,13 @@ public class LeaveRequestService {
             LeaveVisibility visibility) {
         boolean isOwner = currentEmployeeId != null
                 && leaveRequest.getEmployee().getEmployeeId().equals(currentEmployeeId);
-        return isOwner
-                || visibility.canViewAll()
-                || visibility.accessibleTeams().contains(
-                        leaveRequest.getEmployee().getTeamName());
+        if (isOwner || visibility.canViewAll()) {
+            return true;
+        }
+        String employeeTeamName = leaveRequest.getEmployee().getTeamName();
+        return employeeTeamName != null
+                && !visibility.accessibleTeams().isEmpty()
+                && visibility.accessibleTeams().contains(employeeTeamName);
     }
 
     private record LeaveVisibility(
