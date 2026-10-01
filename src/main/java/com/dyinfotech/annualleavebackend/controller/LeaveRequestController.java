@@ -26,6 +26,7 @@ import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
+import com.dyinfotech.annualleavebackend.dto.PageResponseDto;
 import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
 import com.dyinfotech.annualleavebackend.service.LeaveRequestService;
 
@@ -70,7 +71,7 @@ public class LeaveRequestController {
 
     @Operation(summary = "전체 휴가 신청 정보 조회", description = "검색 조건과 일치하는 휴가 신청 정보를 page/size 기반으로 조회한다.")
     @GetMapping("/all")
-    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(
     		@Valid @ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
@@ -111,7 +112,7 @@ public class LeaveRequestController {
 
     @Operation(summary = "내 휴가 신청 정보 조회", description = "검색 조건과 일치하는 내 휴가 신청 정보를 page/size 기반으로 조회한다.")
     @GetMapping("/my")
-    public List<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> searchMyLeaveRequests(
             @AuthenticationPrincipal EmployeePrincipal principal,
     		@Valid @ModelAttribute LeaveRequestListDto.LeaveRequestListRequest condition,
             @RequestParam(value = "page", defaultValue = "0") int page,

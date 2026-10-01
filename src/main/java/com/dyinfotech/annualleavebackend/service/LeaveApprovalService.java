@@ -28,6 +28,7 @@ import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
+import com.dyinfotech.annualleavebackend.dto.PageResponseDto;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
 
 import io.jsonwebtoken.lang.Collections;
@@ -57,10 +58,10 @@ public class LeaveApprovalService {
 
     public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
             Long employeeId, int page, int size) {
-        return getPendingRequests(employeeId, page, size, null, null);
+        return getPendingRequests(employeeId, page, size, null, null).items();
     }
 
-    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
+    public PageResponseDto<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
             Long employeeId, int page, int size,
             LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         validatePage(page, size);
@@ -89,14 +90,25 @@ public class LeaveApprovalService {
                 ? leaveRequestRepository.findByStatusAndTeamsInRangePage(
                         excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                         DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        page, size)
+                        page, size + 1)
                 : leaveRequestRepository.findByStatusAndTeamsInRangeCursor(
                         excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
                         DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        cursorCreatedAt, cursorRequestId, size);
-        return requests.stream()
-                .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
-                .toList();
+                        cursorCreatedAt, cursorRequestId, size + 1);
+
+        boolean hasMore = requests.size() > size;
+        if (hasMore) {
+            requests = requests.subList(0, size);
+        }
+        long totalCount = leaveRequestRepository.countByStatusAndTeamsInRange(
+                excludeId, LeaveRequestStatus.PENDING, directTeams, childTeamProjectManagerIds,
+                DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year));
+        return new PageResponseDto<>(
+                requests.stream()
+                        .map(PendingLeaveRequestDto.PendingLeaveRequestResponse::from)
+                        .toList(),
+                totalCount,
+                hasMore);
     }
 
     private Set<String> getAccessibleTeams(Collection<ManagedTeam> teams) {
@@ -117,10 +129,10 @@ public class LeaveApprovalService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
             Long employeeId, String team, String employeeParam,
             int page, int size) {
-        return getApprovedRequests(employeeId, team, employeeParam, page, size, null, null);
+        return getApprovedRequests(employeeId, team, employeeParam, page, size, null, null).items();
     }
 
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
             Long employeeId, String team, String employeeParam,
             int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         return getProcessedRequests(employeeId, team, employeeParam, LeaveRequestStatus.APPROVED,
@@ -135,17 +147,17 @@ public class LeaveApprovalService {
     public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
             Long employeeId, String team, String employeeParam,
             int page, int size) {
-        return getRejectedRequests(employeeId, team, employeeParam, page, size, null, null);
+        return getRejectedRequests(employeeId, team, employeeParam, page, size, null, null).items();
     }
 
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
             Long employeeId, String team, String employeeParam,
             int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         return getProcessedRequests(employeeId, team, employeeParam, LeaveRequestStatus.REJECTED,
                 page, size, cursorCreatedAt, cursorRequestId);
     }
 
-    private List<LeaveRequestListDto.LeaveRequestListResponse> getProcessedRequests(
+    private PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> getProcessedRequests(
             Long employeeId, String team, String employeeParam, LeaveRequestStatus status,
             int page, int size, LocalDateTime cursorCreatedAt, Long cursorRequestId) {
         validatePage(page, size);
@@ -156,23 +168,38 @@ public class LeaveApprovalService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다.");
         }
         Set<String> accessibleTeams = getAccessibleTeams(teamService.findManagedTeams(employeeId));
-        if (accessibleTeams.isEmpty()) return Collections.emptyList();
+        if (accessibleTeams.isEmpty()) {
+            return new PageResponseDto<>(List.of(), 0L, false);
+        }
         if (team != null && !team.isBlank()) {
-            if (!accessibleTeams.contains(team)) return Collections.emptyList();
+            if (!accessibleTeams.contains(team)) {
+                return new PageResponseDto<>(List.of(), 0L, false);
+            }
             accessibleTeams = Set.of(team);
         }
         Year year = Year.now(clock);
         List<LeaveRequest> requests = cursorCreatedAt == null
                 ? leaveRequestRepository.searchLeaveRequestsPage(
                         null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
-                        status, accessibleTeams, employeeParam, page, size)
+                        status, accessibleTeams, employeeParam, page, size + 1)
                 : leaveRequestRepository.searchLeaveRequestsCursor(
                         null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
                         status, accessibleTeams, employeeParam,
-                        cursorCreatedAt, cursorRequestId, size);
-        return requests.stream()
-                .map(LeaveRequestListDto.LeaveRequestListResponse::from)
-                .toList();
+                        cursorCreatedAt, cursorRequestId, size + 1);
+
+        boolean hasMore = requests.size() > size;
+        if (hasMore) {
+            requests = requests.subList(0, size);
+        }
+        long totalCount = leaveRequestRepository.countLeaveRequests(
+                null, DateUtils.getFirstDayOfYear(year), DateUtils.getLastDayOfYear(year),
+                status, accessibleTeams, employeeParam);
+        return new PageResponseDto<>(
+                requests.stream()
+                        .map(LeaveRequestListDto.LeaveRequestListResponse::from)
+                        .toList(),
+                totalCount,
+                hasMore);
     }
 
     private void validateProcessedSearch(String team, String employeeParam) {

@@ -33,6 +33,7 @@ import com.dyinfotech.annualleavebackend.dto.DashboardDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDetailDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
+import com.dyinfotech.annualleavebackend.dto.PageResponseDto;
 import com.dyinfotech.annualleavebackend.dto.SpecialDayDto;
 import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 import com.dyinfotech.annualleavebackend.repository.LeaveRequestRepository;
@@ -523,7 +524,7 @@ public class LeaveRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsPage(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsPage(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
             int page,
@@ -532,7 +533,7 @@ public class LeaveRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsPage(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequestsPage(
             LeaveRequestListDto.LeaveRequestListRequest condition,
             Long currentEmployeeId,
             int page,
@@ -544,16 +545,28 @@ public class LeaveRequestService {
         boolean isAdmin = currentEmployeeId != null
                 && currentAuthorityService.isAdmin(currentEmployeeId);
         commonService.isValidDate(condition.getStartDate(), condition.getEndDate());
-        List<LeaveRequest> requests = cursorRequestedAt == null
+
+        int fetchSize = size + 1;
+        List<LeaveRequest> fetched = cursorRequestedAt == null
                 ? leaveRequestRepository.searchLeaveRequestsPage(
                         condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
                         condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                        page, size)
+                        page, fetchSize)
                 : leaveRequestRepository.searchLeaveRequestsCursor(
                         condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
                         condition.getStatus(), null, condition.getSearchEmployeeParam(),
-                        cursorRequestedAt, cursorRequestId, size);
-        return toListResponses(requests, currentEmployeeId, isAdmin);
+                        cursorRequestedAt, cursorRequestId, fetchSize);
+
+        boolean hasMore = fetched.size() > size;
+        List<LeaveRequest> requests = hasMore ? fetched.subList(0, size) : fetched;
+        long totalCount = leaveRequestRepository.countLeaveRequests(
+                condition.getEmployeeId(), condition.getStartDate(), condition.getEndDate(),
+                condition.getStatus(), null, condition.getSearchEmployeeParam());
+
+        return new PageResponseDto<>(
+                toListResponses(requests, currentEmployeeId, isAdmin),
+                totalCount,
+                hasMore);
     }
 
     private List<LeaveRequestListDto.LeaveRequestListResponse> searchLeaveRequests(

@@ -5,6 +5,7 @@ import com.dyinfotech.annualleavebackend.dto.LeaveApprovalDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRejectDto;
 import com.dyinfotech.annualleavebackend.dto.LeaveRequestListDto;
 import com.dyinfotech.annualleavebackend.dto.PendingLeaveRequestDto;
+import com.dyinfotech.annualleavebackend.dto.PageResponseDto;
 import com.dyinfotech.annualleavebackend.service.LeaveApprovalService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +28,7 @@ public class LeaveApprovalController {
 
     @Operation(summary = "승인 대기 상태 휴가 조회", description = "관리자가 승인 대기 상태인 휴가를 page/size 기반으로 조회한다.")
     @GetMapping("/pending")
-    public List<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
+    public PageResponseDto<PendingLeaveRequestDto.PendingLeaveRequestResponse> getPendingRequests(
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "50") int size,
             @RequestParam(value = "cursorCreatedAt", required = false)
@@ -40,7 +41,7 @@ public class LeaveApprovalController {
 
     @Operation(summary = "승인 상태 휴가 조회", description = "관리자가 하위팀의 승인 상태 휴가를 page/size 기반으로 조회한다.")
     @GetMapping("/approved")
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> getApprovedRequests(
             @RequestParam(value = "team", required = false) String team,
             @RequestParam(value = "employeeParam", required = false) String employeeParam,
             @RequestParam(value = "page", defaultValue = "0") int page,
@@ -56,7 +57,7 @@ public class LeaveApprovalController {
 
     @Operation(summary = "반려 상태 휴가 조회", description = "관리자가 하위팀의 반려 상태 휴가를 page/size 기반으로 조회한다.")
     @GetMapping("/rejected")
-    public List<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
+    public PageResponseDto<LeaveRequestListDto.LeaveRequestListResponse> getRejectedRequests(
             @RequestParam(value = "team", required = false) String team,
             @RequestParam(value = "employeeParam", required = false) String employeeParam,
             @RequestParam(value = "page", defaultValue = "0") int page,

@@ -230,6 +230,24 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				.fetch();
 	}
 
+	@Override
+	public long countByStatusAndTeamsInRange(
+			Long excludeId, LeaveRequestStatus status,
+			Collection<String> directTeams, Collection<Long> childTeamProjectManagerIds,
+			LocalDate startDate, LocalDate endDate) {
+		BooleanExpression targetCondition = pendingTargetCondition(excludeId, directTeams, childTeamProjectManagerIds);
+		Long count = queryFactory.select(qLeaveRequest.count())
+				.from(qLeaveRequest)
+				.where(
+						qLeaveRequest.status.eq(status),
+						targetCondition,
+						overlap(startDate, endDate),
+						activeEmployeeAt(LocalDate.now(clock))
+				)
+				.fetchOne();
+		return count != null ? count : 0L;
+	}
+
 	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> pendingBaseQuery(
 			LeaveRequestStatus status,
 			BooleanExpression targetCondition,
@@ -334,6 +352,18 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 				.where(beforeCursorDesc(cursorCreatedAt, cursorRequestId))
 				.limit(size)
 				.fetch();
+	}
+
+	@Override
+	public long countLeaveRequests(
+			Long employeeId, LocalDate startDate, LocalDate endDate,
+			LeaveRequestStatus status, Collection<String> teams, String searchEmployeeParam) {
+		BooleanBuilder builder = searchCondition(employeeId, status, teams, searchEmployeeParam);
+		Long count = queryFactory.select(qLeaveRequest.count())
+				.from(qLeaveRequest)
+				.where(builder, overlap(startDate, endDate))
+				.fetchOne();
+		return count != null ? count : 0L;
 	}
 
 	private com.querydsl.jpa.impl.JPAQuery<LeaveRequest> searchBaseQuery(
