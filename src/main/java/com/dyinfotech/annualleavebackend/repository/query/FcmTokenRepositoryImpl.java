@@ -50,7 +50,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 						                .where(qFcmToken.token.eq(token))
 						                .execute();
 		
-		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
+		// bulk DML 이후 1차 캐시의 stale 상태를 남기지 않도록 영속성 컨텍스트를 비운다
         entityManager.clear();
 
         return result;
@@ -147,7 +147,7 @@ public class FcmTokenRepositoryImpl implements FcmTokenRepositoryCustom {
 	    			.where(qFcmToken.updatedAudit.updatedAt.before(threshold))
 			        .execute();
 
-		// 쿼리 실행 후 영속성 컨텍스트 자동 클리어
+		// bulk DML 이후 1차 캐시의 stale 상태를 남기지 않도록 영속성 컨텍스트를 비운다
         entityManager.clear();
 	}
 

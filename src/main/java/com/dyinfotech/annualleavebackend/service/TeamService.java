@@ -559,6 +559,7 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀의 재직 관리자가 존재하지 않습니다.");
         }
 
+        // 일반 사원은 현재 팀 관리자, 팀 관리자는 상위 팀 관리자를 결재자로 사용한다.
         Optional<TeamManagerCacheRow> selfManager = myTeam.stream()
                 .filter(manager -> employee.getEmployeeId().equals(manager.projectManagerId()))
                 .findFirst();
@@ -721,6 +722,7 @@ public class TeamService {
 
     @Transactional
     public void saveTeam(TeamManager teamManager) {
+        // 조직 계층과 관련 팀을 먼저 잠근 뒤 현재 DB 상태로 담당자 지정 조건을 검증한다.
         lockHierarchyForUpdate();
         Long teamId = teamManager.getTeamId();
         Long parentTeamId = teamManager.getParentTeamId();
@@ -890,6 +892,7 @@ public class TeamService {
         }
 
         LocalDate inactiveFrom = fireDate.equals(LocalDate.MAX) ? fireDate : fireDate.plusDays(1);
+        // 잠금 대기 중 담당 팀이 바뀌는 race를 잡기 위해 팀 목록을 잠금 전후로 다시 확인한다.
         List<Long> initialTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
                 .distinct()
