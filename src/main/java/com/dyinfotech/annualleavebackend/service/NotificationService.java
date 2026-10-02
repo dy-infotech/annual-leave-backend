@@ -45,7 +45,10 @@ public class NotificationService {
 
     private final AtomicInteger pendingRetryTasks = new AtomicInteger();
 
-    // 같은 FCM 토큰 작업은 한 번에 하나씩 처리한다
+    /**
+     * 동일 FCM token의 owner sync/logout은 외부 Firebase topic 작업까지 순서를 보장한다.
+     * 현재 단일 Backend 인스턴스에서 race를 막고, DB owner CAS는 교차 인스턴스 방어로 유지한다.
+     */
     private final ConcurrentHashMap<String, CompletableFuture<Void>> tokenOperations = new ConcurrentHashMap<>();
     
 	private enum TopicSyncResult {
@@ -223,7 +226,7 @@ public class NotificationService {
 					});
 		}
 		
-		// 신규 토큰이면 토픽 등록 후 DB에 저장한다
+		// DB에 토큰이 없으면 새로운 토큰 생성
 		return subscribeRetry(fcmToken, employeeId, 1)
 				.thenCompose(result -> {
 					if (result != TopicSyncResult.SUCCESS) {
@@ -256,13 +259,14 @@ public class NotificationService {
 					.map(FcmToken::getEmployeeId)
 					.orElse(null);
 		} catch (RuntimeException e) {
-			// 현재 소유자를 확인할 수 없으면 외부 토픽을 변경하지 않는다
+			// DB 정본을 확인하지 못한 상태에서 unsubscribe하면 정상 owner의 topic까지
+			// 지울 수 있으므로 외부 상태를 임의 변경하지 않는다.
 			log.error("FCM owner 경합 후 현재 owner 확인 실패. topic reconciliation을 건너뜁니다.", e);
 			return CompletableFuture.completedFuture(null);
 		}
 
 		if (Objects.equals(currentOwnerId, attemptedEmployeeId)) {
-			// 현재 소유자가 같으면 토픽 상태를 유지한다
+			// 다른 인스턴스가 동일 owner로 DB 반영을 먼저 끝낸 경우 현재 topic이 정답이다.
 			return CompletableFuture.completedFuture(null);
 		}
 
@@ -367,7 +371,10 @@ public class NotificationService {
 				            .thenApply(success -> success ? TopicSyncResult.SUCCESS : TopicSyncResult.SUBSCRIBE_FAILED);
 	}
 
-    // 로그아웃한 세션의 FCM 토큰 연결을 해제한다
+    /**
+     * 로그아웃한 세션의 FCM 토큰 binding을 해제한다.
+     * 동일 token 작업은 serializeTokenOperation으로 직렬화해 sync/logout 순서를 보장한다.
+     */
     public CompletableFuture<Void> logoutToken(String fcmToken, Long employeeId) {
         return logoutToken(fcmToken, employeeId, null);
     }
@@ -395,7 +402,7 @@ public class NotificationService {
 
         Long topicOwnerId = existing.getEmployeeId();
         if (!topicOwnerId.equals(employeeId)) {
-            // 현재 소유자가 다르면 이전 로그아웃 요청을 무시한다
+            // 늦게 도착한 이전 계정의 로그아웃은 새 소유자의 topic/DB binding을 건드리지 않는다.
             log.info("FCM stale logout ignored. requestEmployeeId={}, currentOwnerId={}",
                     employeeId, topicOwnerId);
             return CompletableFuture.completedFuture(null);
@@ -429,7 +436,8 @@ public class NotificationService {
                         log.info(
                                 "FCM logout delete skipped because binding changed concurrently. requestEmployeeId={}",
                                 employeeId);
-                        // 삭제 중 연결이 바뀌면 현재 DB 기준으로 토픽을 복구한다
+                        // 다른 인스턴스가 새 owner/session binding을 확정한 뒤 기존 요청이
+                        // topic을 해제했을 수 있으므로 DB 정본의 현재 owner topic을 복구한다.
                         return restoreCurrentTopicBinding(fcmToken);
                     }
                     return CompletableFuture.completedFuture(null);
@@ -552,7 +560,8 @@ public class NotificationService {
                         log.info(
                                 "FCM inactive cleanup delete skipped because binding changed concurrently. employeeId={}",
                                 expectedEmployeeId);
-                        // 정리 중 연결이 바뀌면 현재 DB 기준으로 토픽을 복구한다
+                        // cleanup snapshot 이후 다른 인스턴스가 token을 새 세션에 재바인딩했을 수 있다.
+                        // 이미 실행된 unsubscribe의 외부 side effect를 현재 DB binding에 맞춰 보상한다.
                         return restoreCurrentTopicBinding(fcmToken);
                     }
                     return CompletableFuture.completedFuture(null);
@@ -569,7 +578,7 @@ public class NotificationService {
         }
 
         if (current == null || current.getEmployeeId() == null) {
-            // 현재 연결이 없으면 해제 상태를 유지한다
+            // 다른 요청이 token row 자체를 삭제했다면 unsubscribe 상태가 정답이다.
             return CompletableFuture.completedFuture(null);
         }
 
@@ -587,7 +596,11 @@ public class NotificationService {
                 });
     }
 
-    // 휴가 신청 완료 후 최신 조직 기준으로 알림 수신자를 계산한다
+    /**
+     * 휴가 신청 커밋 이후 현재 DB 조직 기준으로 알림 수신자를 다시 계산한다.
+     * 신청 transaction에서 Caffeine PM snapshot을 캡처하지 않아 PM 회수/교체 직후
+     * 이전 관리자에게 일정 정보가 발송되는 stale-recipient window를 줄인다.
+     */
     @Transactional(readOnly = true, propagation = Propagation.REQUIRES_NEW)
     public void sendLeaveRequestNotification(
             Long employeeId,
