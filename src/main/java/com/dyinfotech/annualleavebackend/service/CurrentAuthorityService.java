@@ -14,7 +14,9 @@ import com.dyinfotech.annualleavebackend.repository.EmployeeRepository;
 
 import lombok.RequiredArgsConstructor;
 
-// 요청 시점의 현재 조직 상태를 기준으로 권한을 판정한다
+/**
+ * 로그인 시점 JWT role이 아니라 요청 시점의 조직 상태를 권한 정본으로 사용한다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

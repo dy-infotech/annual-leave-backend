@@ -26,7 +26,7 @@ public class BasisDataFactory {
 	private final Clock clock;
 	private final BasisDataRepository repository;
 
-	// 기초데이터는 새 조회 결과로 한 번에 교체한다
+	// reload()은 scheduler thread에서 immutable snapshot 참조를 교체하므로 request thread에 즉시 안전하게 공개한다.
 	private volatile Map<BasisDataType, BasisData> dataMap = Collections.emptyMap();
 	
 	// 지정 연도의 기초데이터를 코드별로 묶는다
@@ -67,7 +67,7 @@ public class BasisDataFactory {
 		return get(BasisDataType.fromCode(seq));
 	}
 
-	// 저장된 자료형에 맞춰 기초데이터를 변환해 반환한다
+	// Typed accessors based on schema: 0: bool, 1: int, 2: long, 3: float, 4: double, 5: string
 	private Optional<Boolean> getAsBoolean(Optional<BasisData> basisData) {
 		return basisData.map(this::parseBoolean);
 	}
@@ -128,7 +128,7 @@ public class BasisDataFactory {
 		return getAsString(get(seq));
 	}
 
-	// 요청한 자료형과 저장된 자료형을 확인한 뒤 값을 변환한다
+	// Parsing helpers
 	private Boolean parseBoolean(BasisData b) throws IllegalArgumentException {
 		BasisDataParseType type = BasisDataParseType.fromCode(Integer.parseInt(b.getType()));
 		if (type == null || type != BasisDataParseType.BOOLEAN) {

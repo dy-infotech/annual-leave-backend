@@ -38,7 +38,10 @@ public class RefreshTokenService {
         return issueInternal(employeeId);
     }
 
-    // 로그인 검증 직후 계정 상태를 다시 확인하고 Refresh 세션을 발급한다
+    /**
+     * 최초 로그인에서 비밀번호 검증 결과와 refresh session 발급을 하나의 직렬화 지점으로 묶는다.
+     * revalidateSignInAccess가 employee row를 잠그며 같은 transaction이 끝날 때까지 유지된다.
+     */
     @Transactional
     public InitialSignInResult issueAfterSignIn(SignInDto.SignInResponse validatedAccess) {
         SignInDto.SignInResponse currentAccess =
@@ -126,7 +129,8 @@ public class RefreshTokenService {
                     && now.isBefore(session.getPreviousValidUntil())) {
                 String currentToken = codec.issue(session.getSessionId(), currentGeneration);
                 if (!constantEquals(session.getTokenHash(), codec.hash(currentToken))) {
-                    // 이전 방식 세션은 현재 토큰을 복원할 수 없으면 재시도를 요청한다
+                    // 배포 전 random-secret 방식으로 회전된 세션은 현재 raw token을
+                    // 재구성할 수 없으므로 기존 409 계약으로 안전하게 fallback한다.
                     throw new RefreshAlreadyRotatedException();
                 }
 

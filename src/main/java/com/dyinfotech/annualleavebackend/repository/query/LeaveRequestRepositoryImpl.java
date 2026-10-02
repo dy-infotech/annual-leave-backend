@@ -299,7 +299,7 @@ public class LeaveRequestRepositoryImpl implements LeaveRequestRepositoryCustom 
 						                )
 						                .execute();
 
-		// 변경 쿼리 후 기존 영속성 상태를 비운다
+		// bulk DML 이후 1차 캐시의 stale 상태를 남기지 않도록 영속성 컨텍스트를 비운다
 	    entityManager.clear();
 	    
 	    return result;

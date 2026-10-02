@@ -208,7 +208,11 @@ public class TeamService {
                 .toList();
     }
 
-    // 권한 판정은 캐시 대신 현재 DB 조직 상태를 사용한다
+    /**
+     * 권한 판정용 DB 최신 조직 snapshot.
+     * Caffeine 조직 캐시는 표시/일반 조회에 사용하지만, PM 권한 회수 직후의 stale window가
+     * private 휴가 열람 권한으로 이어지지 않도록 authorization 경로에서는 DB를 직접 읽는다.
+     */
     @Transactional(readOnly = true)
     public Set<Long> findManagedTeamIdsWithDescendantsFromDatabase(Long employeeId) {
         if (employeeId == null) {
@@ -278,7 +282,11 @@ public class TeamService {
                 LocalDate.now(clock));
     }
 
-    // 현재 DB 기준으로 직접 관리 팀과 하위 관리 범위를 계산한다
+    /**
+     * 승인/민감 조회 authorization용 DB 최신 관리 범위 snapshot.
+     * direct manager의 재직 여부는 현재 날짜로 판정하고, descendant 간선은 기존 정책처럼
+     * 퇴사 PM row도 유지해 조직 parent-child 구조 자체가 끊기지 않게 한다.
+     */
     @Transactional(readOnly = true)
     public ManagedScope findManagedScopeFromDatabase(Long employeeId) {
         if (employeeId == null) {
@@ -286,7 +294,8 @@ public class TeamService {
         }
 
         LocalDate today = LocalDate.now(clock);
-        // 현재 재직 중인 관리자 여부를 먼저 확인한다
+        // 비-PM의 대시보드/권한 조회가 매번 조직 전체 snapshot을 읽지 않게
+        // 현재 재직 PM 여부를 타깃 EXISTS 쿼리로 먼저 판정한다.
         if (!teamManagerRepository.existsActiveManagerByEmployeeId(employeeId, today)) {
             return new ManagedScope(List.of(), Set.of());
         }
@@ -362,7 +371,7 @@ public class TeamService {
             return Collections.emptySet();
         }
 
-        // 퇴사한 관리자 정보도 조직 계층 연결에는 유지한다
+        // 조직 관계는 PM 재직 여부와 분리한다. 퇴사 PM row도 parent-child 간선을 유지한다.
         Map<Long, TeamCacheRow> teams = teamIndex();
         List<ManagedTeam> hierarchyRows = teamManagerCache.get(CacheConfig.TOTAL_KEY).stream()
                 .map(manager -> toManagedTeam(manager, teams))
@@ -494,7 +503,7 @@ public class TeamService {
             return rows;
         }
 
-        // 현재 요청의 관리자 변경분을 캐시 상태에 반영한다
+        // 같은 transaction의 미커밋 TeamManager 변경은 committed cache snapshot에 request delta만 합성한다.
         rows.removeIf(row -> managerId.equals(row.projectManagerId()));
         if (added) {
             rows.add(new TeamManagerCacheRow(
@@ -550,6 +559,7 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "팀의 재직 관리자가 존재하지 않습니다.");
         }
 
+        // 일반 사원은 현재 팀 관리자, 팀 관리자는 상위 팀 관리자를 결재자로 사용한다.
         Optional<TeamManagerCacheRow> selfManager = myTeam.stream()
                 .filter(manager -> employee.getEmployeeId().equals(manager.projectManagerId()))
                 .findFirst();
@@ -582,12 +592,18 @@ public class TeamService {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
-    // 현재 조직 기준으로 결재자 후보를 계산한다
+    /**
+     * 현재 조직 기준 결재자 ID 집합.
+     * 저장된 approver_id나 Team/TeamManager DB 재조회에 의존하지 않고 최신 조직 캐시 snapshot만 사용한다.
+     */
     public Set<Long> resolveCurrentApproverIds(Employee employee) {
         return resolveApproverIds(employee);
     }
 
-    // 현재 DB 조직 기준으로 대상 팀의 관리자 권한을 확인한다
+    /**
+     * 조직 hierarchy mutex를 보유한 write path에서 현재 DB 기준으로
+     * 특정 관리자가 대상 팀 또는 그 상위 팀의 PM인지 확인한다.
+     */
     public boolean isManagerForTeamFromDatabase(Long managerEmployeeId, Long targetTeamId) {
         if (managerEmployeeId == null || targetTeamId == null) {
             return false;
@@ -617,6 +633,10 @@ public class TeamService {
         return false;
     }
 
+    /**
+     * 조직 hierarchy mutex를 보유한 결재 write path 전용 DB 기준 권한 계산.
+     * 캐시 invalidation과 DB commit 사이의 짧은 stale window를 결재 권한 판단에 사용하지 않는다.
+     */
     public Set<Long> resolveCurrentApproverIdsFromDatabase(Employee employee) {
         Long employeeTeamId = employee.getTeamId();
         LocalDate today = LocalDate.now(clock);
@@ -667,17 +687,22 @@ public class TeamService {
                         .min(Long::compareTo)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 조직 기준 결재자를 찾을 수 없습니다."));
 
-        // 결재자 후보를 정한 뒤 응답에 사용할 직원 정보를 조회한다
+        // 결재자 선정 자체는 조직 캐시에서 끝낸다. DB 조회는 /me 표시용 Employee 1건 materialize 용도다.
         return employeeRepository.findById(currentApproverId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "현재 결재자 정보를 찾을 수 없습니다."));
     }
 
-    // 저장된 결재자를 현재 조직 기준으로 보정한다
+    /**
+     * 저장된 approver_id self-heal 전용. 권한 검증에서는 사용하지 않는다.
+     */
     public Set<Long> refreshApproverIds(Employee employee) {
         return refreshApproverIds(employee, Set.of(), Map.of());
     }
 
-    // 현재 요청의 조직 변경분까지 반영해 결재자를 보정한다
+    /**
+     * 같은 transaction에서 TeamManager가 함께 바뀌는 write path용 self-heal.
+     * committed Caffeine snapshot에 이번 request의 add/remove delta만 합성하며 DB fallback은 하지 않는다.
+     */
     public Set<Long> refreshApproverIds(
             Employee employee,
             Collection<Long> removedManagerTeamIds,
@@ -697,6 +722,7 @@ public class TeamService {
 
     @Transactional
     public void saveTeam(TeamManager teamManager) {
+        // 조직 계층과 관련 팀을 먼저 잠근 뒤 현재 DB 상태로 담당자 지정 조건을 검증한다.
         lockHierarchyForUpdate();
         Long teamId = teamManager.getTeamId();
         Long parentTeamId = teamManager.getParentTeamId();
@@ -760,7 +786,8 @@ public class TeamService {
 
     @Transactional
     public void lockHierarchyForUpdate() {
-        // 조직 관계 변경은 공통 잠금으로 순서대로 처리한다
+        // 모든 조직 parent-edge 변경은 대표이사(root) 팀 row를 공통 mutex로 사용한다.
+        // 일반 조회에는 영향을 주지 않고 write path끼리만 직렬화한다.
         lockTeam(resolveDefaultParentTeamId());
     }
 
@@ -865,6 +892,7 @@ public class TeamService {
         }
 
         LocalDate inactiveFrom = fireDate.equals(LocalDate.MAX) ? fireDate : fireDate.plusDays(1);
+        // 잠금 대기 중 담당 팀이 바뀌는 race를 잡기 위해 팀 목록을 잠금 전후로 다시 확인한다.
         List<Long> initialTeamIds = teamManagerRepository.findTeamIdsByProjectManagerId(employeeId).stream()
                 .filter(java.util.Objects::nonNull)
                 .distinct()
@@ -1082,7 +1110,7 @@ public class TeamService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 팀명입니다.");
         }
 
-        // 부서 상태를 잠근 뒤 팀 생성 권한을 확인한다
+        // 부서 삭제와 팀 생성이 교차하지 않도록 department row를 먼저 잠근다.
         Department department = departmentRepository.findByIdForUpdate(request.getDepartmentId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "소속 부서가 존재하지 않습니다."));
         if (!Boolean.TRUE.equals(department.getEnabled())) {
@@ -1181,7 +1209,7 @@ public class TeamService {
 
     @Transactional
     public void updateTeam(Long requesterId, Long teamId, TeamDto.UpdateRequest request) {
-        // 부서와 팀 순서로 잠가 조직 변경을 직렬화한다
+        // department -> team 순서로 잠금 순서를 고정해 deleteDepartment/createTeam과 교착을 피한다.
         Department lockedRequestedDepartment = null;
         if (request.getDepartmentId() != null) {
             lockedRequestedDepartment = departmentRepository.findByIdForUpdate(request.getDepartmentId())

@@ -106,7 +106,8 @@ public class AuthService {
             Long employeeId,
             FcmTokenDto.FcmTokenRequest request,
             String authSessionMarker) {
-		// 현재 로그인 세션 기준으로 FCM 토큰을 동기화한다
+		// Web SSO 세션 marker까지 binding해야 같은 계정의 이전 세션 logout이
+		// 새 세션의 FCM token을 삭제하지 못한다. legacy/native client는 null을 허용한다.
         return notificationService.syncToken(
             employeeId,
             request.getFcmToken(),
@@ -265,7 +266,8 @@ public class AuthService {
             registrationTeamLocks.add(plannedParentTeamId);
         }
 
-        // 조직 변경을 잠근 뒤 현재 권한과 팀 상태를 다시 검증한다
+        // 직원 등록 권한은 PM 계층/직급/부서 상태에 의존한다. 조직 변경과 동일 mutex 아래에서
+        // 최신 관리자 row와 DB hierarchy를 다시 확인해 요청 대기 중 권한 회수 race를 막는다.
         teamService.lockHierarchyForUpdate();
         teamService.lockTeamsForUpdate(registrationTeamLocks);
 
@@ -307,7 +309,7 @@ public class AuthService {
                     "관리자 계정을 등록할 현재 인사권이 없습니다.");
         }
 
-        // 잠금 대기 중 발생한 사번 중복을 다시 확인한다
+        // 최초 중복 검사는 lock 대기 전에 수행되므로 동시 등록이 먼저 커밋됐을 수 있다.
         if (employeeRepository.existsByEmployeeNumber(request.getEmployeeNumber())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 등록된 사번입니다.");
         }
@@ -375,14 +377,15 @@ public class AuthService {
         	log.error(errorMsg + " " + "employeeNumber: " + request.getEmployeeNumber());
             throw new ResponseStatusException(HttpStatus.CONFLICT, errorMsg);
         }
-        // 비밀번호 인코딩 전에 바이트 길이를 검증한다
+        // BCrypt는 신규 encode 입력을 UTF-8 72 bytes까지만 허용한다.
+        // @Size(max=72)는 문자 수 기준이므로 멀티바이트 비밀번호를 별도로 검증한다.
         if (!PasswordPolicy.isBcryptEncodable(request.getPassword())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "비밀번호는 UTF-8 기준 72바이트 이하여야 합니다.");
         }
 
-        // 비밀번호가 없는 계정만 최초 가입을 완료한다
+        // 동시 가입은 password IS NULL CAS로 최초 1건만 성공시킨다.
         String encodedPassword = passwordEncoder.encode(request.getPassword());
         if (!employeeService.completeSignUpIfUnregistered(
                 employee.getEmployeeId(), encodedPassword)) {
@@ -404,7 +407,8 @@ public class AuthService {
         int loginUnblockHour = basisDataFactory.getAsInteger(BasisDataType.LOGIN_UNBLOCK_HOUR).orElse(24);
         LocalDateTime now = LocalDateTime.now(clock);
 
-        // 잠금 시간이 지난 로그인 실패 횟수는 초기화한다
+        // 오래된 실패 횟수는 누적하지 않는다. 기존 구현은 29회가 수개월 뒤에도 남아
+        // 한 번의 오타로 24시간 잠길 수 있었다.
         if (employee.getAccessCount() > 0 && employee.getAccessedAt() != null
                 && now.isAfter(employee.getAccessedAt().plus(loginUnblockHour, ChronoUnit.HOURS))) {
             employeeService.resetAccessCount(employee.getEmployeeId(), now);
@@ -439,7 +443,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "사번 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        // 비밀번호가 맞으면 기존 로그인 실패 상태를 초기화한다
+        // 실패 횟수는 brute-force 완화용 상태이지 제3자가 계정을 장시간 봉쇄하는
+        // 권한이 되어서는 안 된다. 올바른 비밀번호가 확인되면 잠금 상태라도 복구한다.
         employeeService.resetAccessCount(employee.getEmployeeId(), now);
         employee.initAccessCount(now);
 
@@ -451,7 +456,7 @@ public class AuthService {
                         HttpStatus.CONFLICT,
                         "비밀번호 정보가 동시에 변경되었습니다. 다시 로그인해주세요.");
             }
-            // 비밀번호 변경 후 현재 객체도 새 해시로 맞춘다
+            // 이후 JWT credentialVersion이 DB와 동일한 hash를 사용하도록 detached 객체도 맞춘다.
             employee.changePassword(encodedPassword);
         }
 
@@ -462,7 +467,7 @@ public class AuthService {
         employee.setCurrYear(leaveYearState.currYear());
         employee.setCurrYearLeaveDays(leaveYearState.currTotalLeaveDays());
 
-        // 현재 조직 기준으로 저장된 결재자를 보정한다
+        // 로그인 self-heal은 detached Employee 전체를 merge하지 않고 approver FK만 targeted update한다.
         Long storedApproverId = employee.getApproverId();
         Set<Long> currentApproverIds = teamService.resolveCurrentApproverIds(employee);
         if (!currentApproverIds.isEmpty()
@@ -499,7 +504,11 @@ public class AuthService {
         return issueAccessToken(employee);
     }
 
-    // Refresh 세션 발급 전 계정 상태와 인증 정보를 다시 검증한다
+    /**
+     * 비밀번호 검증 직후부터 refresh session 발급 사이에 계정 상태가 바뀌는 race를 닫는다.
+     * RefreshTokenService의 transaction에 참여해 employee row를 잠근 채,
+     * 최초 로그인 검증 때 발급한 access token의 credentialVersion과 현재 password 상태를 대조한다.
+     */
     @Transactional
     public SignInDto.SignInResponse revalidateSignInAccess(
             Long employeeId,
@@ -648,10 +657,6 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, errorMsg.toString());
         }
     }
- 
- 
-    // 비밀번호 재설정은 PasswordResetService의 일회용 token 흐름으로만 처리한다.
-    
     public CompletableFuture<Void> logout(Long employeeId, String fcmToken) {
         return logout(employeeId, fcmToken, null);
     }

@@ -70,7 +70,8 @@ public class PasswordResetService {
         String tokenHash = hash(rawToken);
         Long candidateEmployeeId = employee.getEmployeeId();
 
-        // 만료 토큰 정리는 직원 잠금과 분리해 먼저 처리한다
+        // 전역 expired 정리는 employee row lock과 분리한다. 직원 락을 잡은 채 다른 직원의
+        // reset token까지 DELETE하면 confirmReset의 token/employee lock과 교차할 수 있다.
         transactionTemplate.executeWithoutResult(status -> tokenRepository.deleteExpired(now));
 
         // 직원 정보를 잠근 뒤 기존 토큰을 지우고 새 토큰을 발급한다
@@ -145,7 +146,9 @@ public class PasswordResetService {
         authRateLimitService.checkRecovery("reset-password:" + tokenHash);
 
         LocalDateTime now = LocalDateTime.now(clock);
-        // 토큰 대상 직원을 잠근 뒤 토큰 상태를 다시 확인한다
+        // requestReset과 동일하게 Employee -> PasswordResetToken 순서로 잠근다.
+        // 최초 조회는 employeeId를 얻기 위한 non-locking probe이며, 직원 lock 획득 후
+        // token을 FOR UPDATE로 다시 읽어 삭제/소비/만료 race를 재검증한다.
         PasswordResetToken candidate = tokenRepository
                 .findByTokenHashAndConsumedAtIsNull(tokenHash)
                 .orElseThrow(() -> new ResponseStatusException(

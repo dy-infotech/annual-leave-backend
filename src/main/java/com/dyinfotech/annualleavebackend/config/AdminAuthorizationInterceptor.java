@@ -53,7 +53,7 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
                 return true;
             }
             if (requiresPersonnelAuthority(handlerMethod)) {
-                // 현재 요청의 인사권 보유 여부를 검증한다
+                // personnelAuthority는 JwtAuthenticationFilter가 매 요청 DB Employee에서 계산한다.
                 currentAuthorityService.requireAuthenticatedPersonnelAuthority(
                         principal.personnelAuthority());
                 return true;

@@ -94,7 +94,8 @@ public class EmployeeService {
     	
     	List<EmployeeResponse> responses = new ArrayList<>();
         for (Employee employee : employees) {
-            // 관리자 목록은 결재자 정보를 제외하고 반환한다
+            // 관리자 목록에서는 결재자 정보를 사용하지 않는다.
+            // 사원 본인을 approver로 채우면 의미가 다른 거짓 데이터가 되므로 null로 명시한다.
 			float currTotalLeaveDays = employeeLeaveService.getCalculatedCurrYearLeaveDays(employee);
 			responses.add(EmployeeResponse.from(employee, null, roleResolver, currTotalLeaveDays, remainingLeaveDaysMap.get(employee.getEmployeeId())));
         }
@@ -314,7 +315,7 @@ public class EmployeeService {
         Employee employee = employeeRepository.findByIdForUpdate(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 직원입니다."));
 
-        // 조직 정보가 이미 바뀌었으면 결재자 보정을 중단한다
+        // 로그인 중 관리자 수정이 먼저 반영됐다면 과거 조직 snapshot으로 self-heal하지 않는다.
         if (!Objects.equals(employee.getTeamId(), expectedTeamId)
                 || !Objects.equals(employee.getApproverId(), expectedApproverId)) {
             return;
@@ -379,8 +380,9 @@ public class EmployeeService {
             plannedTeamIds.add(teamInfo.teamId());
         }
 
-        // 조직 변경을 잠근 뒤 관련 팀과 직원을 순서대로 잠근다
+        // 관리팀 add/remove는 조직 parent-edge 변경이므로 공통 hierarchy mutex를 먼저 잡는다.
         teamService.lockHierarchyForUpdate();
+        // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
                 .collect(Collectors.toMap(Employee::getEmployeeId, lockedEmployee -> lockedEmployee));
@@ -414,7 +416,7 @@ public class EmployeeService {
         }
         Set<String> currentManagedTeams = new java.util.LinkedHashSet<>(currentManagedByName.keySet());
 
-        // 이미 원하는 관리 팀 상태면 결재자만 보정하고 종료한다
+        // 동일 요청 재전송: 첫 요청이 이미 반영됐다면 expected가 과거 상태여도 성공 no-op으로 처리한다.
         if (currentManagedTeams.equals(desiredManagedTeams)) {
             Long oldApproverId = employee.getApproverId();
             teamService.refreshApproverIds(employee);
@@ -424,7 +426,7 @@ public class EmployeeService {
             return;
         }
 
-        // 조회 당시 상태가 달라졌으면 동시 수정 충돌로 처리한다
+        // 서로 다른 관리자가 같은 과거 화면에서 수정한 경우 뒤늦은 저장으로 덮어쓰지 않는다.
         if (!currentManagedTeams.equals(expectedManagedTeams)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -472,7 +474,7 @@ public class EmployeeService {
                 .collect(Collectors.toCollection(java.util.LinkedHashSet::new));
     }
 
-    // 사원 정보 변경 후 관련 캐시를 함께 갱신한다
+    // 사원 정보가 수정되면 커밋 후 관련 캐시만 무효화하여 데이터 정합성을 유지합니다.
     @Transactional
     public void updateEmployeeByAdmin(Long approverId, String employeeNumber, EmployeeDto.EmployeeAdminUpdateRequest request) {
         Employee approver = employeeRepository.findById(approverId)
@@ -503,7 +505,8 @@ public class EmployeeService {
         Department requestedDepartment = departmentService.findByDepartmentName(request.getDepartment())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "부서 정보가 잘못되었습니다."));
 
-        // 관리 팀 변경은 전용 요청에서 처리하고 여기서는 기존 상태만 보호한다
+        // 관리팀 추가/삭제는 /managed-teams 전용 CAS 엔드포인트에서만 처리한다.
+        // full employee PUT은 기존 관리팀을 잠가 인사정보 변경과의 동시성만 보장한다.
         Set<Long> plannedTeamIds = new HashSet<>(managedTeamIdsBeforeUpdate);
         if (employee.getTeamId() != null) {
             plannedTeamIds.add(employee.getTeamId());
@@ -518,8 +521,9 @@ public class EmployeeService {
             plannedTeamIds.add(requestedEmployeeTeamId);
         }
 
-        // 조직 변경을 잠근 뒤 관련 팀과 직원을 순서대로 잠근다
+        // 결재 권한 검증과 팀/담당자 변경이 교차하지 않도록 조직 write 공통 mutex를 먼저 잡는다.
         teamService.lockHierarchyForUpdate();
+        // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
                 .collect(Collectors.toMap(Employee::getEmployeeId, lockedEmployee -> lockedEmployee));
@@ -542,7 +546,7 @@ public class EmployeeService {
 
         if (request.getExpected() != null) {
             if (employeeMatchesDesiredState(employee, request)) {
-                // 동일 요청이어도 현재 조직 기준으로 결재자를 보정한다
+                // 동일 full PUT 재전송이어도 legacy stale approver_id는 현재 조직 기준으로 self-heal한다.
                 Long oldApproverId = employee.getApproverId();
                 teamService.refreshApproverIds(employee);
                 if (!Objects.equals(oldApproverId, employee.getApproverId())) {
@@ -618,7 +622,7 @@ public class EmployeeService {
                 employeeLeaveService.getCalculatedCurrYearLeaveDays(request.getHireDate())
         );
 
-        // 현재 조직 기준으로 결재자를 다시 계산한다
+        // TeamManager 자체는 이 API에서 변경하지 않으므로 현재 조직 snapshot 기준으로 approver_id만 교정한다.
         teamService.refreshApproverIds(employee);
 
         Set<Long> coverageTeamIds = new HashSet<>();
@@ -627,10 +631,10 @@ public class EmployeeService {
         teamService.validateFutureApprovalCoverage(coverageTeamIds);
 
         if (managerSnapshotChanged && !currentManagedTeamIds.isEmpty()) {
-            // 관리자 정보가 바뀐 팀의 조직 캐시를 갱신한다
+            // TeamManagerCacheRow에 실제 포함되는 PM 필드가 바뀐 팀만 조직 snapshot을 무효화한다.
             cacheInvalidator.afterEmployeeOrganizationChange(currentManagedTeamIds);
         }
-        // 일반 팀 이동은 해당 직원 캐시만 갱신한다
+        // 단순 CCC -> ABC 이동은 전 조직 generation 대신 해당 직원 view만 새 세대로 보낸다.
         employeeCacheInvalidator.afterEmployeeViewChange(employeeId);
         employeeCacheInvalidator.afterEmailLookupChange(
                 List.of(oldEmployeeName, employee.getName()),
