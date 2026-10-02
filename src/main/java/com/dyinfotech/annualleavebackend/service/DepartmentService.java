@@ -142,7 +142,7 @@ public class DepartmentService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 존재하는 부서명입니다.");
         }
 
-        // 부서명 변경 후 관련 직원 응답 캐시도 갱신한다
+        // Employee 응답에는 부서명이 포함되므로 해당 파생 캐시는 함께 만료한다.
         cacheInvalidator.afterDepartmentChange(Set.of(oldName, name), true);
     }
 

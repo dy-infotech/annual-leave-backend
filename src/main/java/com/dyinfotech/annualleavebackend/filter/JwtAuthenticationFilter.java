@@ -79,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // 토큰의 역할은 인증 정보로만 보관하고 실제 권한은 별도로 확인한다
+            // JWT role은 로그인 시점 snapshot이며 인가 근거로 사용하지 않는다.
             var authentication = new UsernamePasswordAuthenticationToken(
                     new EmployeePrincipal(employeeId, role, employee.hasPersonnelAuthority()),
                     null,

@@ -48,7 +48,7 @@ public class OrganizationCacheInvalidator {
     public void afterEmployeeOrganizationChange(Collection<Long> managedTeamIds) {
         afterCommitExecutor.execute(() -> {
             if (managedTeamIds != null && !managedTeamIds.isEmpty()) {
-                // 원본 조직 캐시를 먼저 비우고 파생 캐시를 갱신한다
+                // 원본 조직 snapshot을 먼저 비운 뒤 파생 응답 캐시를 제거한다.
                 teamManagerCache.invalidate(CacheConfig.TOTAL_KEY);
                 managedTeamIds.stream()
                         .filter(id -> id != null)
