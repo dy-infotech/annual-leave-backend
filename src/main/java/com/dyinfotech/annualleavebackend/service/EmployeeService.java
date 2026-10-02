@@ -523,6 +523,7 @@ public class EmployeeService {
 
         // 결재 권한 검증과 팀/담당자 변경이 교차하지 않도록 조직 write 공통 mutex를 먼저 잡는다.
         teamService.lockHierarchyForUpdate();
+        // TEAM -> EMPLOYEE 순서를 유지하고, rollover/승인 경로와 동일하게 Employee는 ID 오름차순으로 잠근다.
         teamService.lockTeamsForUpdate(plannedTeamIds);
         Map<Long, Employee> lockedEmployees = getEmployeeListForUpdate(List.of(approverId, employeeId)).stream()
                 .collect(Collectors.toMap(Employee::getEmployeeId, lockedEmployee -> lockedEmployee));
